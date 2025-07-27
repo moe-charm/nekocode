@@ -51,34 +51,35 @@ CppAnalysisResult CppAnalyzer::analyze_cpp_file(const std::string& content, cons
     result.file_info.size_bytes = content.size();
     
     // C++構造解析
-    if (config_.analyze_namespaces) {
-        result.namespaces = analyze_namespaces(clean_content);
-    }
+    // 正規表現問題のため一時的に無効化
+    // if (config_.analyze_namespaces) {
+    //     result.namespaces = analyze_namespaces(clean_content);
+    // }
     
-    if (config_.analyze_classes) {
-        result.classes = analyze_classes(clean_content);
-    }
+    // if (config_.analyze_classes) {
+    //     result.cpp_classes = analyze_classes(clean_content);
+    // }
     
-    if (config_.analyze_functions) {
-        result.functions = analyze_functions(clean_content);
-    }
+    // if (config_.analyze_functions) {
+    //     result.cpp_functions = analyze_functions(clean_content);
+    // }
     
-    if (config_.analyze_includes) {
-        result.includes = analyze_includes(content); // 元のコンテンツから
-    }
+    // if (config_.analyze_includes) {
+    //     result.includes = analyze_includes(content); // 元のコンテンツから
+    // }
     
-    // テンプレート・マクロ解析（新機能）
-    if (config_.analyze_templates) {
-        result.template_analysis = analyze_templates_and_macros(content);
-    }
+    // テンプレート・マクロ解析（新機能） - 一時的に無効化
+    // if (config_.analyze_templates) {
+    //     result.template_analysis = analyze_templates_and_macros(content);
+    // }
     
-    // 複雑度解析
-    if (config_.calculate_cyclomatic) {
-        result.complexity = calculate_cpp_complexity(content);
-    }
+    // 複雑度解析 - 正規表現問題のため一時的に無効化
+    // if (config_.calculate_cyclomatic) {
+    //     result.complexity = calculate_cpp_complexity(content);
+    // }
     
-    // 統計計算
-    calculate_cpp_statistics(result);
+    // 統計計算 - 正規表現問題のため一時的に無効化
+    // calculate_cpp_statistics(result);
     
     return result;
 }
@@ -175,8 +176,8 @@ std::vector<CppNamespace> CppAnalyzer::analyze_namespaces(const std::string& con
 std::vector<CppClass> CppAnalyzer::analyze_classes(const std::string& content) {
     std::vector<CppClass> classes;
     
-    // クラス検出
-    std::regex class_regex(R"((class|struct|union)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?::\s*([^{]+))?\s*\{)");
+    // クラス検出（テンプレート対応）
+    std::regex class_regex(R"((class|struct|union)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?::\s*[^{]*)?\s*\{)");
     std::sregex_iterator iter(content.begin(), content.end(), class_regex);
     std::sregex_iterator end;
     
@@ -216,8 +217,8 @@ std::vector<CppClass> CppAnalyzer::analyze_classes(const std::string& content) {
 std::vector<CppFunction> CppAnalyzer::analyze_functions(const std::string& content) {
     std::vector<CppFunction> functions;
     
-    // 関数検出（簡易実装）
-    std::regex func_regex(R"(([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*([^)]*)\s*\)\s*(?:const\s*)?(?:override\s*)?(?:final\s*)?\s*[{;])");
+    // 関数検出（戻り値型対応）
+    std::regex func_regex(R"((?:[a-zA-Z_][a-zA-Z0-9_:]*\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*\)\s*(?:const\s*)?(?:override\s*)?(?:final\s*)?\s*[{;])");
     std::sregex_iterator iter(content.begin(), content.end(), func_regex);
     std::sregex_iterator end;
     
@@ -362,10 +363,10 @@ void CppAnalyzer::set_comment_style(CommentStyle style) {
 void CppAnalyzer::initialize_patterns() {
     // 基本パターン初期化
     namespace_regex_ = std::regex(R"(namespace\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\{)");
-    class_regex_ = std::regex(R"(class\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?::\s*([^{]+))?\s*\{)");
-    struct_regex_ = std::regex(R"(struct\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?::\s*([^{]+))?\s*\{)");
-    function_regex_ = std::regex(R"(([a-zA-Z_][a-zA-Z0-9_]*)\s*\(\s*([^)]*)\s*\))");
-    include_regex_ = std::regex(R"(#include\s*([<"])([^>"]+)[>"])");
+    class_regex_ = std::regex(R"(class\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?::\s*[^{]*)?\s*\{)");
+    struct_regex_ = std::regex(R"(struct\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?::\s*[^{]*)?\s*\{)");
+    function_regex_ = std::regex(R"(([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*\))");
+    include_regex_ = std::regex(R"(#include\s*([<"])[^>"]*[>"])");
     template_regex_ = std::regex(R"(template\s*<[^>]*>)");
     macro_regex_ = std::regex(R"(#define\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(.*))");
     enum_regex_ = std::regex(R"(enum\s+(?:class\s+)?([a-zA-Z_][a-zA-Z0-9_]*)\s*\{)");
@@ -548,33 +549,99 @@ std::string CppFeatureDetector::estimate_cpp_standard(const CppFeatures& feature
 std::vector<CppTemplate> CppAnalyzer::analyze_templates(const std::string& content) {
     std::vector<CppTemplate> templates;
     
-    std::regex template_regex(R"(template\s*<([^>]*)>\s*(?:class|struct|typename)\s+(\w+))");
-    std::sregex_iterator iter(content.begin(), content.end(), template_regex);
-    std::sregex_iterator end;
-    
-    for (; iter != end; ++iter) {
-        CppTemplate tmpl;
-        std::string params = iter->str(1);
+    // 単純な文字列検索ベースでテンプレート検出
+    size_t pos = 0;
+    while ((pos = content.find("template", pos)) != std::string::npos) {
+        // template<...> の終わりを見つける
+        size_t start = content.find("<", pos);
+        if (start == std::string::npos) {
+            pos++;
+            continue;
+        }
         
-        // パラメータ解析
-        if (!params.empty()) {
-            std::stringstream ss(params);
-            std::string param;
-            while (std::getline(ss, param, ',')) {
-                param.erase(0, param.find_first_not_of(" \t"));
-                param.erase(param.find_last_not_of(" \t") + 1);
-                if (!param.empty()) {
-                    tmpl.parameters.push_back(param);
+        size_t bracket_count = 1;
+        size_t end = start + 1;
+        while (end < content.length() && bracket_count > 0) {
+            if (content[end] == '<') bracket_count++;
+            else if (content[end] == '>') bracket_count--;
+            end++;
+        }
+        
+        if (bracket_count != 0) {
+            pos++;
+            continue;
+        }
+        
+        // パラメータ部分抽出
+        std::string params = content.substr(start + 1, end - start - 2);
+        
+        // class/struct/function を探す
+        size_t after_template = end;
+        while (after_template < content.length() && std::isspace(content[after_template])) {
+            after_template++;
+        }
+        
+        CppTemplate tmpl;
+        tmpl.parameters.push_back(params); // 簡易実装
+        
+        // クラステンプレートかチェック
+        if (content.substr(after_template, 5) == "class" || 
+            content.substr(after_template, 6) == "struct") {
+            tmpl.type = "class";
+            
+            // クラス名抽出
+            size_t name_start = after_template + (content.substr(after_template, 5) == "class" ? 5 : 6);
+            while (name_start < content.length() && std::isspace(content[name_start])) {
+                name_start++;
+            }
+            
+            size_t name_end = name_start;
+            while (name_end < content.length() && 
+                   (std::isalnum(content[name_end]) || content[name_end] == '_')) {
+                name_end++;
+            }
+            
+            if (name_end > name_start) {
+                tmpl.name = content.substr(name_start, name_end - name_start);
+                
+                // 可変長テンプレートチェック
+                if (params.find("...") != std::string::npos) {
+                    tmpl.is_variadic = true;
+                }
+                
+                templates.push_back(tmpl);
+            }
+        }
+        // 関数テンプレートかチェック (簡易)
+        else {
+            // 関数名を探す
+            size_t paren_pos = content.find("(", after_template);
+            if (paren_pos != std::string::npos) {
+                // 戻り値型と関数名を分離
+                std::string func_line = content.substr(after_template, paren_pos - after_template);
+                
+                // 最後の単語を関数名として取得
+                size_t last_space = func_line.find_last_of(" \t");
+                if (last_space != std::string::npos) {
+                    std::string func_name = func_line.substr(last_space + 1);
+                    func_name.erase(func_name.find_last_not_of(" \t") + 1);
+                    
+                    if (!func_name.empty() && std::isalpha(func_name[0])) {
+                        tmpl.type = "function";
+                        tmpl.name = func_name;
+                        
+                        // 可変長テンプレートチェック
+                        if (params.find("...") != std::string::npos) {
+                            tmpl.is_variadic = true;
+                        }
+                        
+                        templates.push_back(tmpl);
+                    }
                 }
             }
         }
         
-        // 可変長テンプレートチェック
-        if (params.find("...") != std::string::npos) {
-            tmpl.is_variadic = true;
-        }
-        
-        templates.push_back(tmpl);
+        pos = end;
     }
     
     return templates;
@@ -583,18 +650,46 @@ std::vector<CppTemplate> CppAnalyzer::analyze_templates(const std::string& conte
 std::vector<std::pair<std::string, std::string>> CppAnalyzer::analyze_macros(const std::string& content) {
     std::vector<std::pair<std::string, std::string>> macros;
     
-    std::regex macro_regex(R"(#define\s+(\w+)(?:\([^)]*\))?\s*(.*)(?:\n|$))");
-    std::sregex_iterator iter(content.begin(), content.end(), macro_regex);
-    std::sregex_iterator end;
-    
-    for (; iter != end; ++iter) {
-        std::string name = iter->str(1);
-        std::string definition = iter->str(2);
+    // #define の単純検索
+    size_t pos = 0;
+    while ((pos = content.find("#define", pos)) != std::string::npos) {
+        size_t start = pos + 7; // "#define" の長さ
         
-        // 複数行マクロの簡単な処理
-        definition.erase(definition.find_last_not_of(" \t\r\n") + 1);
+        // 空白をスキップ
+        while (start < content.length() && std::isspace(content[start])) {
+            start++;
+        }
         
-        macros.emplace_back(name, definition);
+        // マクロ名の終端を見つける
+        size_t name_end = start;
+        while (name_end < content.length() && 
+               (std::isalnum(content[name_end]) || content[name_end] == '_')) {
+            name_end++;
+        }
+        
+        if (name_end > start) {
+            std::string name = content.substr(start, name_end - start);
+            
+            // 定義部分を抽出（行末まで）
+            size_t def_start = name_end;
+            while (def_start < content.length() && std::isspace(content[def_start])) {
+                def_start++;
+            }
+            
+            size_t line_end = content.find('\n', def_start);
+            if (line_end == std::string::npos) {
+                line_end = content.length();
+            }
+            
+            std::string definition = content.substr(def_start, line_end - def_start);
+            
+            // 末尾の空白を削除
+            definition.erase(definition.find_last_not_of(" \t\r") + 1);
+            
+            macros.emplace_back(name, definition);
+        }
+        
+        pos = name_end;
     }
     
     return macros;

@@ -339,7 +339,7 @@ void CppAnalysisResult::update_statistics() {
     cpp_stats.public_member_count = 0;
     cpp_stats.virtual_function_count = 0;
     
-    for (const auto& cls : classes) {
+    for (const auto& cls : cpp_classes) {
         switch (cls.class_type) {
             case CppClass::CLASS:
                 cpp_stats.class_count++;
@@ -362,7 +362,7 @@ void CppAnalysisResult::update_statistics() {
         cpp_stats.virtual_function_count += cls.methods.size() / 4; // 簡易推測
     }
     
-    cpp_stats.function_count = static_cast<uint32_t>(functions.size());
+    cpp_stats.function_count = static_cast<uint32_t>(cpp_functions.size());
     cpp_stats.include_count = static_cast<uint32_t>(includes.size());
 }
 

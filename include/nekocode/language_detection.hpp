@@ -19,14 +19,7 @@ namespace nekocode {
 // - C (.c, .h)
 //=============================================================================
 
-/// サポート言語種別
-enum class Language {
-    JAVASCRIPT,     // JavaScript
-    TYPESCRIPT,     // TypeScript
-    CPP,           // C++
-    C,             // C
-    UNKNOWN        // 不明・未対応
-};
+// Language enum は types.hpp で定義済み
 
 /// 言語情報構造体
 struct LanguageInfo {
@@ -138,6 +131,8 @@ struct CppNamespace : public LanguageElement {
 
 // C++テンプレート情報
 struct CppTemplate {
+    std::string name;
+    std::string type;  // "class", "function"
     std::vector<std::string> parameters;
     std::vector<std::string> specializations;
     bool is_variadic = false;
@@ -208,15 +203,13 @@ struct TemplateAnalysisResult {
 //=============================================================================
 
 /// C++解析結果
-struct CppAnalysisResult {
-    // 基本情報
-    FileInfo file_info;
-    Language language;
+struct CppAnalysisResult : public AnalysisResult {
+    // 基本情報は継承 (file_info, language)
     
     // C++特有構造
     std::vector<CppNamespace> namespaces;
-    std::vector<CppClass> classes;
-    std::vector<CppFunction> functions;
+    std::vector<CppClass> cpp_classes;        // C++特有のクラス情報
+    std::vector<CppFunction> cpp_functions;   // C++特有の関数情報
     std::vector<CppInclude> includes;
     
     // テンプレート・マクロ解析（オプション）
@@ -242,7 +235,9 @@ struct CppAnalysisResult {
     // 生成時刻
     Timestamp generated_at;
     
-    CppAnalysisResult() : language(Language::CPP), generated_at(std::chrono::system_clock::now()) {}
+    CppAnalysisResult() : generated_at(std::chrono::system_clock::now()) {
+        language = Language::CPP;
+    }
     
     void update_statistics();
 };
