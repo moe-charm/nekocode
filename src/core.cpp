@@ -4,6 +4,7 @@
 #include "nekocode/language_detection.hpp"
 #include "nekocode/cpp_analyzer.hpp"
 #include "nekocode/tree_sitter_analyzer.hpp"
+#include "nekocode/pegtl_analyzer.hpp"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -27,6 +28,7 @@ public:
     AnalysisConfig config_;
     PerformanceMetrics metrics_;
     std::unique_ptr<TreeSitterAnalyzer> tree_sitter_analyzer_;
+    std::unique_ptr<PEGTLAnalyzer> pegtl_analyzer_;
     std::unique_ptr<CppAnalyzer> cpp_analyzer_;
     std::unique_ptr<LanguageDetector> language_detector_;
     std::unique_ptr<FileScanner> file_scanner_;
@@ -38,6 +40,7 @@ public:
     explicit Impl(const AnalysisConfig& config) 
         : config_(config)
         , tree_sitter_analyzer_(std::make_unique<TreeSitterAnalyzer>())
+        , pegtl_analyzer_(std::make_unique<PEGTLAnalyzer>())
         , cpp_analyzer_(std::make_unique<CppAnalyzer>())
         , language_detector_(std::make_unique<LanguageDetector>())
         , file_scanner_(std::make_unique<FileScanner>(config)) 
@@ -100,26 +103,26 @@ Result<AnalysisResult> NekoCodeCore::analyze_content(const std::string& content,
             result.complexity = analyze_complexity(content);
         }
         
-        // Tree-sitter解析（全言語統一）
+        // 🔥 PEGTL解析（全言語統一・高精度）
         if (detected_language == Language::JAVASCRIPT || 
             detected_language == Language::TYPESCRIPT || 
             detected_language == Language::CPP || 
             detected_language == Language::C) {
-            auto tree_result = impl_->tree_sitter_analyzer_->analyze(content, filename, detected_language);
-            if (tree_result.is_success()) {
-                auto ts_result = tree_result.value();
-                result.classes = ts_result.classes;
-                result.functions = ts_result.functions;
-                result.imports = ts_result.imports;
-                result.exports = ts_result.exports;
+            auto pegtl_result = impl_->pegtl_analyzer_->analyze(content, filename, detected_language);
+            if (pegtl_result.is_success()) {
+                auto pg_result = pegtl_result.value();
+                result.classes = pg_result.classes;
+                result.functions = pg_result.functions;
+                result.imports = pg_result.imports;
+                result.exports = pg_result.exports;
                 if (impl_->config_.analyze_complexity) {
-                    result.complexity = ts_result.complexity;
+                    result.complexity = pg_result.complexity;
                 }
             }
         }
         
-        // 🌳 Tree-sitterが既に依存関係と複雑度を解析済み
-        // 従来の正規表現ベース解析は不要
+        // 🔥 PEGTLが既に依存関係と複雑度を解析済み
+        // 従来の正規表現ベース・Tree-sitterプレースホルダーは不要
         
         // 統計更新
         result.update_statistics();
