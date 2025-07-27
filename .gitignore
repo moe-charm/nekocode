@@ -1,0 +1,75 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+.build/
+
+# Object files
+*.o
+*.obj
+*.ko
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+*.so
+*.so.*
+*.dylib
+*.dll
+
+# Executables
+*.exe
+*.out
+*.app
+nekocode_ai
+nekocode_human
+test_*
+!test_*.cpp
+
+# Session files
+sessions/
+*.session
+ai_session_*
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+_deps/
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+
+# Python cache (for tools)
+__pycache__/
+*.pyc
+*.pyo
+
+# Documentation build
+docs/_build/
