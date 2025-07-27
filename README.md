@@ -5,6 +5,8 @@
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)](https://github.com/moe-charm/nekocode)
 
+[🇯🇵 日本語版](README_jp.md) | English
+
 Revolutionary code analysis engine delivering **10-100x faster** performance than Python-based alternatives!
 
 ## 🤖 For AI Developers (Claude Code) - Zero Setup Required!
