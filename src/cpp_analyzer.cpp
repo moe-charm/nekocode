@@ -546,153 +546,261 @@ std::string CppFeatureDetector::estimate_cpp_standard(const CppFeatures& feature
 // 🎯 Advanced C++ Features Implementation
 //=============================================================================
 
-std::vector<CppTemplate> CppAnalyzer::analyze_templates(const std::string& content) {
-    std::vector<CppTemplate> templates;
+//=============================================================================
+// 🌟 TemplateParser - テンプレート解析専用クラス (リファクタリング)
+//=============================================================================
+
+class TemplateParser {
+private:
+    const std::string& content_;
     
-    // 単純な文字列検索ベースでテンプレート検出
-    size_t pos = 0;
-    while ((pos = content.find("template", pos)) != std::string::npos) {
-        // template<...> の終わりを見つける
-        size_t start = content.find("<", pos);
+public:
+    explicit TemplateParser(const std::string& content) : content_(content) {}
+    
+    // ブラケットカウントでテンプレート範囲を特定
+    struct TemplateRange {
+        size_t start_pos;
+        size_t end_pos;
+        std::string parameters;
+        bool valid = false;
+    };
+    
+    TemplateRange find_template_range(size_t template_pos) {
+        TemplateRange range;
+        
+        size_t start = content_.find("<", template_pos);
         if (start == std::string::npos) {
-            pos++;
-            continue;
+            return range;
         }
         
         size_t bracket_count = 1;
         size_t end = start + 1;
-        while (end < content.length() && bracket_count > 0) {
-            if (content[end] == '<') bracket_count++;
-            else if (content[end] == '>') bracket_count--;
+        while (end < content_.length() && bracket_count > 0) {
+            if (content_[end] == '<') bracket_count++;
+            else if (content_[end] == '>') bracket_count--;
             end++;
         }
         
-        if (bracket_count != 0) {
-            pos++;
-            continue;
+        if (bracket_count == 0) {
+            range.start_pos = start;
+            range.end_pos = end;
+            range.parameters = content_.substr(start + 1, end - start - 2);
+            range.valid = true;
         }
         
-        // パラメータ部分抽出
-        std::string params = content.substr(start + 1, end - start - 2);
+        return range;
+    }
+    
+    // クラステンプレート解析
+    std::optional<CppTemplate> parse_class_template(size_t after_template, const std::string& params) {
+        // class/structキーワードをチェック
+        if (content_.substr(after_template, 5) != "class" && 
+            content_.substr(after_template, 6) != "struct") {
+            return std::nullopt;
+        }
         
-        // class/struct/function を探す
-        size_t after_template = end;
-        while (after_template < content.length() && std::isspace(content[after_template])) {
-            after_template++;
+        // クラス名抽出
+        size_t name_start = after_template + (content_.substr(after_template, 5) == "class" ? 5 : 6);
+        while (name_start < content_.length() && std::isspace(content_[name_start])) {
+            name_start++;
+        }
+        
+        size_t name_end = name_start;
+        while (name_end < content_.length() && 
+               (std::isalnum(content_[name_end]) || content_[name_end] == '_')) {
+            name_end++;
+        }
+        
+        if (name_end <= name_start) {
+            return std::nullopt;
         }
         
         CppTemplate tmpl;
-        tmpl.parameters.push_back(params); // 簡易実装
+        tmpl.type = "class";
+        tmpl.name = content_.substr(name_start, name_end - name_start);
+        tmpl.parameters.push_back(params);
+        tmpl.is_variadic = (params.find("...") != std::string::npos);
         
-        // クラステンプレートかチェック
-        if (content.substr(after_template, 5) == "class" || 
-            content.substr(after_template, 6) == "struct") {
-            tmpl.type = "class";
-            
-            // クラス名抽出
-            size_t name_start = after_template + (content.substr(after_template, 5) == "class" ? 5 : 6);
-            while (name_start < content.length() && std::isspace(content[name_start])) {
-                name_start++;
-            }
-            
-            size_t name_end = name_start;
-            while (name_end < content.length() && 
-                   (std::isalnum(content[name_end]) || content[name_end] == '_')) {
-                name_end++;
-            }
-            
-            if (name_end > name_start) {
-                tmpl.name = content.substr(name_start, name_end - name_start);
-                
-                // 可変長テンプレートチェック
-                if (params.find("...") != std::string::npos) {
-                    tmpl.is_variadic = true;
-                }
-                
-                templates.push_back(tmpl);
-            }
-        }
-        // 関数テンプレートかチェック (簡易)
-        else {
-            // 関数名を探す
-            size_t paren_pos = content.find("(", after_template);
-            if (paren_pos != std::string::npos) {
-                // 戻り値型と関数名を分離
-                std::string func_line = content.substr(after_template, paren_pos - after_template);
-                
-                // 最後の単語を関数名として取得
-                size_t last_space = func_line.find_last_of(" \t");
-                if (last_space != std::string::npos) {
-                    std::string func_name = func_line.substr(last_space + 1);
-                    func_name.erase(func_name.find_last_not_of(" \t") + 1);
-                    
-                    if (!func_name.empty() && std::isalpha(func_name[0])) {
-                        tmpl.type = "function";
-                        tmpl.name = func_name;
-                        
-                        // 可変長テンプレートチェック
-                        if (params.find("...") != std::string::npos) {
-                            tmpl.is_variadic = true;
-                        }
-                        
-                        templates.push_back(tmpl);
-                    }
-                }
-            }
-        }
-        
-        pos = end;
+        return tmpl;
     }
     
-    return templates;
-}
-
-std::vector<std::pair<std::string, std::string>> CppAnalyzer::analyze_macros(const std::string& content) {
-    std::vector<std::pair<std::string, std::string>> macros;
+    // 関数テンプレート解析
+    std::optional<CppTemplate> parse_function_template(size_t after_template, const std::string& params) {
+        size_t paren_pos = content_.find("(", after_template);
+        if (paren_pos == std::string::npos) {
+            return std::nullopt;
+        }
+        
+        std::string func_line = content_.substr(after_template, paren_pos - after_template);
+        size_t last_space = func_line.find_last_of(" \t");
+        if (last_space == std::string::npos) {
+            return std::nullopt;
+        }
+        
+        std::string func_name = func_line.substr(last_space + 1);
+        func_name.erase(func_name.find_last_not_of(" \t") + 1);
+        
+        if (func_name.empty() || !std::isalpha(func_name[0])) {
+            return std::nullopt;
+        }
+        
+        CppTemplate tmpl;
+        tmpl.type = "function";
+        tmpl.name = func_name;
+        tmpl.parameters.push_back(params);
+        tmpl.is_variadic = (params.find("...") != std::string::npos);
+        
+        return tmpl;
+    }
     
-    // #define の単純検索
-    size_t pos = 0;
-    while ((pos = content.find("#define", pos)) != std::string::npos) {
-        size_t start = pos + 7; // "#define" の長さ
+    // メインの解析メソッド
+    std::vector<CppTemplate> parse_all_templates() {
+        std::vector<CppTemplate> templates;
+        
+        size_t pos = 0;
+        while ((pos = content_.find("template", pos)) != std::string::npos) {
+            auto range = find_template_range(pos);
+            if (!range.valid) {
+                pos++;
+                continue;
+            }
+            
+            // class/struct/function を探す
+            size_t after_template = range.end_pos;
+            while (after_template < content_.length() && std::isspace(content_[after_template])) {
+                after_template++;
+            }
+            
+            // クラステンプレート試行
+            if (auto class_tmpl = parse_class_template(after_template, range.parameters)) {
+                templates.push_back(*class_tmpl);
+            }
+            // 関数テンプレート試行
+            else if (auto func_tmpl = parse_function_template(after_template, range.parameters)) {
+                templates.push_back(*func_tmpl);
+            }
+            
+            pos = range.end_pos;
+        }
+        
+        return templates;
+    }
+};
+
+//=============================================================================
+// 🌟 MacroParser - マクロ解析専用クラス (リファクタリング)
+//=============================================================================
+
+class MacroParser {
+private:
+    const std::string& content_;
+    
+public:
+    explicit MacroParser(const std::string& content) : content_(content) {}
+    
+    // マクロ情報構造体
+    struct MacroInfo {
+        std::string name;
+        std::string definition;
+        size_t line_number = 0;
+        bool valid = false;
+    };
+    
+    // #defineの位置を探索
+    std::optional<size_t> find_next_define(size_t start_pos) {
+        size_t pos = content_.find("#define", start_pos);
+        return (pos != std::string::npos) ? std::optional<size_t>(pos) : std::nullopt;
+    }
+    
+    // マクロ名抽出
+    std::optional<std::string> extract_macro_name(size_t after_define) {
+        size_t start = after_define + 7; // "#define"の長さ
         
         // 空白をスキップ
-        while (start < content.length() && std::isspace(content[start])) {
+        while (start < content_.length() && std::isspace(content_[start])) {
             start++;
         }
         
         // マクロ名の終端を見つける
         size_t name_end = start;
-        while (name_end < content.length() && 
-               (std::isalnum(content[name_end]) || content[name_end] == '_')) {
+        while (name_end < content_.length() && 
+               (std::isalnum(content_[name_end]) || content_[name_end] == '_')) {
             name_end++;
         }
         
-        if (name_end > start) {
-            std::string name = content.substr(start, name_end - start);
-            
-            // 定義部分を抽出（行末まで）
-            size_t def_start = name_end;
-            while (def_start < content.length() && std::isspace(content[def_start])) {
-                def_start++;
-            }
-            
-            size_t line_end = content.find('\n', def_start);
-            if (line_end == std::string::npos) {
-                line_end = content.length();
-            }
-            
-            std::string definition = content.substr(def_start, line_end - def_start);
-            
-            // 末尾の空白を削除
-            definition.erase(definition.find_last_not_of(" \t\r") + 1);
-            
-            macros.emplace_back(name, definition);
+        if (name_end <= start) {
+            return std::nullopt;
         }
         
-        pos = name_end;
+        return content_.substr(start, name_end - start);
     }
     
-    return macros;
+    // マクロ定義抽出
+    std::string extract_macro_definition(size_t name_end) {
+        size_t def_start = name_end;
+        
+        // 空白をスキップ
+        while (def_start < content_.length() && std::isspace(content_[def_start])) {
+            def_start++;
+        }
+        
+        // 行末まで読み取り
+        size_t line_end = content_.find('\n', def_start);
+        if (line_end == std::string::npos) {
+            line_end = content_.length();
+        }
+        
+        std::string definition = content_.substr(def_start, line_end - def_start);
+        
+        // 末尾の空白を削除
+        definition.erase(definition.find_last_not_of(" \t\r") + 1);
+        
+        return definition;
+    }
+    
+    // メインの解析メソッド
+    std::vector<std::pair<std::string, std::string>> parse_all_macros() {
+        std::vector<std::pair<std::string, std::string>> macros;
+        
+        size_t pos = 0;
+        while (auto define_pos = find_next_define(pos)) {
+            if (auto macro_name = extract_macro_name(*define_pos)) {
+                size_t name_end = *define_pos + 7; // "#define"の長さ
+                
+                // 名前の終端位置を正確に計算
+                name_end += macro_name->length();
+                while (name_end > *define_pos + 7 && std::isspace(content_[*define_pos + 7])) {
+                    break; // 空白をスキップした位置から開始
+                }
+                name_end = *define_pos + 7;
+                while (name_end < content_.length() && std::isspace(content_[name_end])) {
+                    name_end++;
+                }
+                name_end += macro_name->length();
+                
+                std::string definition = extract_macro_definition(name_end);
+                macros.emplace_back(*macro_name, definition);
+                
+                pos = name_end;
+            } else {
+                pos = *define_pos + 1;
+            }
+        }
+        
+        return macros;
+    }
+};
+
+std::vector<CppTemplate> CppAnalyzer::analyze_templates(const std::string& content) {
+    // 🌟 リファクタリング完了：TemplateParserクラスで責任分離！
+    TemplateParser parser(content);
+    return parser.parse_all_templates();
+}
+
+std::vector<std::pair<std::string, std::string>> CppAnalyzer::analyze_macros(const std::string& content) {
+    // 🌟 リファクタリング完了：MacroParserクラスで責任分離！
+    MacroParser parser(content);
+    return parser.parse_all_macros();
 }
 
 //=============================================================================

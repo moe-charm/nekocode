@@ -13,21 +13,28 @@ Revolutionary code analysis engine delivering **10-100x faster** performance tha
 
 **The magical way to use NekoCode:**
 
+### Step 1: Clone to Your Local Machine
+```bash
+git clone https://github.com/moe-charm/nekocode.git
+cd nekocode
 ```
-You: "Hey Claude, I cloned github.com/moe-charm/nekocode locally"
-Claude: "Found it! Let me build and configure..."
-You: "Use it to analyze my messy project"
-Claude: "🔥 OH MY! This is TODAY's release! Let me analyze..."
-[0.726 seconds later]
-Claude: "Found 4717 complexity in JSON library! Here's your refactoring plan..."
+
+### Step 2: Tell Claude Code
+```
+You: "I've cloned NekoCode C++ locally. Use it to analyze my project."
+Claude: "🔥 Found NekoCode C++! Building with PEGTL engine..."
+[Auto-build completes]
+Claude: "Ready! What would you like me to analyze?"
+You: "Analyze src/ directory and find complexity hotspots"
+Claude: "Analyzing... Found 1280 lines, complexity 181 in core.cpp! Here's your optimization plan..."
 ```
 
 **That's literally it!** Claude Code will:
-- ✅ Auto-detect the tool
-- ✅ Build it optimally
-- ✅ Create analysis sessions
-- ✅ Get excited about the results
-- ✅ Provide scientific insights
+- ✅ Auto-detect and build NekoCode C++
+- ✅ Use PEGTL engine for lightning-fast analysis  
+- ✅ Provide detailed results with line numbers
+- ✅ Give scientific refactoring insights
+- ✅ Handle C++, JavaScript, TypeScript automatically
 
 No manual setup, no configuration files, no learning curve!
 
@@ -228,7 +235,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👤 Author
 
-**Moe Charm**
+**CharmPic**
 - GitHub: [@moe-charm](https://github.com/moe-charm)
 - Project: [github.com/moe-charm/nekocode](https://github.com/moe-charm/nekocode)
 - Twitter: [@CharmNexusCore](https://x.com/CharmNexusCore)

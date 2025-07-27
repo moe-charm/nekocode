@@ -75,10 +75,20 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(utf8cpp)
 
-# 🌳 Tree-sitter Phase 3: プレースホルダー統合（開発中）
-message(STATUS "🌳 Tree-sitter placeholder integration")
+# 🔥 PEGTL - 軽量高性能パーサーライブラリ統合
+message(STATUS "🔥 Fetching PEGTL for advanced parsing...")
+include(FetchContent)
+FetchContent_Declare(
+    pegtl
+    GIT_REPOSITORY https://github.com/taocpp/PEGTL.git
+    GIT_TAG 3.2.7
+)
+FetchContent_MakeAvailable(pegtl)
 
-# プレースホルダー用Tree-sitterライブラリ
+# 🌳 Tree-sitter Phase 3: プレースホルダー統合（PEGTL移行予定）
+message(STATUS "🌳 Tree-sitter placeholder integration (migrating to PEGTL)")
+
+# プレースホルダー用Tree-sitterライブラリ（暫定維持）
 add_library(tree-sitter-core STATIC ${SRC_DIR}/tree_sitter_placeholder.c)
 target_include_directories(tree-sitter-core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -98,6 +108,7 @@ find_package(Threads REQUIRED)
 set(NEKOCODE_SOURCES
     ${SRC_DIR}/core.cpp
     ${SRC_DIR}/tree_sitter_analyzer.cpp
+    ${SRC_DIR}/pegtl_analyzer.cpp
     ${SRC_DIR}/formatters.cpp
     ${SRC_DIR}/utf8_utils.cpp
     ${SRC_DIR}/language_detection.cpp
@@ -111,6 +122,7 @@ set(NEKOCODE_HEADERS
     ${INCLUDE_DIR}/nekocode/types.hpp
     ${INCLUDE_DIR}/nekocode/core.hpp
     ${INCLUDE_DIR}/nekocode/tree_sitter_analyzer.hpp
+    ${INCLUDE_DIR}/nekocode/pegtl_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/formatters.hpp
     ${INCLUDE_DIR}/nekocode/utf8_utils.hpp
     ${INCLUDE_DIR}/nekocode/language_detection.hpp
@@ -130,6 +142,7 @@ target_link_libraries(nekocode_static
     utf8::cpp
     tree-sitter-core
     tree-sitter-langs
+    taocpp::pegtl
     Threads::Threads
 )
 

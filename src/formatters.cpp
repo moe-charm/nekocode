@@ -52,6 +52,68 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
         {"total_exports", result.exports.size()}
     };
     
+    // 🎯 詳細なクラス情報
+    if (!result.classes.empty()) {
+        nlohmann::json classes_json = nlohmann::json::array();
+        for (const auto& cls : result.classes) {
+            nlohmann::json class_json = {
+                {"name", cls.name},
+                {"start_line", cls.start_line}
+            };
+            classes_json.push_back(class_json);
+        }
+        json_result["classes"] = classes_json;
+    }
+    
+    // 🎯 詳細な関数情報
+    if (!result.functions.empty()) {
+        nlohmann::json functions_json = nlohmann::json::array();
+        for (const auto& func : result.functions) {
+            nlohmann::json func_json = {
+                {"name", func.name},
+                {"start_line", func.start_line}
+            };
+            if (func.is_async) {
+                func_json["is_async"] = true;
+            }
+            if (func.is_arrow_function) {
+                func_json["is_arrow_function"] = true;
+            }
+            functions_json.push_back(func_json);
+        }
+        json_result["functions"] = functions_json;
+    }
+    
+    // 🎯 詳細なimport情報
+    if (!result.imports.empty()) {
+        nlohmann::json imports_json = nlohmann::json::array();
+        for (const auto& imp : result.imports) {
+            nlohmann::json import_json = {
+                {"module_path", imp.module_path},
+                {"line_number", imp.line_number},
+                {"type", imp.type == ImportType::ES6_IMPORT ? "ES6_IMPORT" : "COMMONJS_REQUIRE"}
+            };
+            imports_json.push_back(import_json);
+        }
+        json_result["imports"] = imports_json;
+    }
+    
+    // 🎯 詳細なexport情報
+    if (!result.exports.empty()) {
+        nlohmann::json exports_json = nlohmann::json::array();
+        for (const auto& exp : result.exports) {
+            nlohmann::json export_json = {
+                {"line_number", exp.line_number},
+                {"type", exp.type == ExportType::ES6_EXPORT ? "ES6_EXPORT" : "COMMONJS_EXPORT"}
+            };
+            if (!exp.exported_names.empty()) {
+                export_json["exported_names"] = exp.exported_names;
+            }
+            exports_json.push_back(export_json);
+        }
+        json_result["exports"] = exports_json;
+    }
+    
     if (result.complexity.cyclomatic_complexity > 0) {
         json_result["complexity"] = {
             {"cyclomatic_complexity", result.complexity.cyclomatic_complexity},
