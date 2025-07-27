@@ -85,30 +85,37 @@ Result<AnalysisResult> NekoCodeCore::analyze_file(const FilePath& file_path) {
 
 Result<AnalysisResult> NekoCodeCore::analyze_content(const std::string& content, const std::string& filename) {
     try {
+        // 言語自動検出
+        FilePath file_path(filename);
+        Language detected_language = impl_->language_detector_->detect_language(file_path, content);
+        
+        // 🌳 Tree-sitter統一解析 - 全言語対応！
         AnalysisResult result;
         
         // ファイル基本情報解析
-        FilePath dummy_path(filename);
-        result.file_info = analyze_file_structure(content, dummy_path);
+        result.file_info = analyze_file_structure(content, file_path);
+        result.language = detected_language;
         
         if (impl_->config_.analyze_complexity) {
             result.complexity = analyze_complexity(content);
         }
         
-        // 🌳 Tree-sitter統合解析 - 正規表現地獄からの脱出！
-        auto tree_result = impl_->tree_sitter_analyzer_->analyze(content, filename, Language::JAVASCRIPT);
-        if (tree_result.is_success()) {
-            auto ts_result = tree_result.value();
-            result.classes = ts_result.classes;
-            result.functions = ts_result.functions;
-            result.imports = ts_result.imports;
-            result.exports = ts_result.exports;
-            if (impl_->config_.analyze_complexity) {
-                result.complexity = ts_result.complexity;
+        // Tree-sitter解析（全言語統一）
+        if (detected_language == Language::JAVASCRIPT || 
+            detected_language == Language::TYPESCRIPT || 
+            detected_language == Language::CPP || 
+            detected_language == Language::C) {
+            auto tree_result = impl_->tree_sitter_analyzer_->analyze(content, filename, detected_language);
+            if (tree_result.is_success()) {
+                auto ts_result = tree_result.value();
+                result.classes = ts_result.classes;
+                result.functions = ts_result.functions;
+                result.imports = ts_result.imports;
+                result.exports = ts_result.exports;
+                if (impl_->config_.analyze_complexity) {
+                    result.complexity = ts_result.complexity;
+                }
             }
-        } else {
-            // Tree-sitter解析失敗時はエラーを返す
-            return Result<AnalysisResult>(tree_result.error());
         }
         
         // 🌳 Tree-sitterが既に依存関係と複雑度を解析済み

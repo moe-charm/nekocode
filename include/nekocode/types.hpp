@@ -14,6 +14,19 @@
 namespace nekocode {
 
 //=============================================================================
+// 🌍 Language Support - 言語種別定義
+//=============================================================================
+
+/// サポート言語種別
+enum class Language {
+    JAVASCRIPT,     // JavaScript
+    TYPESCRIPT,     // TypeScript
+    CPP,           // C++
+    C,             // C
+    UNKNOWN        // 不明・未対応
+};
+
+//=============================================================================
 // 🎯 Core Types - Python版互換・型安全設計
 //=============================================================================
 
@@ -186,6 +199,10 @@ using FunctionCallFrequency = std::unordered_map<std::string, std::uint32_t>;
 struct AnalysisResult {
     // 基本情報
     FileInfo file_info;
+    Language language = Language::UNKNOWN;
+    
+    // 多態性のため
+    virtual ~AnalysisResult() = default;
     
     // 構造情報
     std::vector<ClassInfo> classes;

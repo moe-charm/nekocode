@@ -5,6 +5,7 @@
 //=============================================================================
 
 #include "nekocode/formatters.hpp"
+#include "nekocode/cpp_analyzer.hpp"
 #include <sstream>
 #include <iomanip>
 
@@ -57,6 +58,38 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
             {"cognitive_complexity", result.complexity.cognitive_complexity},
             {"max_nesting_depth", result.complexity.max_nesting_depth}
         };
+    }
+    
+    // Template & Macro analysis (C++ only)
+    if (result.language == Language::CPP) {
+        const auto* cpp_result = dynamic_cast<const CppAnalysisResult*>(&result);
+        if (cpp_result && (!cpp_result->template_analysis.templates.empty() || !cpp_result->template_analysis.macros.empty())) {
+            nlohmann::json templates_json = nlohmann::json::array();
+            for (const auto& tmpl : cpp_result->template_analysis.templates) {
+                nlohmann::json tmpl_json = nlohmann::json::object();
+                tmpl_json["name"] = tmpl.name;
+                tmpl_json["type"] = tmpl.type;
+                tmpl_json["parameters"] = tmpl.parameters;
+                tmpl_json["is_variadic"] = tmpl.is_variadic;
+                templates_json.push_back(tmpl_json);
+            }
+            
+            nlohmann::json macros_json = nlohmann::json::array();
+            for (const auto& macro : cpp_result->template_analysis.macros) {
+                nlohmann::json macro_json = nlohmann::json::object();
+                macro_json["name"] = macro.name;
+                macro_json["definition"] = macro.definition;
+                macro_json["parameters"] = macro.parameters;
+                macro_json["is_function_like"] = macro.is_function_like;
+                macros_json.push_back(macro_json);
+            }
+            
+            json_result["template_analysis"] = nlohmann::json::object();
+            json_result["template_analysis"]["templates"] = templates_json;
+            json_result["template_analysis"]["macros"] = macros_json;
+            json_result["template_analysis"]["template_count"] = cpp_result->template_analysis.templates.size();
+            json_result["template_analysis"]["macro_count"] = cpp_result->template_analysis.macros.size();
+        }
     }
     
     return json_result.dump(2);
