@@ -27,6 +27,9 @@ Claude: "🔥 Found NekoCode C++! Building with PEGTL engine..."
 Claude: "Ready! What would you like me to analyze?"
 You: "Analyze src/ directory and find complexity hotspots"
 Claude: "Analyzing... Found 1280 lines, complexity 181 in core.cpp! Here's your optimization plan..."
+
+You: "Analyze my Python project too"
+Claude: "🐍 Python support detected! Analyzing classes, functions, imports..."
 ```
 
 **That's literally it!** Claude Code will:
@@ -34,7 +37,7 @@ Claude: "Analyzing... Found 1280 lines, complexity 181 in core.cpp! Here's your 
 - ✅ Use PEGTL engine for lightning-fast analysis  
 - ✅ Provide detailed results with line numbers
 - ✅ Give scientific refactoring insights
-- ✅ Handle C++, JavaScript, TypeScript automatically
+- ✅ Handle C++, JavaScript, TypeScript, Python, C# automatically
 
 No manual setup, no configuration files, no learning curve!
 
@@ -43,7 +46,7 @@ No manual setup, no configuration files, no learning curve!
 ## 🌟 Key Features
 
 - **🚀 Ultra-Fast Performance**: 10-100x faster than Python implementations
-- **🌍 Multi-Language Support**: JavaScript, TypeScript, C++, C (complete support)
+- **🌍 Multi-Language Support**: JavaScript, TypeScript, C++, C, Python, C# (PEGTL-powered)
 - **🎮 Interactive Mode**: Session management with instant results (180x speedup)
 - **🔍 Advanced C++ Analysis**: Complex dependency visualization, circular dependency detection
 - **🧬 Template & Macro Analysis**: C++ template specialization, variadic templates, macro expansion tracking (**NEW!**)
@@ -202,7 +205,7 @@ make -j
 --no-parallel       # 並列処理無効化
 --threads <N>       # スレッド数指定
 --performance       # Show performance statistics
---lang <language>   # 言語指定 (auto|js|ts|cpp|c)
+--lang <language>   # 言語指定 (auto|js|ts|cpp|c|python|csharp)
 ```
 
 ## 📊 パフォーマンス
@@ -217,7 +220,8 @@ make -j
 - nlohmann/json（JSON処理）
 - UTF8-CPP（Unicode対応）
 - Tree-sitter (AST analysis foundation)
-- 正規表現エンジン（高速パターンマッチング）
+- PEGTL (Parsing Expression Grammar Template Library) - 全言語対応
+- 正規表現エンジン（レガシー互換）
 - Tarjan's Algorithm (circular dependency detection)
 
 ## 🌟 Join the Revolution

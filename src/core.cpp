@@ -5,10 +5,13 @@
 #include "nekocode/cpp_analyzer.hpp"
 #include "nekocode/tree_sitter_analyzer.hpp"
 #include "nekocode/pegtl_analyzer.hpp"
+#include "nekocode/analyzers/csharp_analyzer.hpp"
+#include "nekocode/analyzers/base_analyzer.hpp"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <execution>
+#include <iostream>
 #include <filesystem>
 #include <regex>
 #include <unordered_set>
@@ -107,7 +110,8 @@ Result<AnalysisResult> NekoCodeCore::analyze_content(const std::string& content,
         if (detected_language == Language::JAVASCRIPT || 
             detected_language == Language::TYPESCRIPT || 
             detected_language == Language::CPP || 
-            detected_language == Language::C) {
+            detected_language == Language::C ||
+            detected_language == Language::PYTHON) {
             auto pegtl_result = impl_->pegtl_analyzer_->analyze(content, filename, detected_language);
             if (pegtl_result.is_success()) {
                 auto pg_result = pegtl_result.value();
@@ -237,10 +241,64 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
             
             case Language::CPP:
             case Language::C: {
-                // C++/C解析
-                auto cpp_result = impl_->cpp_analyzer_->analyze_cpp_file(content, filename);
-                result.cpp_result = cpp_result;
-                result.file_info = cpp_result.file_info;
+                // 🔥 PEGTL版アナライザーを使用（Claude Code支援作戦）
+                auto analyzer = AnalyzerFactory::create_analyzer(result.detected_language);
+                if (analyzer) {
+                    auto analysis_result = analyzer->analyze(content, filename);
+                    
+                    // CppAnalysisResultを作成（PEGTL結果から変換）
+                    CppAnalysisResult cpp_result;
+                    cpp_result.file_info = analysis_result.file_info;
+                    cpp_result.complexity = analysis_result.complexity;
+                    
+                    // クラス・関数情報を変換
+                    for (const auto& cls : analysis_result.classes) {
+                        CppClass cpp_class;
+                        cpp_class.name = cls.name;
+                        cpp_class.start_line = cls.start_line;
+                        cpp_class.end_line = cls.end_line;
+                        cpp_class.class_type = CppClass::CLASS; // デフォルト
+                        // access_levelフィールドは存在しない
+                        cpp_result.cpp_classes.push_back(cpp_class);
+                    }
+                    
+                    for (const auto& func : analysis_result.functions) {
+                        CppFunction cpp_func;
+                        cpp_func.name = func.name;
+                        cpp_func.start_line = func.start_line;
+                        cpp_func.end_line = func.end_line;
+                        // CppFunctionのreturn_typeを使用
+                        cpp_func.return_type = "auto"; // PEGTLでは型推定が困難なのでデフォルト
+                        // access_levelフィールドは存在しない
+                        cpp_result.cpp_functions.push_back(cpp_func);
+                    }
+                    
+                    cpp_result.update_statistics();
+                    
+                    result.cpp_result = cpp_result;
+                    result.file_info = analysis_result.file_info;
+                    
+                    std::cerr << "✅ C++ PEGTL analyzer used successfully!" << std::endl;
+                } else {
+                    // フォールバック: 従来のCppAnalyzer
+                    auto cpp_result = impl_->cpp_analyzer_->analyze_cpp_file(content, filename);
+                    result.cpp_result = cpp_result;
+                    result.file_info = cpp_result.file_info;
+                    std::cerr << "⚠️  Fallback to old CppAnalyzer" << std::endl;
+                }
+                break;
+            }
+            
+            case Language::CSHARP: {
+                // C#解析（PEGTL版を使用）
+                auto analyzer = AnalyzerFactory::create_analyzer(Language::CSHARP);
+                if (analyzer) {
+                    auto csharp_result = analyzer->analyze(content, filename);
+                    result.csharp_result = csharp_result;
+                    result.file_info = csharp_result.file_info;
+                } else {
+                    std::cerr << "ERROR: Failed to create CSHARP analyzer" << std::endl;
+                }
                 break;
             }
             
@@ -600,415 +658,23 @@ std::unordered_map<Language, std::vector<FilePath>> NekoCodeCore::classify_files
     return classified;
 }
 
-//=============================================================================
-// 🎯 JavaScript Analyzer Implementation
-//=============================================================================
 
-JavaScriptAnalyzer::JavaScriptAnalyzer() {
-    try {
-        initialize_patterns();
-        initialize_standard_functions();
-    } catch (const std::regex_error& e) {
-        throw std::runtime_error(std::string("JavaScriptAnalyzer regex error: ") + e.what());
-    } catch (const std::exception& e) {
-        throw std::runtime_error(std::string("JavaScriptAnalyzer initialization error: ") + e.what());
-    }
-}
 
-JavaScriptAnalyzer::~JavaScriptAnalyzer() = default;
 
-void JavaScriptAnalyzer::initialize_patterns() {
-    // ES6 クラス: class ClassName [extends Parent] {
-    class_regex_ = std::regex(R"(class\s+(\w+)(?:\s+extends\s+(\w+))?\s*\{)");
-    
-    // プロトタイプクラス: function ClassName() { ... ClassName.prototype.method
-    // 簡略化版 - 後方参照 \1 が問題の可能性があるため除去
-    prototype_regex_ = std::regex(R"(function\s+(\w+)\s*\([^)]*\)\s*\{)");
-    
-    // 関数: function name() { ... }
-    function_regex_ = std::regex(R"(function\s+(\w+)\s*\(([^)]*)\)\s*\{)");
-    
-    // アロー関数: const name = (...) => { ... }
-    arrow_function_regex_ = std::regex(R"((?:const|let|var)\s+(\w+)\s*=\s*\([^)]*\)\s*=>)");
-    
-    // async関数
-    async_function_regex_ = std::regex(R"(async\s+function\s+(\w+)\s*\([^)]*\)\s*\{)");
-    
-    // ES6 import
-    es6_import_regex_ = std::regex(R"(import\s+(?:[\w\s,{}*]+\s+from\s+)?['""]([^'""]+)['""])");
-    
-    // CommonJS require
-    commonjs_require_regex_ = std::regex(R"(require\s*\(\s*['""]([^'""]+)['""]\s*\))");
-    
-    // ES6 export
-    es6_export_regex_ = std::regex(R"(export\s+(?:default\s+)?(?:const|let|var|function|class)?\s*(\w+))");
-    
-    // 関数呼び出し: functionName()
-    function_call_regex_ = std::regex(R"((\w+)\s*\()");
-    
-    // メソッド呼び出し: object.method()
-    method_call_regex_ = std::regex(R"((\w+)\.(\w+)\s*\()");
-}
 
-void JavaScriptAnalyzer::initialize_standard_functions() {
-    standard_functions_ = {
-        // JavaScript標準関数
-        "console", "setTimeout", "setInterval", "clearTimeout", "clearInterval",
-        "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURI", "decodeURI",
-        "eval", "typeof", "instanceof", "new", "delete", "void",
-        
-        // Array methods
-        "push", "pop", "shift", "unshift", "slice", "splice", "concat",
-        "join", "reverse", "sort", "indexOf", "lastIndexOf", "forEach",
-        "map", "filter", "reduce", "reduceRight", "some", "every", "find",
-        
-        // Object methods
-        "hasOwnProperty", "toString", "valueOf", "constructor",
-        
-        // String methods
-        "charAt", "charCodeAt", "indexOf", "lastIndexOf", "substring",
-        "substr", "slice", "toLowerCase", "toUpperCase", "trim",
-        "replace", "split", "match", "search",
-        
-        // Math functions
-        "abs", "ceil", "floor", "round", "max", "min", "random",
-        "pow", "sqrt", "sin", "cos", "tan", "log",
-        
-        // Date functions
-        "getTime", "getDate", "getDay", "getMonth", "getFullYear",
-        "setDate", "setMonth", "setFullYear",
-        
-        // Promise/async
-        "then", "catch", "finally", "resolve", "reject",
-        
-        // DOM (除外対象)
-        "getElementById", "querySelector", "addEventListener",
-        "createElement", "appendChild", "removeChild"
-    };
-}
 
-std::vector<ClassInfo> JavaScriptAnalyzer::find_es6_classes(const std::string& content) {
-    std::vector<ClassInfo> classes;
-    std::sregex_iterator iter(content.begin(), content.end(), class_regex_);
-    std::sregex_iterator end;
-    
-    for (; iter != end; ++iter) {
-        ClassInfo class_info;
-        class_info.name = (*iter)[1].str();
-        
-        if ((*iter)[2].matched) {
-            class_info.parent_class = (*iter)[2].str();
-        }
-        
-        // メソッド抽出
-        class_info.methods = extract_class_methods(content, class_info);
-        
-        classes.push_back(class_info);
-    }
-    
-    return classes;
-}
 
-std::vector<ClassInfo> JavaScriptAnalyzer::find_prototype_classes(const std::string& content) {
-    std::vector<ClassInfo> classes;
-    std::sregex_iterator iter(content.begin(), content.end(), prototype_regex_);
-    std::sregex_iterator end;
-    
-    std::unordered_set<std::string> found_classes;
-    
-    for (; iter != end; ++iter) {
-        std::string class_name = (*iter)[1].str();
-        
-        if (found_classes.find(class_name) == found_classes.end()) {
-            ClassInfo class_info;
-            class_info.name = class_name;
-            
-            // プロトタイプメソッド検索
-            // エスケープ処理を簡略化
-            std::regex proto_method_regex(class_name + R"(\.prototype\.(\w+)\s*=)");
-            std::sregex_iterator method_iter(content.begin(), content.end(), proto_method_regex);
-            
-            for (; method_iter != end; ++method_iter) {
-                FunctionInfo method;
-                method.name = (*method_iter)[1].str();
-                class_info.methods.push_back(method);
-            }
-            
-            classes.push_back(class_info);
-            found_classes.insert(class_name);
-        }
-    }
-    
-    return classes;
-}
 
-std::vector<FunctionInfo> JavaScriptAnalyzer::extract_class_methods(const std::string& content, const ClassInfo& class_info) {
-    std::vector<FunctionInfo> methods;
-    
-    // クラス内のメソッド検索
-    std::regex method_regex(R"((\w+)\s*\([^)]*\)\s*\{)");
-    
-    // クラス定義の開始位置を見つける
-    // エスケープ処理を簡略化
-    std::regex class_start_regex("class\\s+" + class_info.name + R"((?:\s+extends\s+\w+)?\s*\{)");
-    std::smatch class_match;
-    
-    if (std::regex_search(content, class_match, class_start_regex)) {
-        size_t class_start = class_match.position() + class_match.length();
-        
-        // 対応する}を見つける（簡易実装）
-        int brace_count = 1;
-        size_t class_end = class_start;
-        
-        for (size_t i = class_start; i < content.length() && brace_count > 0; ++i) {
-            if (content[i] == '{') brace_count++;
-            else if (content[i] == '}') brace_count--;
-            class_end = i;
-        }
-        
-        // クラス内容を抽出
-        std::string class_content = content.substr(class_start, class_end - class_start);
-        
-        // メソッド検索
-        std::sregex_iterator iter(class_content.begin(), class_content.end(), method_regex);
-        std::sregex_iterator end;
-        
-        for (; iter != end; ++iter) {
-            FunctionInfo method;
-            method.name = (*iter)[1].str();
-            
-            // constructor以外のメソッドのみ
-            if (method.name != "constructor") {
-                methods.push_back(method);
-            }
-        }
-    }
-    
-    return methods;
-}
 
-std::vector<FunctionInfo> JavaScriptAnalyzer::find_regular_functions(const std::string& content) {
-    std::vector<FunctionInfo> functions;
-    std::sregex_iterator iter(content.begin(), content.end(), function_regex_);
-    std::sregex_iterator end;
-    
-    for (; iter != end; ++iter) {
-        FunctionInfo func;
-        func.name = (*iter)[1].str();
-        
-        // パラメータ解析
-        std::string params_str = (*iter)[2].str();
-        func.parameters = parse_function_parameters(params_str);
-        
-        functions.push_back(func);
-    }
-    
-    return functions;
-}
 
-std::vector<FunctionInfo> JavaScriptAnalyzer::find_arrow_functions(const std::string& content) {
-    std::vector<FunctionInfo> functions;
-    std::sregex_iterator iter(content.begin(), content.end(), arrow_function_regex_);
-    std::sregex_iterator end;
-    
-    for (; iter != end; ++iter) {
-        FunctionInfo func;
-        func.name = (*iter)[1].str();
-        func.is_arrow_function = true;
-        
-        functions.push_back(func);
-    }
-    
-    return functions;
-}
 
-std::vector<FunctionInfo> JavaScriptAnalyzer::find_async_functions(const std::string& content) {
-    std::vector<FunctionInfo> functions;
-    std::sregex_iterator iter(content.begin(), content.end(), async_function_regex_);
-    std::sregex_iterator end;
-    
-    for (; iter != end; ++iter) {
-        FunctionInfo func;
-        func.name = (*iter)[1].str();
-        func.is_async = true;
-        
-        functions.push_back(func);
-    }
-    
-    return functions;
-}
 
-std::vector<std::string> JavaScriptAnalyzer::parse_function_parameters(const std::string& params_str) {
-    std::vector<std::string> parameters;
-    
-    if (params_str.empty()) return parameters;
-    
-    std::stringstream ss(params_str);
-    std::string param;
-    
-    while (std::getline(ss, param, ',')) {
-        param = utils::trim(param);
-        if (!param.empty()) {
-            // デフォルト値を除去: param = defaultValue → param
-            size_t eq_pos = param.find('=');
-            if (eq_pos != std::string::npos) {
-                param = param.substr(0, eq_pos);
-                param = utils::trim(param);
-            }
-            parameters.push_back(param);
-        }
-    }
-    
-    return parameters;
-}
 
-std::vector<ImportInfo> JavaScriptAnalyzer::parse_es6_imports(const std::string& content) {
-    std::vector<ImportInfo> imports;
-    std::sregex_iterator iter(content.begin(), content.end(), es6_import_regex_);
-    std::sregex_iterator end;
-    
-    for (; iter != end; ++iter) {
-        ImportInfo import;
-        import.type = ImportType::ES6_IMPORT;
-        import.module_path = (*iter)[1].str();
-        
-        imports.push_back(import);
-    }
-    
-    return imports;
-}
 
-std::vector<ImportInfo> JavaScriptAnalyzer::parse_commonjs_requires(const std::string& content) {
-    std::vector<ImportInfo> imports;
-    std::sregex_iterator iter(content.begin(), content.end(), commonjs_require_regex_);
-    std::sregex_iterator end;
-    
-    for (; iter != end; ++iter) {
-        ImportInfo import;
-        import.type = ImportType::COMMONJS_REQUIRE;
-        import.module_path = (*iter)[1].str();
-        
-        imports.push_back(import);
-    }
-    
-    return imports;
-}
 
-std::vector<ExportInfo> JavaScriptAnalyzer::parse_es6_exports(const std::string& content) {
-    std::vector<ExportInfo> exports;
-    std::sregex_iterator iter(content.begin(), content.end(), es6_export_regex_);
-    std::sregex_iterator end;
-    
-    for (; iter != end; ++iter) {
-        ExportInfo export_info;
-        export_info.type = ExportType::ES6_EXPORT;
-        
-        std::string exported_name = (*iter)[1].str();
-        if (!exported_name.empty()) {
-            export_info.exported_names.push_back(exported_name);
-        }
-        
-        exports.push_back(export_info);
-    }
-    
-    return exports;
-}
 
-std::vector<ExportInfo> JavaScriptAnalyzer::parse_commonjs_exports(const std::string& content) {
-    std::vector<ExportInfo> exports;
-    
-    // module.exports = ... または exports.name = ...
-    std::regex cjs_export_regex(R"((?:module\.)?exports(?:\.(\w+))?\s*=)");
-    std::sregex_iterator iter(content.begin(), content.end(), cjs_export_regex);
-    std::sregex_iterator end;
-    
-    for (; iter != end; ++iter) {
-        ExportInfo export_info;
-        export_info.type = ExportType::COMMONJS_EXPORTS;
-        
-        if ((*iter)[1].matched) {
-            export_info.exported_names.push_back((*iter)[1].str());
-        }
-        
-        exports.push_back(export_info);
-    }
-    
-    return exports;
-}
 
-std::vector<FunctionCall> JavaScriptAnalyzer::find_function_calls(const std::string& content) {
-    std::vector<FunctionCall> calls;
-    std::sregex_iterator iter(content.begin(), content.end(), function_call_regex_);
-    std::sregex_iterator end;
-    
-    uint32_t line_number = 1;
-    size_t line_start = 0;
-    
-    for (; iter != end; ++iter) {
-        FunctionCall call;
-        call.function_name = (*iter)[1].str();
-        
-        // 行番号計算
-        size_t pos = iter->position();
-        line_number += std::count(content.begin() + line_start, content.begin() + pos, '\n');
-        call.line_number = line_number;
-        line_start = pos;
-        
-        calls.push_back(call);
-    }
-    
-    return calls;
-}
 
-std::vector<FunctionCall> JavaScriptAnalyzer::find_method_calls(const std::string& content) {
-    std::vector<FunctionCall> calls;
-    std::sregex_iterator iter(content.begin(), content.end(), method_call_regex_);
-    std::sregex_iterator end;
-    
-    uint32_t line_number = 1;
-    size_t line_start = 0;
-    
-    for (; iter != end; ++iter) {
-        FunctionCall call;
-        call.object_name = (*iter)[1].str();
-        call.function_name = (*iter)[2].str();
-        call.is_method_call = true;
-        
-        // 行番号計算
-        size_t pos = iter->position();
-        line_number += std::count(content.begin() + line_start, content.begin() + pos, '\n');
-        call.line_number = line_number;
-        line_start = pos;
-        
-        calls.push_back(call);
-    }
-    
-    return calls;
-}
-
-FunctionCallFrequency JavaScriptAnalyzer::calculate_call_frequency(const std::vector<FunctionCall>& calls) {
-    FunctionCallFrequency frequency;
-    
-    for (const auto& call : calls) {
-        std::string call_name = call.full_name();
-        frequency[call_name]++;
-    }
-    
-    return frequency;
-}
-
-std::vector<FunctionCall> JavaScriptAnalyzer::filter_standard_functions(const std::vector<FunctionCall>& calls) {
-    std::vector<FunctionCall> filtered;
-    
-    for (const auto& call : calls) {
-        // 標準関数・メソッドをフィルタリング
-        if (standard_functions_.find(call.function_name) == standard_functions_.end()) {
-            filtered.push_back(call);
-        }
-    }
-    
-    return filtered;
-}
 
 //=============================================================================
 // 🧮 Complexity Calculator Implementation  

@@ -101,6 +101,9 @@ private:
     /// TypeScript要素抽出
     AnalysisResult extract_typescript_elements(const std::string& content);
     
+    /// Python要素抽出
+    AnalysisResult extract_python_elements(const std::string& content);
+    
     /// 複雑度計算（PEGTL文法ベース）
     ComplexityInfo calculate_complexity(const std::string& content, Language language);
     

@@ -23,6 +23,8 @@ enum class Language {
     TYPESCRIPT,     // TypeScript
     CPP,           // C++
     C,             // C
+    PYTHON,        // Python 🐍
+    CSHARP,        // C# 🎯
     UNKNOWN        // 不明・未対応
 };
 
