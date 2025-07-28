@@ -17,6 +17,7 @@ namespace nekocode {
 // - TypeScript (.ts, .tsx)  
 // - C++ (.cpp, .cxx, .cc, .hpp, .h)
 // - C (.c, .h)
+// - C# (.cs, .csx)
 //=============================================================================
 
 // Language enum は types.hpp で定義済み
@@ -249,6 +250,7 @@ struct MultiLanguageAnalysisResult {
     // 言語別結果（unionの代わりにoptional使用）
     std::optional<AnalysisResult> js_result;      // JavaScript/TypeScript
     std::optional<CppAnalysisResult> cpp_result;  // C++/C
+    std::optional<AnalysisResult> csharp_result;  // C#
     
     // 共通メタデータ
     FileInfo file_info;
@@ -258,13 +260,14 @@ struct MultiLanguageAnalysisResult {
     
     /// 有効な解析結果があるかチェック
     bool has_result() const {
-        return js_result.has_value() || cpp_result.has_value();
+        return js_result.has_value() || cpp_result.has_value() || csharp_result.has_value();
     }
     
     /// 複雑度取得（言語共通）
     ComplexityInfo get_complexity() const {
         if (js_result) return js_result->complexity;
         if (cpp_result) return cpp_result->complexity;
+        if (csharp_result) return csharp_result->complexity;
         return ComplexityInfo{};
     }
 };

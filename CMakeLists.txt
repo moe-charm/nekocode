@@ -18,6 +18,13 @@ project(NekoCodeCpp VERSION 1.0.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# std::regex使用防止オプション（開発者向け警告）
+option(NEKOCODE_PREVENT_REGEX "Prevent std::regex usage" ON)
+if(NEKOCODE_PREVENT_REGEX)
+    add_compile_definitions(NEKOCODE_PREVENT_REGEX)
+    message(STATUS "⚠️  std::regex prevention enabled - Use PEGTL instead!")
+endif()
+
 # コンパイラー警告設定
 if(MSVC)
     add_compile_options(/W4)
@@ -115,6 +122,13 @@ set(NEKOCODE_SOURCES
     ${SRC_DIR}/cpp_analyzer.cpp
     ${SRC_DIR}/session_manager.cpp
     ${SRC_DIR}/include_analyzer.cpp
+    # 言語別アナライザー
+    ${SRC_DIR}/analyzers/analyzer_factory.cpp
+    ${SRC_DIR}/analyzers/python_analyzer.cpp
+    ${SRC_DIR}/analyzers/javascript_analyzer.cpp
+    ${SRC_DIR}/analyzers/cpp_language_analyzer.cpp
+    ${SRC_DIR}/analyzers/csharp_analyzer.cpp
+    ${SRC_DIR}/analyzers/csharp_pegtl_analyzer.cpp
 )
 
 # ヘッダーファイル
@@ -129,6 +143,12 @@ set(NEKOCODE_HEADERS
     ${INCLUDE_DIR}/nekocode/cpp_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/session_manager.hpp
     ${INCLUDE_DIR}/nekocode/include_analyzer.hpp
+    # 言語別アナライザーヘッダー
+    ${INCLUDE_DIR}/nekocode/analyzers/base_analyzer.hpp
+    ${INCLUDE_DIR}/nekocode/analyzers/python_analyzer.hpp
+    ${INCLUDE_DIR}/nekocode/analyzers/javascript_analyzer.hpp
+    ${INCLUDE_DIR}/nekocode/analyzers/cpp_language_analyzer.hpp
+    ${INCLUDE_DIR}/nekocode/analyzers/csharp_analyzer.hpp
 )
 
 # 静的ライブラリ作成

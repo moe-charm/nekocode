@@ -103,14 +103,16 @@ OPTIONS:
     --threads <N>       スレッド数指定（デフォルト: auto）
     --performance       パフォーマンス統計表示
     --format <type>     出力フォーマット (json|compact|stats)
-    --lang <language>   言語指定 (auto|js|ts|cpp|c)
+    --lang <language>   言語指定 (auto|js|ts|cpp|c|python|csharp)
     --list-languages    サポート言語一覧表示
 
 SUPPORTED LANGUAGES:
     🟨 JavaScript       (.js, .mjs, .jsx)
-    🔵 TypeScript       (.ts, .tsx)
-    🔴 C++              (.cpp, .cxx, .cc, .hpp, .h)
+    🔵 TypeScript       (.ts, .tsx, .mts, .cts)
+    🔴 C++              (.cpp, .cxx, .cc, .hpp, .hxx, .hh, .h)
     ⚫ C                (.c, .h)
+    🐍 Python           (.py, .pyw, .pyi)
+    🟣 C#               (.cs, .csx)
 
 EXAMPLES:
     # 🎮 対話式セッション作成
@@ -237,9 +239,11 @@ int main(int argc, char* argv[]) {
                 nlohmann::json langs_json;
                 langs_json["supported_languages"] = {
                     {"javascript", {{"name", "JavaScript"}, {"extensions", {".js", ".mjs", ".jsx"}}}},
-                    {"typescript", {{"name", "TypeScript"}, {"extensions", {".ts", ".tsx"}}}},
-                    {"cpp", {{"name", "C++"}, {"extensions", {".cpp", ".cxx", ".cc", ".hpp", ".h"}}}},
-                    {"c", {{"name", "C"}, {"extensions", {".c", ".h"}}}}
+                    {"typescript", {{"name", "TypeScript"}, {"extensions", {".ts", ".tsx", ".mts", ".cts"}}}},
+                    {"cpp", {{"name", "C++"}, {"extensions", {".cpp", ".cxx", ".cc", ".hpp", ".hxx", ".hh", ".h"}}}},
+                    {"c", {{"name", "C"}, {"extensions", {".c", ".h"}}}},
+                    {"python", {{"name", "Python"}, {"extensions", {".py", ".pyw", ".pyi"}}}},
+                    {"csharp", {{"name", "C#"}, {"extensions", {".cs", ".csx"}}}}
                 };
                 langs_json["auto_detection"] = true;
                 langs_json["utf8_support"] = true;
@@ -296,7 +300,7 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
             // 📄 Single File Analysis
             //=========================================================================
             
-            auto result = analyzer.analyze_file(path);
+            auto result = analyzer.analyze_file_multilang(path);
             
             if (result.is_error()) {
                 nlohmann::json error_json;
@@ -309,8 +313,28 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 return 1;
             }
             
-            // 出力フォーマット選択（簡化）
-            std::string output = formatter->format_single_file(result.value());
+            // 結果からAnalysisResultを取得
+            AnalysisResult analysis_result;
+            auto multilang_result = result.value();
+            
+            if (multilang_result.csharp_result) {
+                analysis_result = multilang_result.csharp_result.value();
+            } else if (multilang_result.js_result) {
+                analysis_result = multilang_result.js_result.value();
+            } else if (multilang_result.cpp_result) {
+                // C++結果をAnalysisResultに変換（簡易版）
+                analysis_result.file_info = multilang_result.cpp_result->file_info;
+                analysis_result.complexity = multilang_result.cpp_result->complexity;
+                analysis_result.language = Language::CPP;
+                // 他のフィールドは必要に応じて変換
+            } else {
+                // フォールバック
+                analysis_result.file_info = multilang_result.file_info;
+                analysis_result.language = multilang_result.detected_language;
+            }
+            
+            // 出力フォーマット選択
+            std::string output = formatter->format_single_file(analysis_result);
             
             std::cout << output << std::endl;
             
@@ -410,7 +434,7 @@ int create_session(const std::string& target_path) {
         std::cerr << "🤖 NekoCode AI creating session: " << target_path << std::endl;
         
         if (std::filesystem::is_regular_file(path)) {
-            auto result = analyzer.analyze_file(path);
+            auto result = analyzer.analyze_file_multilang(path);
             
             if (result.is_error()) {
                 nlohmann::json error_json;
@@ -423,7 +447,26 @@ int create_session(const std::string& target_path) {
                 return 1;
             }
             
-            session_id = session_manager.create_session(path, result.value());
+            // 結果からAnalysisResultを取得してセッション作成
+            AnalysisResult analysis_result;
+            auto multilang_result = result.value();
+            
+            if (multilang_result.csharp_result) {
+                analysis_result = multilang_result.csharp_result.value();
+            } else if (multilang_result.js_result) {
+                analysis_result = multilang_result.js_result.value();
+            } else if (multilang_result.cpp_result) {
+                // C++結果をAnalysisResultに変換（簡易版）
+                analysis_result.file_info = multilang_result.cpp_result->file_info;
+                analysis_result.complexity = multilang_result.cpp_result->complexity;
+                analysis_result.language = Language::CPP;
+            } else {
+                // フォールバック
+                analysis_result.file_info = multilang_result.file_info;
+                analysis_result.language = multilang_result.detected_language;
+            }
+            
+            session_id = session_manager.create_session(path, analysis_result);
             
         } else if (std::filesystem::is_directory(path)) {
             auto result = analyzer.analyze_directory(path);
