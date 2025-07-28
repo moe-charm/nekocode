@@ -17,6 +17,11 @@
 #include <iostream>
 #include <filesystem>
 #include <chrono>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <fstream>
+#include <sstream>
+#include <iomanip>
 
 using namespace nekocode;
 
@@ -36,6 +41,13 @@ struct CommandLineArgs {
     bool show_performance = false;
     bool list_languages = false;           // サポート言語一覧
     bool enable_progress = false;           // プログレス表示
+    bool ssd_mode = false;                  // SSD最適化モード
+    bool hdd_mode = false;                  // HDD最適化モード
+    
+    // 事前チェック関連
+    bool skip_precheck = false;             // --no-check: 事前チェックスキップ
+    bool force_execution = false;           // --force: 確認なしで強制実行
+    bool check_only = false;                // --check-only: チェックのみ実行
     
     static CommandLineArgs parse(int argc, char* argv[]) {
         CommandLineArgs args;
@@ -65,6 +77,10 @@ struct CommandLineArgs {
                 args.list_languages = true;
             } else if (arg == "--progress") {
                 args.enable_progress = true;
+            } else if (arg == "--ssd") {
+                args.ssd_mode = true;
+            } else if (arg == "--hdd") {
+                args.hdd_mode = true;
             } else if (args.target_path.empty()) {
                 args.target_path = arg;
             }
@@ -87,6 +103,8 @@ USAGE:
 ACTIONS:
     analyze <path>              単発解析（旧形式互換）
     session-create <path>       対話式セッション作成
+    session-create-async <path> 🚀 非同期セッション作成（大規模プロジェクト用）
+    session-status <id>         📊 セッション状態確認（非同期用）
     session-cmd <id> <cmd>      セッションコマンド実行
     <path>                      単発解析（後方互換）
 
@@ -96,7 +114,7 @@ INTERACTIVE COMMANDS:
     complexity                  複雑度分析
     structure                   構造解析（クラス・関数）
     calls                       関数呼び出し分析
-    find <term>                 検索
+    find <term> [options]       検索（--debug --limit N --function --variable）
     help                        コマンドヘルプ
 
 OPTIONS:
@@ -110,6 +128,11 @@ OPTIONS:
     --lang <language>   言語指定 (auto|js|ts|cpp|c|python|csharp)
     --list-languages    サポート言語一覧表示
     --progress          進捗表示有効化（30,000ファイル対応）
+    --ssd               SSD最適化（CPUコア数スレッド、並列I/O重視）
+    --hdd               HDD最適化（1スレッド、シーケンシャル重視）
+    --no-check          事前チェックをスキップ（上級者向け）
+    --force             確認なしで強制実行
+    --check-only        プロジェクト規模のチェックのみ実行
 
 SUPPORTED LANGUAGES:
     🟨 JavaScript       (.js, .mjs, .jsx)
@@ -124,7 +147,19 @@ EXAMPLES:
     nekocode_ai session-create charmflow_v5/
     nekocode_ai session-cmd ai_session_20250727_123456 stats
     nekocode_ai session-cmd ai_session_20250727_123456 complexity
-    nekocode_ai session-cmd ai_session_20250727_123456 "find nyamesh"
+    nekocode_ai session-cmd ai_session_20250727_123456 "find nyamesh --debug"
+    nekocode_ai session-cmd ai_session_20250727_123456 "find std::cout --limit 10"
+    
+    # 🚀 大規模プロジェクト非同期処理（Claude Code最適化）
+    nekocode_ai session-create-async large_project/ --progress
+    nekocode_ai session-status ai_session_20250729_123456
+    # （解析完了後）
+    nekocode_ai session-cmd ai_session_20250729_123456 stats
+    
+    # 🔍 事前チェック機能
+    nekocode_ai session-create typescript/TypeScript/ --check-only  # サイズ確認のみ
+    nekocode_ai session-create huge_project/ --force               # 確認なしで実行
+    nekocode_ai session-create auto_script/ --no-check             # チェックスキップ
 
     # 🔥 地獄のC++プロジェクト解析
     nekocode_ai analyze nyamesh_v22/ --lang cpp
@@ -183,6 +218,8 @@ void show_performance_report(const PerformanceMetrics& metrics) {
 // 対話式コマンド処理関数
 int analyze_target(const std::string& target_path, const CommandLineArgs& args = CommandLineArgs());
 int create_session(const std::string& target_path, const CommandLineArgs& args = CommandLineArgs{});
+int create_session_async(const std::string& target_path, const CommandLineArgs& args = CommandLineArgs{});
+int check_session_status(const std::string& session_id);
 int execute_session_command(const std::string& session_id, const std::string& command);
 
 int main(int argc, char* argv[]) {
@@ -216,8 +253,61 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Error: Missing target path for session-create" << std::endl;
                 return 1;
             }
-            CommandLineArgs args = CommandLineArgs::parse(argc - 2, argv + 2);
+            // session-create 専用引数解析
+            CommandLineArgs args;
+            for (int i = 3; i < argc; ++i) {
+                std::string arg = argv[i];
+                if (arg == "--progress") {
+                    args.enable_progress = true;
+                } else if (arg == "--ssd") {
+                    args.ssd_mode = true;
+                } else if (arg == "--hdd") {
+                    args.hdd_mode = true;
+                } else if (arg == "--threads" && i + 1 < argc) {
+                    args.thread_count = std::stoul(argv[++i]);
+                } else if (arg == "--no-check") {
+                    args.skip_precheck = true;
+                } else if (arg == "--force") {
+                    args.force_execution = true;
+                } else if (arg == "--check-only") {
+                    args.check_only = true;
+                }
+            }
             return create_session(argv[2], args);
+        }
+        else if (action == "session-create-async") {
+            if (argc < 3) {
+                std::cerr << "Error: Missing target path for session-create-async" << std::endl;
+                return 1;
+            }
+            // session-create-async 専用引数解析（session-createと同じ）
+            CommandLineArgs args;
+            for (int i = 3; i < argc; ++i) {
+                std::string arg = argv[i];
+                if (arg == "--progress") {
+                    args.enable_progress = true;
+                } else if (arg == "--ssd") {
+                    args.ssd_mode = true;
+                } else if (arg == "--hdd") {
+                    args.hdd_mode = true;
+                } else if (arg == "--threads" && i + 1 < argc) {
+                    args.thread_count = std::stoul(argv[++i]);
+                } else if (arg == "--no-check") {
+                    args.skip_precheck = true;
+                } else if (arg == "--force") {
+                    args.force_execution = true;
+                } else if (arg == "--check-only") {
+                    args.check_only = true;
+                }
+            }
+            return create_session_async(argv[2], args);
+        }
+        else if (action == "session-status") {
+            if (argc < 3) {
+                std::cerr << "Error: Missing session_id for session-status" << std::endl;
+                return 1;
+            }
+            return check_session_status(argv[2]);
         }
         else if (action == "session-cmd") {
             if (argc < 4) {
@@ -286,9 +376,24 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
         config.analyze_dependencies = true;
         config.analyze_function_calls = true;
         config.enable_parallel_processing = args.enable_parallel;
+        
+        // ストレージモード設定
+        if (args.ssd_mode) {
+            config.storage_mode = StorageMode::SSD;
+        } else if (args.hdd_mode) {
+            config.storage_mode = StorageMode::HDD;
+        } else {
+            config.storage_mode = StorageMode::AUTO;
+        }
+        
+        // 手動スレッド数指定
         if (args.thread_count > 0) {
             config.max_threads = args.thread_count;
+            config.storage_mode = StorageMode::MANUAL;
         }
+        
+        // ストレージモード別スレッド数再計算
+        config.calculate_optimal_threads();
         
         // 解析エンジン作成
         NekoCodeCore analyzer(config);
@@ -421,20 +526,168 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
 // 🎮 create_session実装
 //=============================================================================
 
+// 事前チェック用構造体
+struct ProjectScanResult {
+    size_t total_files = 0;
+    size_t code_files = 0;
+    size_t estimated_minutes = 0;
+    std::string scale_category;
+    bool proceed = true;
+};
+
+// セッションID生成関数
+std::string generate_session_id() {
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    auto tm = *std::localtime(&time_t);
+    std::ostringstream oss;
+    oss << "ai_session_" << std::put_time(&tm, "%Y%m%d_%H%M%S");
+    return oss.str();
+}
+
+// セッション状態ファイル作成/更新
+void update_session_state(const std::string& session_id, const std::string& status, 
+                          const std::string& target_path = "", pid_t pid = 0) {
+    std::filesystem::create_directories("sessions");
+    std::string state_file = "sessions/" + session_id + "_state.json";
+    
+    nlohmann::json state;
+    state["session_id"] = session_id;
+    state["status"] = status;
+    
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    auto tm = *std::localtime(&time_t);
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
+    state["last_update"] = oss.str();
+    
+    if (!target_path.empty()) {
+        state["target_path"] = target_path;
+    }
+    if (pid > 0) {
+        state["pid"] = pid;
+    }
+    
+    std::ofstream file(state_file);
+    if (file.is_open()) {
+        file << state.dump(2) << std::endl;
+    }
+}
+
+// 高速ファイル数カウント
+ProjectScanResult quick_project_scan(const std::filesystem::path& path, const CommandLineArgs& args) {
+    ProjectScanResult result;
+    
+    if (args.skip_precheck) {
+        result.proceed = true;
+        return result;
+    }
+    
+    std::cerr << "🔍 Quick project scan..." << std::endl;
+    
+    // ファイル数カウント
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
+        if (entry.is_regular_file()) {
+            result.total_files++;
+            
+            // コードファイル判定（簡易版）
+            std::string ext = entry.path().extension().string();
+            if (ext == ".ts" || ext == ".js" || ext == ".cpp" || ext == ".hpp" || 
+                ext == ".py" || ext == ".cs" || ext == ".c" || ext == ".h") {
+                result.code_files++;
+            }
+        }
+    }
+    
+    // 時間予測（TypeScriptベース: 0.16秒/ファイル）
+    result.estimated_minutes = (result.total_files * 0.16) / 60.0;
+    
+    // 規模分類
+    if (result.total_files < 100) {
+        result.scale_category = "Small";
+    } else if (result.total_files < 1000) {
+        result.scale_category = "Medium";
+    } else if (result.total_files < 10000) {
+        result.scale_category = "Large";
+    } else {
+        result.scale_category = "Massive";
+    }
+    
+    // 結果表示
+    std::cerr << "📊 Project Analysis:" << std::endl;
+    std::cerr << "• Total files: " << result.total_files << std::endl;
+    std::cerr << "• Code files: " << result.code_files << std::endl;
+    std::cerr << "• Scale: " << result.scale_category << std::endl;
+    std::cerr << "• Estimated time: " << result.estimated_minutes << " minutes" << std::endl;
+    
+    // ユーザー確認（大規模プロジェクトの場合）
+    if (result.total_files >= 1000 && !args.force_execution && !args.check_only) {
+        std::cerr << std::endl;
+        std::cerr << "⚠️  Large project detected!" << std::endl;
+        std::cerr << "This will block Claude Code for ~" << result.estimated_minutes << " minutes." << std::endl;
+        std::cerr << std::endl;
+        std::cerr << "Continue? [y/N]: ";
+        
+        std::string response;
+        std::getline(std::cin, response);
+        
+        if (response != "y" && response != "Y" && response != "yes") {
+            result.proceed = false;
+            std::cerr << "✅ Cancelled. Consider using --check-only or analyzing a subdirectory." << std::endl;
+        }
+    }
+    
+    return result;
+}
+
 int create_session(const std::string& target_path, const CommandLineArgs& args) {
     try {
+        std::filesystem::path path(target_path);
+        
+        // 事前チェック実行
+        if (std::filesystem::is_directory(path)) {
+            auto scan_result = quick_project_scan(path, args);
+            
+            if (args.check_only) {
+                // チェックのみモード
+                std::cerr << "🎯 Analysis complete. Use without --check-only to proceed." << std::endl;
+                return 0;
+            }
+            
+            if (!scan_result.proceed) {
+                return 1; // ユーザーがキャンセル
+            }
+        }
+        
         // 設定作成
         AnalysisConfig config;
         config.analyze_complexity = true;
         config.analyze_dependencies = true;
         config.analyze_function_calls = true;
-        config.enable_parallel_processing = true;
+        config.enable_parallel_processing = args.enable_parallel;
+        
+        // ストレージモード設定
+        if (args.ssd_mode) {
+            config.storage_mode = StorageMode::SSD;
+        } else if (args.hdd_mode) {
+            config.storage_mode = StorageMode::HDD;
+        } else {
+            config.storage_mode = StorageMode::AUTO;
+        }
+        
+        // 手動スレッド数指定
+        if (args.thread_count > 0) {
+            config.max_threads = args.thread_count;
+            config.storage_mode = StorageMode::MANUAL;
+        }
+        
+        // ストレージモード別スレッド数再計算
+        config.calculate_optimal_threads();
         
         // 解析エンジン作成
         NekoCodeCore analyzer(config);
         SessionManager session_manager;
-        
-        std::filesystem::path path(target_path);
         std::string session_id;
         
         std::cerr << "🤖 NekoCode AI creating session: " << target_path << std::endl;
@@ -493,6 +746,14 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
             }
             
             progress_tracker.start_directory_analysis(path, file_count);
+            
+            // プログレスコールバック設定
+            if (args.enable_progress) {
+                analyzer.set_progress_callback([&progress_tracker](std::uint32_t processed, std::uint32_t total, const std::string& current_file) {
+                    // ファイルサイズは後で実装（とりあえず0）
+                    progress_tracker.update_file_analysis(current_file, 0, true);
+                });
+            }
             
             auto result = analyzer.analyze_directory(path);
             
@@ -563,6 +824,273 @@ int execute_session_command(const std::string& session_id, const std::string& co
         error_json["error"] = {
             {"code", 500},
             {"message", std::string("Command execution failed: ") + e.what()},
+            {"type", "exception"}
+        };
+        std::cout << error_json.dump(2) << std::endl;
+        return 1;
+    }
+}
+
+//=============================================================================
+// 🚀 create_session_async実装 - Claude Code最適化
+//=============================================================================
+
+int create_session_async(const std::string& target_path, const CommandLineArgs& args) {
+    try {
+        std::filesystem::path path(target_path);
+        
+        // セッションID生成
+        std::string session_id = generate_session_id();
+        
+        // 事前チェック（--check-onlyの場合は同期実行）
+        if (std::filesystem::is_directory(path)) {
+            auto scan_result = quick_project_scan(path, args);
+            
+            if (args.check_only) {
+                std::cerr << "🎯 Analysis complete. Use session-create-async without --check-only to proceed." << std::endl;
+                return 0;
+            }
+            
+            if (!scan_result.proceed) {
+                return 1;
+            }
+        }
+        
+        // 初期状態ファイル作成
+        update_session_state(session_id, "STARTING", target_path);
+        
+        std::cerr << "🚀 Starting async session: " << session_id << std::endl;
+        
+        // プロセス分離
+        pid_t pid = fork();
+        
+        if (pid == -1) {
+            // fork失敗
+            update_session_state(session_id, "ERROR");
+            nlohmann::json error_json;
+            error_json["error"] = {
+                {"code", 500},
+                {"message", "Failed to create background process"},
+                {"type", "fork_error"}
+            };
+            std::cout << error_json.dump(2) << std::endl;
+            return 1;
+        }
+        else if (pid == 0) {
+            //=================================================================
+            // 子プロセス: 実際の解析実行
+            //=================================================================
+            
+            // 状態更新
+            update_session_state(session_id, "RUNNING", target_path, getpid());
+            
+            // 通常のセッション作成と同じ処理
+            AnalysisConfig config;
+            config.analyze_complexity = true;
+            config.analyze_dependencies = true;
+            config.analyze_function_calls = true;
+            config.enable_parallel_processing = args.enable_parallel;
+            
+            // ストレージモード設定
+            if (args.ssd_mode) {
+                config.storage_mode = StorageMode::SSD;
+            } else if (args.hdd_mode) {
+                config.storage_mode = StorageMode::HDD;
+            } else {
+                config.storage_mode = StorageMode::AUTO;
+            }
+            
+            if (args.thread_count > 0) {
+                config.max_threads = args.thread_count;
+                config.storage_mode = StorageMode::MANUAL;
+            }
+            
+            config.calculate_optimal_threads();
+            
+            NekoCodeCore analyzer(config);
+            SessionManager session_manager;
+            
+            try {
+                if (std::filesystem::is_regular_file(path)) {
+                    auto result = analyzer.analyze_file_multilang(path);
+                    
+                    if (result.is_error()) {
+                        update_session_state(session_id, "ERROR");
+                        exit(1);
+                    }
+                    
+                    AnalysisResult analysis_result;
+                    auto multilang_result = result.value();
+                    
+                    if (multilang_result.csharp_result) {
+                        analysis_result = multilang_result.csharp_result.value();
+                    } else if (multilang_result.js_result) {
+                        analysis_result = multilang_result.js_result.value();
+                    } else if (multilang_result.cpp_result) {
+                        analysis_result.file_info = multilang_result.cpp_result->file_info;
+                        analysis_result.complexity = multilang_result.cpp_result->complexity;
+                        analysis_result.language = Language::CPP;
+                    } else {
+                        analysis_result.file_info = multilang_result.file_info;
+                        analysis_result.language = multilang_result.detected_language;
+                    }
+                    
+                    session_manager.create_session(path, analysis_result);
+                    
+                } else if (std::filesystem::is_directory(path)) {
+                    // プログレストラッカー設定（バックグラウンド用）
+                    SessionProgressTracker progress_tracker(session_id, args.enable_progress);
+                    
+                    size_t file_count = 0;
+                    for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
+                        if (entry.is_regular_file()) {
+                            file_count++;
+                        }
+                    }
+                    
+                    progress_tracker.start_directory_analysis(path, file_count);
+                    
+                    if (args.enable_progress) {
+                        analyzer.set_progress_callback([&progress_tracker](std::uint32_t processed, std::uint32_t total, const std::string& current_file) {
+                            progress_tracker.update_file_analysis(current_file, 0, true);
+                        });
+                    }
+                    
+                    auto result = analyzer.analyze_directory(path);
+                    
+                    progress_tracker.complete_analysis();
+                    
+                    if (result.is_error()) {
+                        update_session_state(session_id, "ERROR");
+                        exit(1);
+                    }
+                    
+                    session_manager.create_session(path, result.value());
+                    
+                } else {
+                    update_session_state(session_id, "ERROR");
+                    exit(1);
+                }
+                
+                // 成功
+                update_session_state(session_id, "COMPLETED");
+                exit(0);
+                
+            } catch (const std::exception& e) {
+                update_session_state(session_id, "ERROR");
+                exit(1);
+            }
+        }
+        else {
+            //=================================================================
+            // 親プロセス: 即座にレスポンス返す
+            //=================================================================
+            
+            // 状態更新
+            update_session_state(session_id, "RUNNING", target_path, pid);
+            
+            // JSON レスポンス
+            nlohmann::json result_json;
+            result_json["session_id"] = session_id;
+            result_json["status"] = "started";
+            result_json["mode"] = "async";
+            result_json["pid"] = pid;
+            result_json["progress_file"] = "sessions/" + session_id + "_progress.txt";
+            result_json["state_file"] = "sessions/" + session_id + "_state.json";
+            result_json["message"] = "✅ Background analysis started. Use session-status to check progress.";
+            
+            std::cout << result_json.dump(2) << std::endl;
+            
+            return 0;
+        }
+        
+    } catch (const std::exception& e) {
+        nlohmann::json error_json;
+        error_json["error"] = {
+            {"code", 500},
+            {"message", std::string("Async session creation failed: ") + e.what()},
+            {"type", "exception"}
+        };
+        std::cout << error_json.dump(2) << std::endl;
+        return 1;
+    }
+}
+
+//=============================================================================
+// 📊 check_session_status実装
+//=============================================================================
+
+int check_session_status(const std::string& session_id) {
+    try {
+        std::string state_file = "sessions/" + session_id + "_state.json";
+        std::string progress_file = "sessions/" + session_id + "_progress.txt";
+        
+        nlohmann::json status_json;
+        status_json["session_id"] = session_id;
+        
+        // 状態ファイル読み取り
+        if (std::filesystem::exists(state_file)) {
+            std::ifstream file(state_file);
+            if (file.is_open()) {
+                nlohmann::json state;
+                file >> state;
+                status_json["status"] = state["status"];
+                status_json["target_path"] = state["target_path"];
+                status_json["last_update"] = state["last_update"];
+                if (state.contains("pid")) {
+                    status_json["pid"] = state["pid"];
+                }
+            }
+        } else {
+            status_json["status"] = "NOT_FOUND";
+            status_json["error"] = "Session not found";
+            std::cout << status_json.dump(2) << std::endl;
+            return 1;
+        }
+        
+        // 進捗ファイル読み取り（最後の数行）
+        if (std::filesystem::exists(progress_file)) {
+            std::ifstream file(progress_file);
+            if (file.is_open()) {
+                std::string line;
+                std::string last_line;
+                while (std::getline(file, line)) {
+                    if (!line.empty()) {
+                        last_line = line;
+                    }
+                }
+                
+                if (!last_line.empty()) {
+                    status_json["last_progress"] = last_line;
+                    
+                    // 進捗パーセント抽出（簡易版）
+                    if (last_line.find("COMPLETE") != std::string::npos) {
+                        status_json["progress_percent"] = 100;
+                    } else if (last_line.find("PROCESSING") != std::string::npos) {
+                        // "2847/20732 (13.7%)" のような形式から抽出
+                        size_t paren_pos = last_line.find('(');
+                        size_t percent_pos = last_line.find('%');
+                        if (paren_pos != std::string::npos && percent_pos != std::string::npos) {
+                            std::string percent_str = last_line.substr(paren_pos + 1, percent_pos - paren_pos - 1);
+                            try {
+                                status_json["progress_percent"] = std::stod(percent_str);
+                            } catch (...) {
+                                status_json["progress_percent"] = 0;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        std::cout << status_json.dump(2) << std::endl;
+        return 0;
+        
+    } catch (const std::exception& e) {
+        nlohmann::json error_json;
+        error_json["error"] = {
+            {"code", 500},
+            {"message", std::string("Status check failed: ") + e.what()},
             {"type", "exception"}
         };
         std::cout << error_json.dump(2) << std::endl;

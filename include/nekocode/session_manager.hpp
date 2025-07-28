@@ -74,6 +74,9 @@ public:
     bool session_exists(const std::string& session_id) const;
     std::vector<std::string> list_sessions() const;
     
+    // プロジェクトファイル取得（find用）
+    std::vector<FileInfo> getProjectFiles(const std::string& session_id);
+    
 private:
     std::filesystem::path sessions_dir_;
     
@@ -89,6 +92,10 @@ private:
     nlohmann::json cmd_structure(const SessionData& session) const;
     nlohmann::json cmd_calls(const SessionData& session) const;
     nlohmann::json cmd_find(const SessionData& session, const std::string& term) const;
+    nlohmann::json cmd_find_symbols(const SessionData& session, 
+                                    const std::string& symbol,
+                                    const std::vector<std::string>& options,
+                                    bool debug = false) const;
     nlohmann::json cmd_help() const;
     
     // Include解析コマンド

@@ -4,10 +4,14 @@
 
 #include "nekocode/session_manager.hpp"
 #include "nekocode/include_analyzer.hpp"
+#include "nekocode/symbol_finder.hpp"
 #include <fstream>
 #include <sstream>
 #include <iomanip>
 #include <ctime>
+#include <limits>
+#include <iostream>
+#include <algorithm>
 
 namespace nekocode {
 
@@ -240,8 +244,103 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
         } else if (command == "calls") {
             result = cmd_calls(session);
         } else if (command.substr(0, 5) == "find ") {
-            std::string term = command.substr(5);
-            result = cmd_find(session, term);
+            // find コマンドのパース
+            std::string args = command.substr(5);
+            
+            // 事前にdebugフラグをチェック（早期判定）
+            bool early_debug = args.find("--debug") != std::string::npos;
+            
+            if (early_debug) {
+                std::cerr << "[DEBUG] find command received: " << command << std::endl;
+                std::cerr << "[DEBUG] args after 'find ': " << args << std::endl;
+            }
+            
+            std::vector<std::string> tokens;
+            std::string current_token;
+            bool in_quotes = false;
+            
+            // 簡易的なトークン分割
+            for (char c : args) {
+                if (c == '"') {
+                    in_quotes = !in_quotes;
+                } else if (c == ' ' && !in_quotes) {
+                    if (!current_token.empty()) {
+                        tokens.push_back(current_token);
+                        current_token.clear();
+                    }
+                } else {
+                    current_token += c;
+                }
+            }
+            if (!current_token.empty()) {
+                tokens.push_back(current_token);
+            }
+            
+            if (early_debug) {
+                std::cerr << "[DEBUG] tokens parsed: " << tokens.size() << " tokens" << std::endl;
+                for (size_t i = 0; i < tokens.size(); ++i) {
+                    std::cerr << "[DEBUG]   token[" << i << "]: '" << tokens[i] << "'" << std::endl;
+                }
+            }
+            
+            if (tokens.empty()) {
+                result = {{"error", "find: シンボル名を指定してください"}};
+            } else {
+                std::string symbol = tokens[0];
+                std::vector<std::string> options(tokens.begin() + 1, tokens.end());
+                
+                if (early_debug) {
+                    std::cerr << "[DEBUG] symbol: '" << symbol << "'" << std::endl;
+                    std::cerr << "[DEBUG] options: " << options.size() << " options" << std::endl;
+                    for (const auto& opt : options) {
+                        std::cerr << "[DEBUG]   option: '" << opt << "'" << std::endl;
+                    }
+                }
+                
+                // debugフラグをチェック
+                bool debug_mode = false;
+                for (const auto& opt : options) {
+                    if (opt == "--debug") {
+                        debug_mode = true;
+                        break;
+                    }
+                }
+                
+                // オプションをチェックして、シンボル検索か通常検索か判定
+                bool is_symbol_search = false;
+                for (const auto& opt : options) {
+                    if (opt == "-f" || opt == "-v" || opt == "-a" || 
+                        opt == "--function" || opt == "--variable" || opt == "--all") {
+                        is_symbol_search = true;
+                        if (debug_mode) {
+                            std::cerr << "[DEBUG] Symbol search triggered by option: " << opt << std::endl;
+                        }
+                        break;
+                    }
+                }
+                
+                // パスが指定されている場合もシンボル検索とする
+                for (const auto& opt : options) {
+                    if (!opt.empty() && opt[0] != '-') {
+                        is_symbol_search = true;
+                        if (debug_mode) {
+                            std::cerr << "[DEBUG] Symbol search triggered by path: " << opt << std::endl;
+                        }
+                        break;
+                    }
+                }
+                
+                if (debug_mode) {
+                    std::cerr << "[DEBUG] is_symbol_search: " << is_symbol_search << std::endl;
+                    std::cerr << "[DEBUG] tokens.size(): " << tokens.size() << std::endl;
+                    std::cerr << "[DEBUG] Condition check: is_symbol_search=" << is_symbol_search 
+                             << " OR tokens.size()>1=" << (tokens.size() > 1) << std::endl;
+                    
+                    // 常にシンボル検索を使用（ファイル名検索は古い機能）
+                    std::cerr << "[DEBUG] Always using symbol search" << std::endl;
+                }
+                result = cmd_find_symbols(session, symbol, options, debug_mode);
+            }
         } else if (command == "include-graph") {
             result = cmd_include_graph(session);
         } else if (command == "include-cycles") {
@@ -508,7 +607,11 @@ nlohmann::json SessionManager::cmd_help() const {
             {"complexity", "Show complexity analysis"},
             {"structure", "Show code structure (classes/functions)"},
             {"calls", "Show function call analysis"},
-            {"find <term>", "Search for term in filenames"},
+            {"find <symbol>", "Search for symbol usage (functions/variables)"},
+            {"find <symbol> -f", "Search for function usage only"},
+            {"find <symbol> -v", "Search for variable usage only"},
+            {"find <symbol> -o FILE", "Save results to file"},
+            {"find <symbol> PATH", "Search in specific path"},
             {"include-graph", "Show include dependency graph"},
             {"include-cycles", "Detect circular dependencies"},
             {"include-impact", "Analyze file change impact"},
@@ -747,6 +850,209 @@ Timestamp string_to_timestamp(const std::string& str) {
     std::istringstream ss(str);
     ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S");
     return std::chrono::system_clock::from_time_t(std::mktime(&tm));
+}
+
+nlohmann::json SessionManager::cmd_find_symbols(const SessionData& session, 
+                                                const std::string& symbol,
+                                                const std::vector<std::string>& options,
+                                                bool debug) const {
+    if (debug) {
+        std::cerr << "[DEBUG cmd_find_symbols] Starting symbol search for: " << symbol << std::endl;
+        std::cerr << "[DEBUG cmd_find_symbols] Options count: " << options.size() << std::endl;
+    }
+    
+    try {
+        // シンボル検索オプション構築
+        SymbolFinder::FindOptions find_options;
+        find_options.display_limit = 50;  // Claude Code向けデフォルト
+        
+        // オプション解析
+        for (size_t i = 0; i < options.size(); ++i) {
+            const auto& opt = options[i];
+            
+            if (opt == "-f" || opt == "--function") {
+                find_options.type = SymbolFinder::SymbolType::FUNCTION;
+            }
+            else if (opt == "-v" || opt == "--variable") {
+                find_options.type = SymbolFinder::SymbolType::VARIABLE;
+            }
+            else if ((opt == "-o" || opt == "--output") && i + 1 < options.size()) {
+                find_options.output_file = options[++i];
+            }
+            else if (opt.find("--limit=") == 0) {
+                find_options.display_limit = std::stoul(opt.substr(8));
+            }
+            else if (opt == "--limit" && i + 1 < options.size()) {
+                find_options.display_limit = std::stoul(options[++i]);
+            }
+            else if (opt == "--debug") {
+                find_options.debug = true;
+            }
+            else if (!opt.empty() && opt[0] != '-') {
+                // 数字のみの引数は除外（オプションの値の可能性）
+                bool is_only_digits = std::all_of(opt.begin(), opt.end(), ::isdigit);
+                if (!is_only_digits) {
+                    find_options.search_paths.push_back(opt);
+                }
+            }
+        }
+        
+        // SymbolFinder作成・実行
+        SymbolFinder finder;
+        
+        // セッションからファイル情報を設定
+        std::vector<FileInfo> files;
+        if (session.is_directory) {
+            if (debug) {
+                std::cerr << "[DEBUG cmd_find_symbols] Directory mode, files count: " 
+                         << session.directory_result.files.size() << std::endl;
+                std::cerr << "[DEBUG cmd_find_symbols] Session target path: " << session.target_path << std::endl;
+            }
+            
+            for (const auto& file : session.directory_result.files) {
+                FileInfo file_with_full_path = file.file_info;
+                
+                // ファイル名のみの場合、セッションのtarget_pathを使って構築
+                std::string path_str = file.file_info.path.string();
+                if (!file.file_info.path.is_absolute() && 
+                    path_str.find('/') == std::string::npos && 
+                    path_str.find('\\') == std::string::npos) {
+                    file_with_full_path.path = session.target_path / file.file_info.path;
+                    if (debug) {
+                        std::cerr << "[DEBUG cmd_find_symbols] Converted filename to path: " 
+                                 << file.file_info.path << " -> " << file_with_full_path.path << std::endl;
+                    }
+                } else {
+                    if (debug) {
+                        std::cerr << "[DEBUG cmd_find_symbols] Using existing path: " << file.file_info.path << std::endl;
+                    }
+                }
+                
+                files.push_back(file_with_full_path);
+                if (debug) {
+                    std::cerr << "[DEBUG cmd_find_symbols] Added file: " << file_with_full_path.path << std::endl;
+                }
+            }
+        } else {
+            if (debug) {
+                std::cerr << "[DEBUG cmd_find_symbols] Single file mode: " 
+                         << session.single_file_result.file_info.path << std::endl;
+            }
+            files.push_back(session.single_file_result.file_info);
+        }
+        
+        if (debug) {
+            std::cerr << "[DEBUG cmd_find_symbols] Total files to search: " << files.size() << std::endl;
+        }
+        finder.setFiles(files);
+        
+        // 検索実行
+        if (debug) {
+            std::cerr << "[DEBUG cmd_find_symbols] Starting find operation..." << std::endl;
+        }
+        auto results = finder.find(symbol, find_options);
+        if (debug) {
+            std::cerr << "[DEBUG cmd_find_symbols] Find operation completed. Total matches: " 
+                     << results.total_count << std::endl;
+        }
+        
+        // JSON結果構築
+        nlohmann::json result_json;
+        result_json["command"] = "find";
+        result_json["symbol"] = symbol;
+        result_json["total_matches"] = results.total_count;
+        
+        // 統計情報
+        if (results.function_count > 0 || results.variable_count > 0) {
+            result_json["statistics"] = {
+                {"functions", results.function_count},
+                {"variables", results.variable_count}
+            };
+        }
+        
+        // 結果リスト（制限付き）
+        nlohmann::json matches = nlohmann::json::array();
+        size_t display_count = std::min(results.total_count, find_options.display_limit);
+        
+        for (size_t i = 0; i < display_count && i < results.locations.size(); ++i) {
+            const auto& loc = results.locations[i];
+            matches.push_back({
+                {"file", loc.file_path},
+                {"line", loc.line_number},
+                {"content", loc.line_content},
+                {"type", loc.symbol_type == SymbolFinder::SymbolType::FUNCTION ? "function" : "variable"},
+                {"use_type", 
+                    loc.use_type == SymbolFinder::UseType::DECLARATION ? "declaration" :
+                    loc.use_type == SymbolFinder::UseType::ASSIGNMENT ? "assignment" :
+                    loc.use_type == SymbolFinder::UseType::CALL ? "call" : "reference"
+                }
+            });
+        }
+        
+        result_json["matches"] = matches;
+        
+        // 省略情報
+        if (display_count < results.total_count) {
+            size_t omitted = results.total_count - display_count;
+            std::string filename = find_options.output_file.empty() ? 
+                                  "find_results_" + symbol + ".txt" : find_options.output_file;
+            
+            result_json["omitted"] = {
+                {"count", omitted},
+                {"saved_to", filename},
+                {"message", "残り" + std::to_string(omitted) + "件はファイルに保存されました"}
+            };
+            
+            // ファイル出力実行（SymbolFinderは内部で処理）
+            if (find_options.output_file.empty()) {
+                // 自動生成ファイル名で再実行
+                SymbolFinder::FindOptions auto_save_options = find_options;
+                auto_save_options.output_file = filename;
+                auto_save_options.display_limit = std::numeric_limits<size_t>::max();  // 全件出力
+                finder.find(symbol, auto_save_options);
+            }
+        }
+        
+        // サマリー
+        if (results.isEmpty()) {
+            result_json["summary"] = "'" + symbol + "' は見つかりませんでした";
+        } else {
+            result_json["summary"] = "Found " + std::to_string(results.total_count) + " matches for '" + symbol + "'";
+        }
+        
+        return result_json;
+        
+    } catch (const std::exception& e) {
+        return {
+            {"command", "find"},
+            {"error", std::string("Symbol search failed: ") + e.what()},
+            {"symbol", symbol}
+        };
+    }
+}
+
+std::vector<FileInfo> SessionManager::getProjectFiles(const std::string& session_id) {
+    try {
+        if (!session_exists(session_id)) {
+            return {};
+        }
+        
+        SessionData session = load_session(session_id);
+        std::vector<FileInfo> files;
+        
+        if (session.is_directory) {
+            for (const auto& file : session.directory_result.files) {
+                files.push_back(file.file_info);
+            }
+        } else {
+            files.push_back(session.single_file_result.file_info);
+        }
+        
+        return files;
+        
+    } catch (const std::exception&) {
+        return {};
+    }
 }
 
 } // namespace nekocode

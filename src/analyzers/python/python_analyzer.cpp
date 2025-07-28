@@ -20,7 +20,7 @@ namespace nekocode {
 
 PythonAnalyzer::PythonAnalyzer() {
     // 🐍 Python analyzer (std::regex完全除去版)
-    std::cout << "🐍 PythonAnalyzer (String-based) initialized" << std::endl;
+    std::cerr << "🐍 PythonAnalyzer (String-based) initialized" << std::endl;
 }
 
 Language PythonAnalyzer::get_language() const {
@@ -36,7 +36,7 @@ std::vector<std::string> PythonAnalyzer::get_supported_extensions() const {
 }
 
 AnalysisResult PythonAnalyzer::analyze(const std::string& content, const std::string& filename) {
-    std::cout << "🐍 PythonAnalyzer analyzing: " << filename << std::endl;
+    std::cerr << "🐍 PythonAnalyzer analyzing: " << filename << std::endl;
     
     AnalysisResult result;
     
@@ -55,14 +55,14 @@ AnalysisResult PythonAnalyzer::analyze(const std::string& content, const std::st
     
     // 🎯 ハイブリッド戦略: 統計整合性チェック
     if (needs_python_line_based_fallback(result, content)) {
-        std::cout << "🔧 Python line-based fallback triggered" << std::endl;
+        std::cerr << "🔧 Python line-based fallback triggered" << std::endl;
         apply_python_line_based_analysis(result, content);
     }
     
     // 統計更新
     result.update_statistics();
     
-    std::cout << "✅ Python analysis completed. Classes: " << result.classes.size() 
+    std::cerr << "✅ Python analysis completed. Classes: " << result.classes.size() 
               << ", Functions: " << result.functions.size() << std::endl;
     
     return result;

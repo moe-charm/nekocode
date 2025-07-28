@@ -73,18 +73,29 @@ private:
             else if ((arg == "-o" || arg == "--output") && i + 1 < args.size()) {
                 options.output_file = args[++i];
             }
-            // --limit: 表示上限
+            // --limit: 表示上限（= 記法と スペース記法の両方対応）
             else if (arg.find("--limit=") == 0) {
                 options.display_limit = std::stoul(arg.substr(8));
+            }
+            else if (arg == "--limit" && i + 1 < args.size()) {
+                options.display_limit = std::stoul(args[++i]);
             }
             // --context: コンテキスト表示
             else if (arg == "--context" && i + 1 < args.size()) {
                 options.show_context = true;
                 options.context_lines = std::stoul(args[++i]);
             }
-            // パス指定（オプションでないもの）
-            else if (arg.empty() || arg[0] != '-') {
-                options.search_paths.push_back(arg);
+            // --debug: デバッグ出力有効化
+            else if (arg == "--debug") {
+                options.debug = true;
+            }
+            // パス指定（オプションでないもの、ただし数字のみは除外）
+            else if (!arg.empty() && arg[0] != '-') {
+                // 数字のみの引数は除外（--limitやオプションの値の可能性）
+                bool is_only_digits = !arg.empty() && std::all_of(arg.begin(), arg.end(), ::isdigit);
+                if (!is_only_digits) {
+                    options.search_paths.push_back(arg);
+                }
             }
         }
         
@@ -92,18 +103,20 @@ private:
     }
     
     void showUsage() {
-        std::cout << "\n使用法: find <シンボル名> [オプション] [パス...]\n\n";
-        std::cout << "オプション:\n";
-        std::cout << "  -f, --function    関数のみを検索\n";
-        std::cout << "  -v, --variable    変数のみを検索\n";
-        std::cout << "  -o, --output FILE 結果をファイルに出力\n";
-        std::cout << "  --limit N         表示上限を設定（デフォルト: 50）\n";
-        std::cout << "  --context N       前後N行を表示\n\n";
-        std::cout << "例:\n";
-        std::cout << "  find handleClick              # handleClick を検索\n";
-        std::cout << "  find data -v                  # data 変数のみ検索\n";
-        std::cout << "  find processData src/         # src/ 内で検索\n";
-        std::cout << "  find test -o results.txt      # 結果をファイルに出力\n\n";
+        std::cerr << "\n使用法: find <シンボル名> [オプション] [パス...]\n\n";
+        std::cerr << "オプション:\n";
+        std::cerr << "  -f, --function    関数のみを検索\n";
+        std::cerr << "  -v, --variable    変数のみを検索\n";
+        std::cerr << "  -o, --output FILE 結果をファイルに出力\n";
+        std::cerr << "  --limit N         表示上限を設定（デフォルト: 50）\n";
+        std::cerr << "  --context N       前後N行を表示\n";
+        std::cerr << "  --debug           詳細なデバッグ情報を表示\n\n";
+        std::cerr << "例:\n";
+        std::cerr << "  find handleClick              # handleClick を検索\n";
+        std::cerr << "  find data -v                  # data 変数のみ検索\n";
+        std::cerr << "  find processData src/         # src/ 内で検索\n";
+        std::cerr << "  find test -o results.txt      # 結果をファイルに出力\n";
+        std::cerr << "  find class --debug            # デバッグ情報付きで検索\n\n";
     }
 };
 

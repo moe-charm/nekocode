@@ -322,6 +322,18 @@ struct DirectoryAnalysis {
 };
 
 //=============================================================================
+// 💾 Storage Mode - ストレージ最適化モード
+//=============================================================================
+
+/// ストレージタイプ別最適化モード
+enum class StorageMode {
+    AUTO,     ///< 自動検出 (CPU コア数)
+    SSD,      ///< SSD最適化 (CPU コア数、並列I/O重視)
+    HDD,      ///< HDD最適化 (1スレッド、シーケンシャル重視)
+    MANUAL    ///< 手動指定 (ユーザー指定値)
+};
+
+//=============================================================================
 // ⚙️ Configuration - 設定情報
 //=============================================================================
 
@@ -347,16 +359,37 @@ struct AnalysisConfig {
     // パフォーマンス設定
     bool enable_parallel_processing = true;
     std::uint32_t max_threads = 0; // 0 = auto detect
+    StorageMode storage_mode = StorageMode::AUTO; // ストレージ最適化モード
     
     // 出力設定
     bool verbose_output = false;
     bool include_line_numbers = true;
     
     AnalysisConfig() {
-        // 自動スレッド数検出
-        if (max_threads == 0) {
-            max_threads = std::thread::hardware_concurrency();
-            if (max_threads == 0) max_threads = 4; // fallback
+        // ストレージモード別スレッド数計算
+        calculate_optimal_threads();
+    }
+    
+    void calculate_optimal_threads() {
+        if (max_threads != 0) return; // 手動設定済みならスキップ
+        
+        std::uint32_t cores = std::thread::hardware_concurrency();
+        if (cores == 0) cores = 4; // fallback
+        
+        switch (storage_mode) {
+            case StorageMode::SSD:
+                max_threads = cores; // CPU全力だが他のアプリを圧迫しない
+                break;
+            case StorageMode::HDD:
+                max_threads = 1; // シーケンシャル重視、安全第一
+                break;
+            case StorageMode::MANUAL:
+                // 手動指定の場合は何もしない（既に設定済み）
+                break;
+            case StorageMode::AUTO:
+            default:
+                max_threads = cores; // 標準的な設定
+                break;
         }
     }
 };

@@ -70,13 +70,34 @@ make -j$(nproc)
 
 ## Advanced Features
 
+### ⚡ Performance Optimization (NEW!)
+
+NekoCode now includes intelligent storage optimization for lightning-fast analysis:
+
+```bash
+# 🔥 SSD Mode - Maximum parallel performance
+./nekocode_ai analyze large-project/ --ssd --performance
+# Uses all CPU cores, perfect for NVMe/SSD storage
+
+# 🛡️ HDD Mode - Safe sequential processing  
+./nekocode_ai analyze large-project/ --hdd --performance
+# Single thread, prevents HDD thrashing
+
+# 📊 Progress Display - Monitor large projects
+./nekocode_ai session-create large-project/ --progress
+# Real-time progress: "🚀 Starting analysis: 38,021 files"
+# Creates progress file: sessions/SESSION_ID_progress.txt
+```
+
+**Claude Code Pro Tip**: For projects with 30,000+ files, always use `--progress` to monitor completion!
+
 ### Interactive Sessions
 
 The most powerful feature of NekoCode!
 
 ```bash
-# 1. Create a session
-./nekocode_ai session-create /path/to/your/project
+# 1. Create a session with progress monitoring
+./nekocode_ai session-create /path/to/your/project --progress
 # Output: Session created! Session ID: ai_session_20250727_180532
 
 # 2. Run various analyses using session ID
@@ -195,19 +216,57 @@ ls sessions/
 
 **Q: Out of memory**
 ```bash
-# Limit thread count
+# Use HDD mode (single thread)
+./nekocode_ai analyze large-project/ --hdd
+
+# Manual thread limit
 ./nekocode_ai --threads 2 large-project/
 
 # Stats only mode
 ./nekocode_ai --stats-only large-project/
 ```
 
+**Q: Analysis taking too long**
+```bash
+# For SSD/NVMe storage - use parallel mode
+./nekocode_ai analyze project/ --ssd --progress
+
+# Monitor progress in real-time
+tail -f sessions/SESSION_ID_progress.txt
+
+# Check what's happening
+./nekocode_ai analyze project/ --performance
+```
+
+**Q: HDD getting hammered**
+```bash
+# Safe HDD mode (single thread, sequential)
+./nekocode_ai analyze project/ --hdd --progress
+
+# This prevents disk thrashing on mechanical drives
+```
+
 ## 💡 Pro Tips
 
-1. **Complexity First**: Always start with `complexity` command to identify problem files
-2. **Use Sessions**: For repeated analysis, always use sessions (180x faster!)
-3. **Parallel Build**: Use `make -j$(nproc)` to utilize all cores
-4. **JSON Output**: Use `--compact` option for integration with other tools
+1. **Storage-Aware Analysis**: 
+   - Use `--ssd` for SSD/NVMe drives (4-16x faster!)
+   - Use `--hdd` for mechanical drives (safe & stable)
+   - Always add `--progress` for projects with 1000+ files
+
+2. **Complexity First**: Always start with `complexity` command to identify problem files
+
+3. **Use Sessions**: For repeated analysis, always use sessions (180x faster!)
+
+4. **Large Project Strategy**:
+   ```bash
+   # Perfect workflow for 30K+ files
+   ./nekocode_ai session-create huge-project/ --ssd --progress
+   tail -f sessions/ai_session_*/progress.txt  # Monitor progress
+   ```
+
+5. **Parallel Build**: Use `make -j$(nproc)` to utilize all cores
+
+6. **JSON Output**: Use `--compact` option for integration with other tools
 
 ---
 
