@@ -160,6 +160,7 @@ struct ImportInfo {
     std::vector<std::string> imported_names;
     std::string alias;
     LineNumber line_number = 0;
+    std::unordered_map<std::string, std::string> metadata;  // 🧩 C言語include等の拡張情報
     
     ImportInfo() = default;
     ImportInfo(ImportType t, const std::string& path) : type(t), module_path(path) {}
