@@ -132,10 +132,10 @@ set(NEKOCODE_SOURCES
     # 言語別アナライザー（新構造）
     ${SRC_DIR}/analyzers/analyzer_factory.cpp
     ${SRC_DIR}/analyzers/python/python_analyzer.cpp
-    ${SRC_DIR}/analyzers/javascript/javascript_analyzer.cpp
+    # ${SRC_DIR}/analyzers/javascript/javascript_analyzer.cpp # regex版は削除済み
     ${SRC_DIR}/analyzers/cpp/cpp_language_analyzer.cpp
     ${SRC_DIR}/analyzers/cpp/cpp_analyzer.cpp
-    ${SRC_DIR}/analyzers/csharp/csharp_analyzer.cpp
+    # ${SRC_DIR}/analyzers/csharp/csharp_analyzer.cpp # regex版は削除済み
     ${SRC_DIR}/analyzers/csharp/csharp_pegtl_analyzer.cpp
     ${SRC_DIR}/analyzers/unity/unity_analyzer.cpp
 )
@@ -155,9 +155,9 @@ set(NEKOCODE_HEADERS
     # 言語別アナライザーヘッダー
     ${INCLUDE_DIR}/nekocode/analyzers/base_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/python_analyzer.hpp
-    ${INCLUDE_DIR}/nekocode/analyzers/javascript_analyzer.hpp
+    # ${INCLUDE_DIR}/nekocode/analyzers/javascript_analyzer.hpp # regex版は削除済み
     ${INCLUDE_DIR}/nekocode/analyzers/cpp_language_analyzer.hpp
-    ${INCLUDE_DIR}/nekocode/analyzers/csharp_analyzer.hpp
+    # ${INCLUDE_DIR}/nekocode/analyzers/csharp_analyzer.hpp # regex版は削除済み
     ${INCLUDE_DIR}/nekocode/analyzers/unity_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/unity_patterns.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/unity_components.hpp
