@@ -42,8 +42,8 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer(Language language
             return std::make_unique<CLanguageAnalyzer>();
             
         case Language::PYTHON:
-            // PEGTL版を使用（インデント地獄攻略）
-            return std::make_unique<PythonPEGTLAnalyzer>();
+            // TODO: PEGTL版実装予定（現在は基本版を使用）
+            return std::make_unique<PythonAnalyzer>();
             
         case Language::CSHARP:
             // PEGTL版を使用（std::regex版から移行）
@@ -85,8 +85,8 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
     
     // Python
     if (ext == ".py" || ext == ".pyw" || ext == ".pyi") {
-        // PEGTL版を使用（インデント地獄攻略）
-        return std::make_unique<PythonPEGTLAnalyzer>();
+        // TODO: PEGTL版実装予定（現在は基本版を使用）
+        return std::make_unique<PythonAnalyzer>();
     }
     
     // C#
