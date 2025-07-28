@@ -96,7 +96,7 @@ FetchContent_MakeAvailable(pegtl)
 message(STATUS "🌳 Tree-sitter placeholder integration (migrating to PEGTL)")
 
 # プレースホルダー用Tree-sitterライブラリ（暫定維持）
-add_library(tree-sitter-core STATIC ${SRC_DIR}/tree_sitter_placeholder.c)
+add_library(tree-sitter-core STATIC ${SRC_DIR}/legacy/tree_sitter_placeholder.c)
 target_include_directories(tree-sitter-core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
@@ -111,24 +111,33 @@ find_package(Threads REQUIRED)
 # 🧠 NekoCode Core Library
 #=============================================================================
 
-# コアライブラリソース
+# 🎯 コアライブラリソース（新構造対応）
 set(NEKOCODE_SOURCES
-    ${SRC_DIR}/core.cpp
-    ${SRC_DIR}/tree_sitter_analyzer.cpp
-    ${SRC_DIR}/pegtl_analyzer.cpp
-    ${SRC_DIR}/formatters.cpp
-    ${SRC_DIR}/utf8_utils.cpp
-    ${SRC_DIR}/language_detection.cpp
-    ${SRC_DIR}/cpp_analyzer.cpp
-    ${SRC_DIR}/session_manager.cpp
-    ${SRC_DIR}/include_analyzer.cpp
-    # 言語別アナライザー
+    # Core機能
+    ${SRC_DIR}/core/core.cpp
+    ${SRC_DIR}/core/language_detection.cpp
+    ${SRC_DIR}/core/session_manager.cpp
+    
+    # フォーマッター
+    ${SRC_DIR}/formatters/formatters.cpp
+    
+    # ユーティリティ
+    ${SRC_DIR}/utils/utf8_utils.cpp
+    ${SRC_DIR}/utils/include_analyzer.cpp
+    
+    # レガシー（必要に応じて削除予定）
+    ${SRC_DIR}/legacy/tree_sitter_analyzer.cpp
+    ${SRC_DIR}/legacy/pegtl_analyzer.cpp
+    
+    # 言語別アナライザー（新構造）
     ${SRC_DIR}/analyzers/analyzer_factory.cpp
-    ${SRC_DIR}/analyzers/python_analyzer.cpp
-    ${SRC_DIR}/analyzers/javascript_analyzer.cpp
-    ${SRC_DIR}/analyzers/cpp_language_analyzer.cpp
-    ${SRC_DIR}/analyzers/csharp_analyzer.cpp
-    ${SRC_DIR}/analyzers/csharp_pegtl_analyzer.cpp
+    ${SRC_DIR}/analyzers/python/python_analyzer.cpp
+    ${SRC_DIR}/analyzers/javascript/javascript_analyzer.cpp
+    ${SRC_DIR}/analyzers/cpp/cpp_language_analyzer.cpp
+    ${SRC_DIR}/analyzers/cpp/cpp_analyzer.cpp
+    ${SRC_DIR}/analyzers/csharp/csharp_analyzer.cpp
+    ${SRC_DIR}/analyzers/csharp/csharp_pegtl_analyzer.cpp
+    # ${SRC_DIR}/analyzers/unity/unity_analyzer.cpp  # 一時的に無効化
 )
 
 # ヘッダーファイル
@@ -149,6 +158,9 @@ set(NEKOCODE_HEADERS
     ${INCLUDE_DIR}/nekocode/analyzers/javascript_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/cpp_language_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/csharp_analyzer.hpp
+    # ${INCLUDE_DIR}/nekocode/analyzers/unity_analyzer.hpp        # 一時的に無効化
+    # ${INCLUDE_DIR}/nekocode/analyzers/unity_patterns.hpp       # 一時的に無効化  
+    # ${INCLUDE_DIR}/nekocode/analyzers/unity_components.hpp     # 一時的に無効化
 )
 
 # 静的ライブラリ作成
@@ -173,7 +185,7 @@ target_compile_features(nekocode_static PUBLIC cxx_std_17)
 # 🤖 AI Tool - Claude Code最適化実行ファイル
 #=============================================================================
 
-add_executable(nekocode_ai ${SRC_DIR}/main_ai.cpp)
+add_executable(nekocode_ai ${SRC_DIR}/main/main_ai.cpp)
 target_link_libraries(nekocode_ai nekocode_static)
 
 # AI用特別最適化
@@ -186,7 +198,7 @@ target_compile_definitions(nekocode_ai PRIVATE
 # 👨‍💻 Human Tool - 美しい出力実行ファイル
 #=============================================================================
 
-add_executable(nekocode_human ${SRC_DIR}/main_human.cpp)
+add_executable(nekocode_human ${SRC_DIR}/main/main_human.cpp)
 target_link_libraries(nekocode_human nekocode_static)
 
 # Human用見た目重視
