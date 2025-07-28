@@ -26,8 +26,8 @@
 #include <string>
 #include <memory>
 
-// 🚫 std::regexの使用を防ぐマクロ定義
-#ifdef NEKOCODE_PREVENT_REGEX
+// 🚫 std::regexの使用を防ぐマクロ定義（基盤処理core.cppは例外）
+#if defined(NEKOCODE_PREVENT_REGEX) && !defined(NEKOCODE_FOUNDATION_CORE_CPP)
     #define regex COMPILE_ERROR_DO_NOT_USE_REGEX_USE_PEGTL_INSTEAD
     #define sregex_iterator COMPILE_ERROR_NO_REGEX_ALLOWED
     #define regex_match BANNED_USE_PEGTL_PARSE_INSTEAD

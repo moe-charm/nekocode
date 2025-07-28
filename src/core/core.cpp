@@ -1,3 +1,4 @@
+#define NEKOCODE_FOUNDATION_CORE_CPP  // 基盤処理としてregex使用許可
 #include "nekocode/core.hpp"
 #include "nekocode/formatters.hpp"
 #include "nekocode/utf8_utils.hpp"
@@ -5,7 +6,7 @@
 #include "nekocode/cpp_analyzer.hpp"
 #include "nekocode/tree_sitter_analyzer.hpp"
 #include "nekocode/pegtl_analyzer.hpp"
-#include "nekocode/analyzers/csharp_analyzer.hpp"
+// #include "nekocode/analyzers/csharp_analyzer.hpp" // regex版は削除済み
 #include "nekocode/analyzers/base_analyzer.hpp"
 #include <fstream>
 #include <sstream>
