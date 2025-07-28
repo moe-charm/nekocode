@@ -223,6 +223,9 @@ struct AnalysisResult {
     // 複雑度
     ComplexityInfo complexity;
     
+    // 拡張メタデータ（Unity等の特殊情報）
+    std::unordered_map<std::string, std::string> metadata;
+    
     // 統計（Python版互換）
     struct Statistics {
         std::uint32_t class_count = 0;
