@@ -13,6 +13,7 @@
 #include "nekocode/core.hpp"
 #include "nekocode/formatters.hpp"
 #include "nekocode/session_manager.hpp"
+#include "nekocode/progress_tracker.hpp"
 #include <iostream>
 #include <filesystem>
 #include <chrono>
@@ -34,6 +35,7 @@ struct CommandLineArgs {
     uint32_t thread_count = 0;
     bool show_performance = false;
     bool list_languages = false;           // サポート言語一覧
+    bool enable_progress = false;           // プログレス表示
     
     static CommandLineArgs parse(int argc, char* argv[]) {
         CommandLineArgs args;
@@ -61,6 +63,8 @@ struct CommandLineArgs {
                 }
             } else if (arg == "--list-languages") {
                 args.list_languages = true;
+            } else if (arg == "--progress") {
+                args.enable_progress = true;
             } else if (args.target_path.empty()) {
                 args.target_path = arg;
             }
@@ -105,6 +109,7 @@ OPTIONS:
     --format <type>     出力フォーマット (json|compact|stats)
     --lang <language>   言語指定 (auto|js|ts|cpp|c|python|csharp)
     --list-languages    サポート言語一覧表示
+    --progress          進捗表示有効化（30,000ファイル対応）
 
 SUPPORTED LANGUAGES:
     🟨 JavaScript       (.js, .mjs, .jsx)
@@ -177,7 +182,7 @@ void show_performance_report(const PerformanceMetrics& metrics) {
 
 // 対話式コマンド処理関数
 int analyze_target(const std::string& target_path, const CommandLineArgs& args = CommandLineArgs());
-int create_session(const std::string& target_path);
+int create_session(const std::string& target_path, const CommandLineArgs& args = CommandLineArgs{});
 int execute_session_command(const std::string& session_id, const std::string& command);
 
 int main(int argc, char* argv[]) {
@@ -211,7 +216,8 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Error: Missing target path for session-create" << std::endl;
                 return 1;
             }
-            return create_session(argv[2]);
+            CommandLineArgs args = CommandLineArgs::parse(argc - 2, argv + 2);
+            return create_session(argv[2], args);
         }
         else if (action == "session-cmd") {
             if (argc < 4) {
@@ -415,7 +421,7 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
 // 🎮 create_session実装
 //=============================================================================
 
-int create_session(const std::string& target_path) {
+int create_session(const std::string& target_path, const CommandLineArgs& args) {
     try {
         // 設定作成
         AnalysisConfig config;
@@ -469,7 +475,28 @@ int create_session(const std::string& target_path) {
             session_id = session_manager.create_session(path, analysis_result);
             
         } else if (std::filesystem::is_directory(path)) {
+            // プログレス表示準備（session_id事前生成）
+            auto now = std::chrono::system_clock::now();
+            auto time_t = std::chrono::system_clock::to_time_t(now);
+            auto tm = *std::localtime(&time_t);
+            std::ostringstream oss;
+            oss << "ai_session_" << std::put_time(&tm, "%Y%m%d_%H%M%S");
+            std::string temp_session_id = oss.str();
+            SessionProgressTracker progress_tracker(temp_session_id, args.enable_progress);
+            
+            // ディレクトリ内ファイル数カウント
+            size_t file_count = 0;
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
+                if (entry.is_regular_file()) {
+                    file_count++;
+                }
+            }
+            
+            progress_tracker.start_directory_analysis(path, file_count);
+            
             auto result = analyzer.analyze_directory(path);
+            
+            progress_tracker.complete_analysis();
             
             if (result.is_error()) {
                 nlohmann::json error_json;
