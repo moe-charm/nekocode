@@ -8,8 +8,10 @@
 //=============================================================================
 
 #include "base_analyzer.hpp"
-#include <regex>
 #include <vector>
+#include <sstream>
+
+// 🚫 std::regex は使用禁止！代わりに文字列ベース検索を使用
 
 namespace nekocode {
 
@@ -33,45 +35,37 @@ public:
     
 private:
     //=========================================================================
-    // 🔧 内部実装
+    // 🔧 内部実装（std::regex完全除去版）
     //=========================================================================
     
-    /// 正規表現パターン初期化
-    void initialize_patterns();
-    
-    /// クラス抽出
+    /// Python クラス検出（文字列ベース）
     void extract_classes(const std::string& content, AnalysisResult& result);
     
-    /// 関数抽出（トップレベル）
+    /// Python 関数検出（文字列ベース）
     void extract_functions(const std::string& content, AnalysisResult& result);
     
-    /// メソッド抽出（クラス内）
-    void extract_methods(const std::string& class_content, ClassInfo& class_info, uint32_t base_line);
-    
-    /// import文抽出
+    /// Python import文検出（文字列ベース）
     void extract_imports(const std::string& content, AnalysisResult& result);
     
-    /// パラメータ抽出
-    void extract_parameters(const std::string& params_str, std::vector<std::string>& parameters);
-    
-    /// クラス終端位置検出
-    size_t find_class_end(const std::string& content, size_t class_start);
+    /// パラメータ抽出（文字列ベース）
+    std::vector<std::string> extract_parameters(const std::string& params_str);
     
     /// Python特化複雑度計算
     ComplexityInfo calculate_python_complexity(const std::string& content);
     
-    /// ネスト深度計算（インデントベース）
-    void calculate_nesting_depth(const std::string& content, ComplexityInfo& complexity);
+    /// インデント深度計算
+    int calculate_indentation_depth(const std::string& line);
     
-    //=========================================================================
-    // 📊 メンバ変数
-    //=========================================================================
+    /// Python キーワード検出
+    bool is_python_function_line(const std::string& line);
+    bool is_python_class_line(const std::string& line);
+    bool is_python_import_line(const std::string& line);
     
-    std::regex class_pattern_;
-    std::regex function_pattern_;
-    std::regex method_pattern_;
-    std::vector<std::regex> import_patterns_;
-    std::regex decorator_pattern_;
+    /// 🎯 ハイブリッド戦略: 統計整合性チェック
+    bool needs_python_line_based_fallback(const AnalysisResult& result, const std::string& content);
+    
+    /// 🔧 文字列ベース フォールバック解析
+    void apply_python_line_based_analysis(AnalysisResult& result, const std::string& content);
 };
 
 } // namespace nekocode

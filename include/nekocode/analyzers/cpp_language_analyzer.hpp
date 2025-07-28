@@ -69,19 +69,64 @@ public:
     
 private:
     //=========================================================================
-    // 🔧 内部実装
+    // 🔧 内部実装（std::regex完全除去版・構造化）
     //=========================================================================
     
-    void initialize_patterns();
+    /// C言語 関数検出（文字列ベース・構造化）
     void extract_functions(const std::string& content, AnalysisResult& result);
+    
+    /// C言語 構造体検出（文字列ベース・構造化）
     void extract_structs(const std::string& content, AnalysisResult& result);
+    
+    /// C言語 include検出（文字列ベース・構造化）
     void extract_includes(const std::string& content, AnalysisResult& result);
     
-    // C言語用パターン
-    std::regex function_pattern_;
-    std::regex struct_pattern_;
-    std::regex include_pattern_;
-    std::regex typedef_pattern_;
+    /// C言語 キーワード検出
+    bool is_c_function_line(const std::string& line);
+    bool is_c_struct_line(const std::string& line);
+    bool is_c_include_line(const std::string& line);
+    
+    //=========================================================================
+    // 🎯 構造化されたC言語解析ヘルパー（C++成功パターン参考）
+    //=========================================================================
+    
+    /// 関数宣言解析
+    FunctionInfo parse_c_function_declaration(const std::string& line, uint32_t line_number);
+    std::string extract_function_name_from_line(const std::string& line, size_t paren_pos);
+    std::vector<std::string> extract_c_function_parameters(const std::string& line, size_t paren_start);
+    void enhance_c_function_info(FunctionInfo& func_info, const std::string& line);
+    std::string extract_parameter_name(const std::string& param);
+    
+    /// 構造体宣言解析
+    ClassInfo parse_c_struct_declaration(const std::string& line, uint32_t line_number);
+    std::string extract_struct_name(const std::string& line, size_t name_start, size_t brace_pos);
+    std::string generate_anonymous_struct_name(uint32_t line_number);
+    void enhance_c_struct_info(ClassInfo& struct_info, const std::string& line);
+    
+    /// include指示解析
+    ImportInfo parse_c_include_directive(const std::string& line, uint32_t line_number);
+    std::pair<std::string, bool> extract_header_info(const std::string& line, size_t include_pos);
+    void enhance_c_include_info(ImportInfo& include_info, const std::string& line, bool is_system_header);
+    
+    /// 複雑度計算（C言語特化版）
+    ComplexityInfo calculate_c_complexity(const std::string& content);
+    uint32_t calculate_c_nesting_depth(const std::string& content);
+    void calculate_c_specific_complexity(ComplexityInfo& complexity, const std::string& content);
+    
+    /// ファイル情報計算
+    void calculate_line_info(const std::string& content, FileInfo& file_info);
+    
+    /// ユーティリティ関数
+    bool is_function_already_detected(const std::vector<FunctionInfo>& functions, const std::string& name);
+    bool is_struct_already_detected(const std::vector<ClassInfo>& classes, const std::string& name);
+    bool is_include_already_detected(const std::vector<ImportInfo>& imports, const std::string& module_path);
+    bool is_c_keyword(const std::string& word);
+    
+    /// 🎯 ハイブリッド戦略: 統計整合性チェック
+    bool needs_c_line_based_fallback(const AnalysisResult& result, const std::string& content);
+    
+    /// 🔧 文字列ベース フォールバック解析
+    void apply_c_line_based_analysis(AnalysisResult& result, const std::string& content);
 };
 
 } // namespace nekocode
