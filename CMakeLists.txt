@@ -124,6 +124,13 @@ set(NEKOCODE_SOURCES
     # ユーティリティ
     ${SRC_DIR}/utils/utf8_utils.cpp
     ${SRC_DIR}/utils/include_analyzer.cpp
+    ${SRC_DIR}/utils/progress_tracker.cpp
+    
+    # ファインダー機能
+    ${SRC_DIR}/finders/symbol_finder.cpp
+    
+    # コマンド
+    ${SRC_DIR}/commands/find_command.cpp
     
     # レガシー（必要に応じて削除予定）
     ${SRC_DIR}/legacy/tree_sitter_analyzer.cpp
@@ -152,6 +159,8 @@ set(NEKOCODE_HEADERS
     ${INCLUDE_DIR}/nekocode/cpp_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/session_manager.hpp
     ${INCLUDE_DIR}/nekocode/include_analyzer.hpp
+    ${INCLUDE_DIR}/nekocode/symbol_finder.hpp
+    ${INCLUDE_DIR}/nekocode/progress_tracker.hpp
     # 言語別アナライザーヘッダー
     ${INCLUDE_DIR}/nekocode/analyzers/base_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/python_analyzer.hpp
