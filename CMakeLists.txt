@@ -137,7 +137,7 @@ set(NEKOCODE_SOURCES
     ${SRC_DIR}/analyzers/cpp/cpp_analyzer.cpp
     ${SRC_DIR}/analyzers/csharp/csharp_analyzer.cpp
     ${SRC_DIR}/analyzers/csharp/csharp_pegtl_analyzer.cpp
-    # ${SRC_DIR}/analyzers/unity/unity_analyzer.cpp  # 一時的に無効化
+    ${SRC_DIR}/analyzers/unity/unity_analyzer.cpp
 )
 
 # ヘッダーファイル
@@ -158,9 +158,9 @@ set(NEKOCODE_HEADERS
     ${INCLUDE_DIR}/nekocode/analyzers/javascript_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/cpp_language_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/csharp_analyzer.hpp
-    # ${INCLUDE_DIR}/nekocode/analyzers/unity_analyzer.hpp        # 一時的に無効化
-    # ${INCLUDE_DIR}/nekocode/analyzers/unity_patterns.hpp       # 一時的に無効化  
-    # ${INCLUDE_DIR}/nekocode/analyzers/unity_components.hpp     # 一時的に無効化
+    ${INCLUDE_DIR}/nekocode/analyzers/unity_analyzer.hpp
+    ${INCLUDE_DIR}/nekocode/analyzers/unity_patterns.hpp
+    ${INCLUDE_DIR}/nekocode/analyzers/unity_components.hpp
 )
 
 # 静的ライブラリ作成

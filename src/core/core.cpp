@@ -290,14 +290,24 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
             }
             
             case Language::CSHARP: {
-                // C#解析（PEGTL版を使用）
-                auto analyzer = AnalyzerFactory::create_analyzer(Language::CSHARP);
+                // 🎮 Unity content detection + C# 解析
+                // Unity analyzer を優先的に試行
+                auto analyzer = AnalyzerFactory::create_unity_analyzer_from_file(filename, content);
+                
                 if (analyzer) {
                     auto csharp_result = analyzer->analyze(content, filename);
                     result.csharp_result = csharp_result;
                     result.file_info = csharp_result.file_info;
+                    
+                    // Unity analyzer が使用されたかをログ出力
+                    if (content.find("using UnityEngine") != std::string::npos || 
+                        content.find(": MonoBehaviour") != std::string::npos) {
+                        std::cerr << "🎮 Unity analyzer used for: " << filename << std::endl;
+                    } else {
+                        std::cerr << "⚙️ C# PEGTL analyzer used for: " << filename << std::endl;
+                    }
                 } else {
-                    std::cerr << "ERROR: Failed to create CSHARP analyzer" << std::endl;
+                    std::cerr << "ERROR: Failed to create C#/Unity analyzer for: " << filename << std::endl;
                 }
                 break;
             }

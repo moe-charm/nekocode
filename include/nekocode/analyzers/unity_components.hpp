@@ -150,15 +150,8 @@ private:
     
     // Unity 属性の検出
     void detect_unity_attributes(AnalysisResult& result, const std::string& content) {
-        // Unity 属性の文字列ベース検出
-        std::vector<std::string> unity_attributes = {
-            "[SerializeField]", "[Header]", "[Range]", "[Tooltip]", "[Space]",
-            "[TextArea]", "[Multiline]", "[RequireComponent]", "[ExecuteInEditMode]",
-            "[ExecuteAlways]", "[AddComponentMenu]", "[ContextMenu]", "[MenuItem]",
-            "[CustomEditor]", "[CanEditMultipleObjects]", "[CreateAssetMenu]"
-        };
-        
-        for (const auto& attr : unity_attributes) {
+        // Unity 属性の文字列ベース検出（unity_patterns.hpp の定数を使用）
+        for (const auto& attr : UNITY_ATTRIBUTES) {
             size_t pos = 0;
             int count = 0;
             while ((pos = content.find(attr, pos)) != std::string::npos) {
@@ -250,41 +243,24 @@ private:
         std::string line;
         int line_number = 1;
         
+        // unity_patterns.hpp の定数を使用
         while (std::getline(stream, line)) {
-            // Update系メソッド内での new 検出
-            if ((line.find("Update") != std::string::npos || 
-                 line.find("FixedUpdate") != std::string::npos ||
-                 line.find("LateUpdate") != std::string::npos) &&
-                line.find("new ") != std::string::npos) {
-                issues.push_back({
-                    line_number,
-                    "update_allocation",
-                    "Update系メソッド内でのメモリアロケーション検出",
-                    "Start() でオブジェクトをキャッシュすることを推奨"
-                });
+            for (const auto& pattern : PERFORMANCE_PATTERNS) {
+                if (line.find(pattern.search_pattern) != std::string::npos) {
+                    // Update系メソッド内かチェック（必要に応じて）
+                    bool in_update_method = (line.find("Update") != std::string::npos || 
+                                           line.find("FixedUpdate") != std::string::npos ||
+                                           line.find("LateUpdate") != std::string::npos);
+                    
+                    // 全体的なパフォーマンス問題として検出
+                    issues.push_back({
+                        line_number,
+                        pattern.name,
+                        pattern.warning_message,
+                        pattern.suggestion
+                    });
+                }
             }
-            
-            // GameObject.Find の使用検出
-            if (line.find("GameObject.Find") != std::string::npos ||
-                line.find("transform.Find") != std::string::npos) {
-                issues.push_back({
-                    line_number,
-                    "update_find",
-                    "Find 使用検出",
-                    "Start() で参照をキャッシュすることを推奨"
-                });
-            }
-            
-            // GetComponent の使用検出
-            if (line.find("GetComponent") != std::string::npos) {
-                issues.push_back({
-                    line_number,
-                    "update_getcomponent",
-                    "GetComponent 使用検出",
-                    "Start() でコンポーネントをキャッシュすることを推奨"
-                });
-            }
-            
             line_number++;
         }
     }

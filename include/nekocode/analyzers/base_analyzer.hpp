@@ -161,6 +161,23 @@ public:
     
     /// ファイル拡張子からアナライザーを生成
     static std::unique_ptr<BaseAnalyzer> create_analyzer_from_extension(const std::string& extension);
+    
+    //=========================================================================
+    // 🎮 Unity 特化ファクトリー関数
+    //=========================================================================
+    
+    /// Unity analyzer を直接生成
+    static std::unique_ptr<BaseAnalyzer> create_unity_analyzer();
+    
+    /// ファイル内容からUnity analyzer を自動選択生成
+    static std::unique_ptr<BaseAnalyzer> create_unity_analyzer_from_file(
+        const std::string& filename, 
+        const std::string& content_preview
+    );
+    
+private:
+    /// ファイル拡張子を取得
+    static std::string get_extension(const std::string& filename);
 };
 
 } // namespace nekocode

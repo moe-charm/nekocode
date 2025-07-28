@@ -1,0 +1,79 @@
+# nyamesh_v21 大掃除計画
+作成日: 2025-01-24
+問題発見者: にゃーとClaude Code
+
+## 🚨 発見された重大バグ
+
+### 1. send()が自分のメッセージキューに入れる問題
+
+**現状の間違った実装**:
+```cpp
+void NyaMesh::send(...) {
+    // なぜか自分のキューに入れる！
+    messageQueue_.push(message);
+}
+
+void NyaMesh::processMessage(...) {
+    // 無条件でpublishLocal()を呼ぶ
+    publishLocal(message);  // 自分のハンドラーが呼ばれる！
+}
+```
+
+**正しい実装（JavaScript版参考）**:
+```javascript
+async send(action, payload, to = null) {
+    // トランスポート層に送るだけ
+    await this.#transport.send(compressed);
+}
+
+_handleIncomingMessage(message) {
+    // 自分が送信したメッセージは無視（保険）
+    if (message.from === this.id) {
+        return;
+    }
+}
+```
+
+## 📝 修正すべきファイル
+
+1. `/mnt/c/git/moe-charm/CharmCode_Editor/src/nyamesh_v21/core/nyamesh.cpp`
+   - send()メソッドの修正
+   - processMessage()メソッドの修正
+
+2. `/mnt/c/git/moe-charm/CharmCode_Editor/src/nyamesh_v21/core/nyamesh.h`
+   - 必要に応じてインターフェース修正
+
+## 🎯 修正方針
+
+### 方針1: 最小限の修正
+- send()でmessageQueue_に入れない
+- トランスポートにのみ送信
+- 自分宛のメッセージだけキューに入れる
+
+### 方針2: JavaScript版に合わせる
+- send()はトランスポートのみ
+- 受信はトランスポート経由のみ
+- publishLocal()は外部からのメッセージのみ
+
+## ⚠️ 注意事項
+
+- これは2回目の同じ間違い
+- JavaScript版は安定している
+- C++版のみに存在するバグ
+- テストケースも要修正
+
+## 🔍 確認すべき他の問題
+
+1. ブロードキャスト時の挙動
+2. トランスポート層との整合性
+3. 他の無限ループの可能性
+
+## 💡 Geminiからの提案（2025-01-24）
+
+**修正方針2が最適**: JavaScript版に完全に合わせる
+1. send()からmessageQueue_.push()を完全削除
+2. publishToTransport()を直接呼び出し
+3. processMessage()は受信専用に限定
+4. トランスポート層の責任を明確化
+
+**重要**: C++版は根本的に間違った設計。JavaScript版の安定した実装に合わせるべき。

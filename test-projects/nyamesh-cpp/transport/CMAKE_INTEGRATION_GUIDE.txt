@@ -1,0 +1,223 @@
+# nyamesh2 Transport Layer CMake Integration Guide
+# CMakeLists.txt統合用リファレンス
+# Created: 2025-01-22
+
+===========================================
+🔧 CMake Integration Reference
+===========================================
+
+このファイルは nyamesh2 トランスポート層を CMakeLists.txt に統合する際の
+完全なリファレンスです。
+
+===========================================
+📦 Required Source Files
+===========================================
+
+MINIMUM (InProcess only):
+```cmake
+set(NYAMESH2_TRANSPORT_MINIMAL
+    src/nyamesh2/transport/InProcessTransport.cpp
+)
+```
+
+RECOMMENDED (with P2P Adapter):
+```cmake
+set(NYAMESH2_TRANSPORT_FULL
+    src/nyamesh2/transport/InProcessTransport.cpp
+    src/nyamesh2/transport/NyaMesh2TransportAdapter.cpp
+    src/nyamesh2/transport/P2PTransportAdapter.cpp
+)
+```
+
+COMPLETE (all transports):
+```cmake
+set(NYAMESH2_TRANSPORT_ALL
+    src/nyamesh2/transport/InProcessTransport.cpp
+    src/nyamesh2/transport/NyaMesh2TransportAdapter.cpp
+    src/nyamesh2/transport/P2PTransportAdapter.cpp
+    src/nyamesh2/transport/P2PTransport.cpp
+    src/nyamesh2/transport/MillionPeerP2PTransport.cpp
+    src/nyamesh2/transport/NyaMeshTransport.cpp
+)
+```
+
+===========================================
+🎯 Recommended CMakeLists.txt Template
+===========================================
+
+```cmake
+cmake_minimum_required(VERSION 3.16)
+project(NyaMesh2App)
+
+# C++17 standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# nyamesh2コアライブラリ
+add_library(nyamesh2_core STATIC
+    # Core
+    src/nyamesh2/core/nyamesh.cpp
+    
+    # Transport Layer (FULL)
+    src/nyamesh2/transport/InProcessTransport.cpp
+    src/nyamesh2/transport/NyaMesh2TransportAdapter.cpp
+    src/nyamesh2/transport/P2PTransportAdapter.cpp
+    src/nyamesh2/transport/P2PTransport.cpp
+    
+    # Optional: Legacy transports
+    # src/nyamesh2/transport/MillionPeerP2PTransport.cpp
+    # src/nyamesh2/transport/NyaMeshTransport.cpp
+)
+
+target_include_directories(nyamesh2_core PUBLIC
+    src
+    src/nyamesh2
+)
+
+# スレッドサポート
+find_package(Threads REQUIRED)
+target_link_libraries(nyamesh2_core Threads::Threads)
+
+# Example application
+add_executable(MyApp
+    src/main.cpp
+)
+
+target_link_libraries(MyApp
+    nyamesh2_core
+    pthread
+)
+```
+
+===========================================
+⚠️ Dependency Notes
+===========================================
+
+REQUIRED:
+- C++17 compiler
+- pthread (Linux/WSL)
+- Threads::Threads (cross-platform)
+
+HEADERS INCLUDED:
+- nlohmann/json (embedded in nyamesh2)
+- All transport headers are self-contained
+
+NO EXTERNAL DEPENDENCIES:
+- No Boost required for basic transport
+- No Qt required for transport layer
+- No additional libraries needed
+
+===========================================
+🚨 Common CMake Issues and Solutions
+===========================================
+
+ISSUE: "undefined reference to transport functions"
+SOLUTION: Include all required .cpp files in add_library()
+
+ISSUE: "nlohmann/json not found"
+SOLUTION: Transport uses ../nlohmann_json.hpp (embedded)
+
+ISSUE: "threading errors"
+SOLUTION: Add find_package(Threads REQUIRED) and link pthread
+
+ISSUE: "P2PTransportAdapter undefined references"
+SOLUTION: Include P2PTransport.cpp and MillionPeerP2PTransport.cpp
+
+===========================================
+🎮 Build Test Strategy
+===========================================
+
+STEP 1: Test minimal build
+```cmake
+# Only InProcessTransport
+add_library(test_minimal
+    src/nyamesh2/core/nyamesh.cpp
+    src/nyamesh2/transport/InProcessTransport.cpp
+)
+```
+
+STEP 2: Test with adapters
+```cmake
+# Add NyaMesh2TransportAdapter
+add_library(test_adapters
+    src/nyamesh2/core/nyamesh.cpp
+    src/nyamesh2/transport/InProcessTransport.cpp
+    src/nyamesh2/transport/NyaMesh2TransportAdapter.cpp
+)
+```
+
+STEP 3: Test full system
+```cmake
+# Add P2PTransportAdapter (requires P2PTransport.cpp)
+add_library(test_full ${NYAMESH2_TRANSPORT_ALL})
+```
+
+===========================================
+📋 Quick Copy-Paste Templates
+===========================================
+
+FOR SIMPLE APPS:
+```cmake
+set(NYAMESH2_SOURCES
+    src/nyamesh2/core/nyamesh.cpp
+    src/nyamesh2/transport/InProcessTransport.cpp
+    src/nyamesh2/transport/NyaMesh2TransportAdapter.cpp
+)
+```
+
+FOR P2P APPS:
+```cmake
+set(NYAMESH2_SOURCES
+    src/nyamesh2/core/nyamesh.cpp
+    src/nyamesh2/transport/InProcessTransport.cpp
+    src/nyamesh2/transport/NyaMesh2TransportAdapter.cpp
+    src/nyamesh2/transport/P2PTransportAdapter.cpp
+    src/nyamesh2/transport/P2PTransport.cpp
+)
+```
+
+FOR PRODUCTION APPS:
+```cmake
+set(NYAMESH2_SOURCES
+    src/nyamesh2/core/nyamesh.cpp
+    src/nyamesh2/transport/InProcessTransport.cpp
+    src/nyamesh2/transport/NyaMesh2TransportAdapter.cpp
+    src/nyamesh2/transport/P2PTransportAdapter.cpp
+    src/nyamesh2/transport/P2PTransport.cpp
+    src/nyamesh2/transport/MillionPeerP2PTransport.cpp
+    src/nyamesh2/transport/NyaMeshTransport.cpp
+)
+```
+
+===========================================
+✅ Build Verification
+===========================================
+
+After adding sources, verify:
+
+1. 🔍 All .cpp files compile without errors
+2. 🔗 All symbols resolve during linking
+3. 🏃 Test executable runs without crashes
+4. 📊 Transport statistics are accessible
+
+Example verification code:
+```cpp
+#include "transport/P2PTransportAdapter.h"
+auto adapter = nyamesh2::transport::createP2PTransportAdapter();
+auto stats = adapter->getNetworkStats();
+std::cout << "Transport working: " << stats.dump() << std::endl;
+```
+
+===========================================
+🎉 Success Criteria
+===========================================
+
+✅ CMake configures without errors
+✅ All transport .cpp files compile
+✅ Linking succeeds with all symbols resolved
+✅ Test applications run successfully
+✅ Transport statistics are available
+
+If all criteria are met, transport layer integration is complete!
+
+===========================================

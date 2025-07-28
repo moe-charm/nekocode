@@ -2,11 +2,13 @@
 
 //=============================================================================
 // 🎮 Unity パターン定義 - Unity 特有の解析パターン集
+// 
+// 🚫 std::regex は使用禁止！文字列ベース検索のみ使用
 //=============================================================================
 
 #include <string>
 #include <vector>
-#include <regex>
+#include <map>
 
 namespace nekocode {
 namespace unity {
@@ -49,50 +51,36 @@ const std::vector<std::string> RENDER_EVENTS = {
 };
 
 //=============================================================================
-// 🏷️ Unity 属性パターン
+// 🏷️ Unity 属性パターン（文字列ベース検索）
 //=============================================================================
 
-// Unity 属性の正規表現パターン
-const std::regex UNITY_ATTRIBUTE_PATTERN(
-    R"(\[\s*(SerializeField|Header|Range|Tooltip|Space|TextArea|Multiline|RequireComponent|ExecuteInEditMode|ExecuteAlways|AddComponentMenu|ContextMenu|MenuItem|CustomEditor|CanEditMultipleObjects|CreateAssetMenu)\s*(?:\([^)]*\))?\s*\])"
-);
-
-// SerializeField 詳細パターン
-const std::regex SERIALIZE_FIELD_PATTERN(
-    R"(\[SerializeField\]\s*(?:private\s+)?(\S+)\s+(\w+))"
-);
-
-// Range 属性詳細パターン
-const std::regex RANGE_ATTRIBUTE_PATTERN(
-    R"(\[Range\s*\(\s*([^,]+)\s*,\s*([^)]+)\s*\)\s*\])"
-);
+// Unity 属性の文字列リスト
+const std::vector<std::string> UNITY_ATTRIBUTES = {
+    "[SerializeField]", "[Header]", "[Range]", "[Tooltip]", "[Space]",
+    "[TextArea]", "[Multiline]", "[RequireComponent]", "[ExecuteInEditMode]",
+    "[ExecuteAlways]", "[AddComponentMenu]", "[ContextMenu]", "[MenuItem]",
+    "[CustomEditor]", "[CanEditMultipleObjects]", "[CreateAssetMenu]"
+};
 
 //=============================================================================
-// 🎯 コルーチンパターン
+// 🎯 コルーチンパターン（文字列ベース）
 //=============================================================================
 
-// IEnumerator メソッド定義
-const std::regex COROUTINE_PATTERN(
-    R"((?:public|private|protected)?\s*IEnumerator\s+(\w+)\s*\([^)]*\))"
-);
-
-// yield return ステートメント
-const std::regex YIELD_PATTERN(
-    R"(yield\s+return\s+(?:null|new\s+WaitFor\w+\([^)]*\)|[^;]+);)"
-);
-
-// StartCoroutine 呼び出し
-const std::regex START_COROUTINE_PATTERN(
-    R"(StartCoroutine\s*\(\s*(?:\"(\w+)\"|(\w+)\s*\([^)]*\))\s*\))"
-);
+// コルーチン関連の文字列パターン
+const std::vector<std::string> COROUTINE_PATTERNS = {
+    "IEnumerator",      // コルーチンメソッドの戻り値型
+    "yield return",     // yield ステートメント
+    "StartCoroutine",   // コルーチン開始
+    "StopCoroutine"     // コルーチン停止
+};
 
 //=============================================================================
-// ⚠️ パフォーマンス警告パターン
+// ⚠️ パフォーマンス警告パターン（文字列ベース）
 //=============================================================================
 
 struct PerformancePattern {
     std::string name;
-    std::regex pattern;
+    std::string search_pattern;      // 検索する文字列
     std::string warning_message;
     std::string suggestion;
 };
@@ -100,48 +88,43 @@ struct PerformancePattern {
 const std::vector<PerformancePattern> PERFORMANCE_PATTERNS = {
     {
         "update_allocation",
-        std::regex(R"((?:Update|FixedUpdate|LateUpdate)\s*\([^)]*\)\s*\{[^}]*new\s+\w+)"),
+        "new ",
         "Update 内でのメモリアロケーション検出",
         "Start() でオブジェクトをキャッシュすることを推奨"
     },
     {
         "update_find",
-        std::regex(R"((?:Update|FixedUpdate|LateUpdate)\s*\([^)]*\)\s*\{[^}]*(?:GameObject\.Find|transform\.Find))"),
+        "GameObject.Find",
         "Update 内での Find 使用検出",
         "Start() で参照をキャッシュすることを推奨"
     },
     {
         "update_getcomponent",
-        std::regex(R"((?:Update|FixedUpdate|LateUpdate)\s*\([^)]*\)\s*\{[^}]*GetComponent)"),
+        "GetComponent",
         "Update 内での GetComponent 使用検出",
         "Start() でコンポーネントをキャッシュすることを推奨"
     },
     {
-        "string_concatenation_loop",
-        std::regex(R"(for\s*\([^)]*\)\s*\{[^}]*\+=\s*\"[^\"]*\")"),
-        "ループ内での文字列結合検出",
+        "string_concatenation",
+        "+= \"",
+        "文字列結合検出",
         "StringBuilder の使用を推奨"
     }
 };
 
 //=============================================================================
-// 🔍 Unity クラス判定
+// 🔍 Unity クラス判定（文字列ベース）
 //=============================================================================
 
-// MonoBehaviour 継承パターン
-const std::regex MONOBEHAVIOUR_CLASS_PATTERN(
-    R"(class\s+(\w+)\s*:\s*(?:\w+\s*,\s*)*MonoBehaviour)"
-);
-
-// ScriptableObject 継承パターン
-const std::regex SCRIPTABLEOBJECT_CLASS_PATTERN(
-    R"(class\s+(\w+)\s*:\s*(?:\w+\s*,\s*)*ScriptableObject)"
-);
-
-// Editor クラスパターン
-const std::regex EDITOR_CLASS_PATTERN(
-    R"(class\s+(\w+)\s*:\s*(?:\w+\s*,\s*)*(?:Editor|EditorWindow|PropertyDrawer))"
-);
+// Unity 基底クラスの文字列パターン
+const std::vector<std::string> UNITY_BASE_CLASSES = {
+    ": MonoBehaviour",
+    ": ScriptableObject", 
+    ": Editor",
+    ": EditorWindow",
+    ": PropertyDrawer",
+    ": NetworkBehaviour"  // Networking 対応
+};
 
 //=============================================================================
 // 📊 Unity 統計情報構造
