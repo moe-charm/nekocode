@@ -60,13 +60,15 @@ public:
         std::vector<std::string> search_paths; // 検索パス
         bool show_context;                    // 前後の行を表示
         size_t context_lines;                 // コンテキスト行数
+        bool debug;                          // デバッグ出力有効化
         
         // デフォルトコンストラクタ
         FindOptions() 
             : type(SymbolType::AUTO)
             , display_limit(50)
             , show_context(false)
-            , context_lines(2) {}
+            , context_lines(2)
+            , debug(false) {}
     };
     
     struct FindResults {

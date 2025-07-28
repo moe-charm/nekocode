@@ -86,11 +86,11 @@ AnalysisResult CppLanguageAnalyzer::convert_result(const CppAnalysisResult& cpp_
 
 CLanguageAnalyzer::CLanguageAnalyzer() {
     // 🔧 C言語 analyzer (std::regex完全除去版)
-    std::cout << "🔧 CLanguageAnalyzer (String-based) initialized" << std::endl;
+    std::cerr << "🔧 CLanguageAnalyzer (String-based) initialized" << std::endl;
 }
 
 AnalysisResult CLanguageAnalyzer::analyze(const std::string& content, const std::string& filename) {
-    std::cout << "🔧 CLanguageAnalyzer analyzing: " << filename << std::endl;
+    std::cerr << "🔧 CLanguageAnalyzer analyzing: " << filename << std::endl;
     
     AnalysisResult result;
     
@@ -112,14 +112,14 @@ AnalysisResult CLanguageAnalyzer::analyze(const std::string& content, const std:
     
     // 🎯 ハイブリッド戦略: 統計整合性チェック
     if (needs_c_line_based_fallback(result, content)) {
-        std::cout << "🔧 C line-based fallback triggered" << std::endl;
+        std::cerr << "🔧 C line-based fallback triggered" << std::endl;
         apply_c_line_based_analysis(result, content);
     }
     
     // 統計更新
     result.update_statistics();
     
-    std::cout << "✅ C analysis completed. Structs: " << result.classes.size() 
+    std::cerr << "✅ C analysis completed. Structs: " << result.classes.size() 
               << ", Functions: " << result.functions.size() << std::endl;
     
     return result;

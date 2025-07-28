@@ -70,13 +70,34 @@ make -j$(nproc)
 
 ## 高度な機能
 
+### ⚡ パフォーマンス最適化（新機能！）
+
+NekoCodeは超高速なストレージ最適化機能を搭載！
+
+```bash
+# 🔥 SSDモード - 並列処理で最高速
+./nekocode_ai analyze large-project/ --ssd --performance
+# CPUコア数フル活用、NVMe/SSDで威力発揮
+
+# 🛡️ HDDモード - 安全なシーケンシャル処理
+./nekocode_ai analyze large-project/ --hdd --performance  
+# 1スレッドでHDDに優しい処理
+
+# 📊 プログレス表示 - 大規模プロジェクト監視
+./nekocode_ai session-create large-project/ --progress
+# リアルタイム進捗: "🚀 Starting analysis: 38,021 files"
+# プログレスファイル: sessions/SESSION_ID_progress.txt
+```
+
+**Claude Code攻略法**: 30,000ファイル以上のプロジェクトでは必ず `--progress` で進捗監視！
+
 ### インタラクティブセッション
 
 最も強力な機能の1つです！
 
 ```bash
-# 1. セッションを作成
-./nekocode_ai session-create /path/to/your/project
+# 1. プログレス監視付きセッション作成
+./nekocode_ai session-create /path/to/your/project --progress
 # 出力例: Session created! Session ID: ai_session_20250727_180532
 
 # 2. セッションIDを使って様々な解析を実行

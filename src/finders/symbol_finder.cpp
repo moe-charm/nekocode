@@ -21,8 +21,10 @@ SymbolFinder::FindResults SymbolFinder::find(
     const std::string& symbol_name, 
     const FindOptions& options) {
     
-    std::cerr << "[DEBUG SymbolFinder::find] Starting search for: " << symbol_name << std::endl;
-    std::cerr << "[DEBUG SymbolFinder::find] Files count: " << files_.size() << std::endl;
+    if (options.debug) {
+        std::cerr << "[DEBUG SymbolFinder::find] Starting search for: " << symbol_name << std::endl;
+        std::cerr << "[DEBUG SymbolFinder::find] Files count: " << files_.size() << std::endl;
+    }
     
     return findInFiles(symbol_name, options);
 }
@@ -53,15 +55,35 @@ SymbolFinder::FindResults SymbolFinder::findInFiles(
         }
     }
     
-    std::cerr << "[DEBUG findInFiles] Target files count: " << target_files.size() << std::endl;
+    if (options.debug) {
+        std::cerr << "[DEBUG findInFiles] Target files count: " << target_files.size() << std::endl;
+    }
     
     // 各ファイルで検索
     for (const auto& file : target_files) {
         // ファイル内容を読み込む
-        std::cerr << "[DEBUG findInFiles] Processing file: " << file.path << std::endl;
+        if (options.debug) {
+            std::cerr << "[DEBUG findInFiles] Processing file: " << file.path << std::endl;
+            
+            // 詳細デバッグ: ファイル存在・パーミッション確認
+            std::cerr << "[DEBUG findInFiles] File path string: '" << file.path.string() << "'" << std::endl;
+            std::cerr << "[DEBUG findInFiles] File exists: " << std::filesystem::exists(file.path) << std::endl;
+            std::cerr << "[DEBUG findInFiles] Is regular file: " << std::filesystem::is_regular_file(file.path) << std::endl;
+            
+            if (std::filesystem::exists(file.path)) {
+                auto perms = std::filesystem::status(file.path).permissions();
+                std::cerr << "[DEBUG findInFiles] File permissions readable: " 
+                         << ((perms & std::filesystem::perms::owner_read) != std::filesystem::perms::none) << std::endl;
+            }
+        }
+        
         std::ifstream ifs(file.path);
         if (!ifs.is_open()) {
-            std::cerr << "[DEBUG findInFiles] Failed to open file: " << file.path << std::endl;
+            if (options.debug) {
+                std::cerr << "[DEBUG findInFiles] Failed to open file: " << file.path << std::endl;
+                std::cerr << "[DEBUG findInFiles] Current working directory: " << std::filesystem::current_path() << std::endl;
+                std::cerr << "[DEBUG findInFiles] Absolute path: " << std::filesystem::absolute(file.path) << std::endl;
+            }
             continue;  // ファイルが開けない場合はスキップ
         }
         
@@ -69,14 +91,18 @@ SymbolFinder::FindResults SymbolFinder::findInFiles(
                            std::istreambuf_iterator<char>());
         ifs.close();
         
-        std::cerr << "[DEBUG findInFiles] File content size: " << content.size() << " bytes" << std::endl;
-        if (content.size() > 0) {
-            std::cerr << "[DEBUG findInFiles] First 100 chars: " 
-                     << content.substr(0, std::min(content.size(), size_t(100))) << std::endl;
+        if (options.debug) {
+            std::cerr << "[DEBUG findInFiles] File content size: " << content.size() << " bytes" << std::endl;
+            if (content.size() > 0) {
+                std::cerr << "[DEBUG findInFiles] First 100 chars: " 
+                         << content.substr(0, std::min(content.size(), size_t(100))) << std::endl;
+            }
         }
         
         auto file_results = findInFile(file.path.string(), content, symbol, options);
-        std::cerr << "[DEBUG findInFiles] Found " << file_results.size() << " matches in this file" << std::endl;
+        if (options.debug) {
+            std::cerr << "[DEBUG findInFiles] Found " << file_results.size() << " matches in this file" << std::endl;
+        }
         
         for (const auto& loc : file_results) {
             results.addLocation(loc);
@@ -96,8 +122,10 @@ std::vector<SymbolFinder::SymbolLocation> SymbolFinder::findInFile(
     const std::string& symbol,
     const FindOptions& options) {
     
-    std::cerr << "[DEBUG findInFile] Searching for '" << symbol << "' in " << filename << std::endl;
-    std::cerr << "[DEBUG findInFile] Content size: " << content.size() << " bytes" << std::endl;
+    if (options.debug) {
+        std::cerr << "[DEBUG findInFile] Searching for '" << symbol << "' in " << filename << std::endl;
+        std::cerr << "[DEBUG findInFile] Content size: " << content.size() << " bytes" << std::endl;
+    }
     
     std::vector<SymbolLocation> locations;
     
@@ -114,7 +142,9 @@ std::vector<SymbolFinder::SymbolLocation> SymbolFinder::findInFile(
             continue;
         }
         
-        std::cerr << "[DEBUG findInFile] Line " << line_number << " contains symbol: " << line << std::endl;
+        if (options.debug) {
+            std::cerr << "[DEBUG findInFile] Line " << line_number << " contains symbol: " << line << std::endl;
+        }
         
         // シンボルの出現位置を全て検索
         size_t pos = 0;
@@ -295,7 +325,7 @@ void FindOutputManager::display(
     
     // 結果なし
     if (results.isEmpty()) {
-        std::cout << "\n❌ '" << symbol_name << "' は見つかりませんでした。\n\n";
+        std::cerr << "\n❌ '" << symbol_name << "' は見つかりませんでした。\n\n";
         return;
     }
     
@@ -327,12 +357,12 @@ void FindOutputManager::displayToTerminal(
     size_t display_count = std::min(results.total_count, options.display_limit);
     
     // ヘッダー
-    std::cout << "\n🔍 '" << symbol_name << "' の検索結果:\n\n";
+    std::cerr << "\n🔍 '" << symbol_name << "' の検索結果:\n\n";
     
     // 統計情報（結果が多い場合）
     if (results.total_count > 10) {
         if (results.function_count > 0 && results.variable_count > 0) {
-            std::cout << "📊 関数: " << results.function_count 
+            std::cerr << "📊 関数: " << results.function_count 
                      << "件, 変数: " << results.variable_count << "件\n\n";
         }
     }
@@ -342,10 +372,10 @@ void FindOutputManager::displayToTerminal(
         const auto& loc = results.locations[i];
         
         // ファイルパス:行番号
-        std::cout << loc.file_path << ":" << loc.line_number;
+        std::cerr << loc.file_path << ":" << loc.line_number;
         
         // 内容（インデントを整える）
-        std::cout << "  " << loc.line_content << "\n";
+        std::cerr << "  " << loc.line_content << "\n";
     }
     
     // 省略情報
@@ -354,7 +384,7 @@ void FindOutputManager::displayToTerminal(
                               generateFilename(symbol_name) : options.output_file;
         displayOmissionInfo(display_count, results.total_count, filename);
     } else {
-        std::cout << "\n✅ 全" << results.total_count << "件を表示しました。\n\n";
+        std::cerr << "\n✅ 全" << results.total_count << "件を表示しました。\n\n";
     }
 }
 
@@ -404,7 +434,7 @@ void FindOutputManager::saveToFile(
     
     file.close();
     
-    std::cout << "💾 結果をファイルに保存しました: " << filename << "\n";
+    std::cerr << "💾 結果をファイルに保存しました: " << filename << "\n";
 }
 
 void FindOutputManager::displayOmissionInfo(
@@ -412,12 +442,12 @@ void FindOutputManager::displayOmissionInfo(
     
     size_t omitted = total - displayed;
     
-    std::cout << "\n" << std::string(50, '-') << "\n";
-    std::cout << "📊 表示: " << displayed << "件 / 全" << total << "件";
-    std::cout << "（" << omitted << "件省略）\n";
-    std::cout << "📁 残り" << omitted << "件は以下のファイルに保存されました:\n";
-    std::cout << "   → " << filename << "\n";
-    std::cout << std::string(50, '-') << "\n\n";
+    std::cerr << "\n" << std::string(50, '-') << "\n";
+    std::cerr << "📊 表示: " << displayed << "件 / 全" << total << "件";
+    std::cerr << "（" << omitted << "件省略）\n";
+    std::cerr << "📁 残り" << omitted << "件は以下のファイルに保存されました:\n";
+    std::cerr << "   → " << filename << "\n";
+    std::cerr << std::string(50, '-') << "\n\n";
 }
 
 std::string FindOutputManager::generateFilename(const std::string& symbol_name) {

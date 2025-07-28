@@ -7,6 +7,8 @@
 
 [🇯🇵 日本語版](README_jp.md) | English
 
+> 📌 **Claude Code Users:** See [Claude Code Documentation](docs/claude-code/INDEX.md) for quick access to all Claude Code documentation!
+
 Revolutionary code analysis engine delivering **10-100x faster** performance than Python-based alternatives!
 
 ## 🤖 For AI Developers (Claude Code) - Zero Setup Required!
@@ -46,11 +48,13 @@ No manual setup, no configuration files, no learning curve!
 ## 🌟 Key Features
 
 - **🚀 Ultra-Fast Performance**: 10-100x faster than Python implementations
+- **⚡ Storage-Optimized Analysis**: `--ssd` (4-16x faster) and `--hdd` (safe) modes (**NEW!**)
+- **📊 Progress Monitoring**: Real-time progress for large projects (30K+ files) (**NEW!**)
 - **🌍 Multi-Language Support**: JavaScript, TypeScript, C++, C, Python, C# (PEGTL-powered)
 - **🎮 Interactive Mode**: Session management with instant results (180x speedup)
 - **🔍 Advanced C++ Analysis**: Complex dependency visualization, circular dependency detection
-- **🧬 Template & Macro Analysis**: C++ template specialization, variadic templates, macro expansion tracking (**NEW!**)
-- **🎯 ASCII Quality Check**: Simple and practical code quality checking (**NEW!**)
+- **🧬 Template & Macro Analysis**: C++ template specialization, variadic templates, macro expansion tracking
+- **🎯 ASCII Quality Check**: Simple and practical code quality checking
 - **📊 Comprehensive Statistics**: Classes, functions, complexity analysis
 - **🌳 Tree-sitter Integration**: Migration foundation from regex to AST analysis
 
@@ -76,6 +80,22 @@ make -j$(nproc)
 
 # Test installation
 ./nekocode_ai --help
+
+# ⚡ Quick performance test with new features
+./nekocode_ai analyze src/ --ssd --progress
+```
+
+### Performance-Optimized Usage (**NEW!**)
+
+```bash
+# 🔥 Maximum speed (SSD/NVMe)
+./nekocode_ai analyze large-project/ --ssd --progress
+
+# 🛡️ Safe mode (HDD/mechanical drives)
+./nekocode_ai analyze large-project/ --hdd --progress
+
+# 📊 Monitor large projects in real-time
+tail -f sessions/ai_session_*/progress.txt
 ```
 
 ## 📊 Unprecedented Performance - Battle-Tested Results

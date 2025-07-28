@@ -33,25 +33,25 @@ public:
     }
     
     AnalysisResult analyze(const std::string& content, const std::string& filename) override {
-        std::cout << "🎮 UnityAnalyzer (Composition) analyzing: " << filename << std::endl;
+        std::cerr << "🎮 UnityAnalyzer (Composition) analyzing: " << filename << std::endl;
         
         // 1. 基本的な C# 解析を実行
         auto result = CSharpPEGTLAnalyzer::analyze(content, filename);
         
         // 2. Unity 機能を順次適用（明確な処理順序）
-        std::cout << "  🎯 Applying Unity pattern detection..." << std::endl;
+        std::cerr << "  🎯 Applying Unity pattern detection..." << std::endl;
         unity_detector.enhance_analysis(result, content);
         
-        std::cout << "  ⚠️  Checking performance issues..." << std::endl;
+        std::cerr << "  ⚠️  Checking performance issues..." << std::endl;
         perf_detector.add_warnings(result, content);
         
-        std::cout << "  🔄 Classifying lifecycle methods..." << std::endl;
+        std::cerr << "  🔄 Classifying lifecycle methods..." << std::endl;
         lifecycle_classifier.classify_methods(result);
         
         // 3. Unity 解析完了の統計更新
         update_unity_analysis_metadata(result);
         
-        std::cout << "  ✅ Unity analysis completed!" << std::endl;
+        std::cerr << "  ✅ Unity analysis completed!" << std::endl;
         return result;
     }
     

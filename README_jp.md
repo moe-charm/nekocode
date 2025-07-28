@@ -7,6 +7,8 @@
 
 Pythonベースの代替ツールより**10-100倍高速**な革新的コード解析エンジン！
 
+> 📌 **Claude Codeユーザーの方へ:** [Claude Codeドキュメント](docs/claude-code/INDEX.md) でClaude Code関連ドキュメントに素早くアクセスできます！
+
 ## 🤖 AI開発者向け（Claude Code） - セットアップ不要！
 
 **NekoCodeの魔法のような使い方：**

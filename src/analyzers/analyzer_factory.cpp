@@ -110,7 +110,7 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
 //=============================================================================
 
 std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_unity_analyzer() {
-    std::cout << "🎮 Creating Unity Analyzer (Composition Design)" << std::endl;
+    std::cerr << "🎮 Creating Unity Analyzer (Composition Design)" << std::endl;
     return std::make_unique<UnityAnalyzer>();
 }
 
@@ -125,7 +125,7 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_unity_analyzer_from_file(
         if (content_preview.find("using UnityEngine") != std::string::npos ||
             content_preview.find(": MonoBehaviour") != std::string::npos ||
             content_preview.find(": ScriptableObject") != std::string::npos) {
-            std::cout << "🎮 Unity content detected! Using Unity Analyzer" << std::endl;
+            std::cerr << "🎮 Unity content detected! Using Unity Analyzer" << std::endl;
             return create_unity_analyzer();
         }
     }

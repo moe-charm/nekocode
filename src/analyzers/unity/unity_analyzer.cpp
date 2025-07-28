@@ -14,7 +14,7 @@ namespace nekocode {
 //=============================================================================
 
 std::unique_ptr<BaseAnalyzer> create_unity_analyzer() {
-    std::cout << "🎮 Creating Unity Analyzer (Composition Design)" << std::endl;
+    std::cerr << "🎮 Creating Unity Analyzer (Composition Design)" << std::endl;
     return std::make_unique<UnityAnalyzer>();
 }
 
