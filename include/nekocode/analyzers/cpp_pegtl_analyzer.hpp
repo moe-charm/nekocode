@@ -12,6 +12,10 @@
 #include <tao/pegtl.hpp>
 #include <vector>
 #include <string>
+#include <regex>
+#include <set>
+#include <sstream>
+#include <iostream>
 
 namespace nekocode {
 
@@ -261,19 +265,18 @@ public:
             pegtl_success = false;
         }
         
-        // 🚨 PEGTL失敗時のフォールバック戦略
-        if (!pegtl_success) {
-            // 簡易パターンマッチング（std::regex代替）
-            auto fallback_classes = extract_classes_fallback(content);
-            auto fallback_functions = extract_functions_fallback(content);
-            
-            // デバッグクラスを保持しつつフォールバック結果を追加
-            result.classes.insert(result.classes.end(), fallback_classes.begin(), fallback_classes.end());
-            result.functions.insert(result.functions.end(), fallback_functions.begin(), fallback_functions.end());
-        }
-        
-        // 複雑度計算（既存ロジック流用）
+        // 複雑度計算（ハイブリッド戦略の前に実行）
         result.complexity = calculate_cpp_complexity(content);
+        
+        // 🚀 C++ハイブリッド戦略: JavaScript/TypeScript成功パターン移植
+        if (needs_cpp_line_based_fallback(result, content)) {
+            std::cerr << "🔥 C++ Hybrid Strategy TRIGGERED!" << std::endl;
+            apply_cpp_line_based_analysis(result, content, filename);
+            std::cerr << "✅ C++ Line-based analysis completed. Classes: " << result.classes.size() 
+                      << ", Functions: " << result.functions.size() << std::endl;
+        } else {
+            std::cerr << "⚠️  C++ Hybrid Strategy NOT triggered" << std::endl;
+        }
         
         // 統計更新
         result.update_statistics();
@@ -321,102 +324,170 @@ private:
         return complexity;
     }
     
-    // 🚨 フォールバック戦略（std::regex不使用版）
-    std::vector<ClassInfo> extract_classes_fallback(const std::string& content) {
-        std::vector<ClassInfo> classes;
+    // 🚀 C++ハイブリッド戦略: 統計整合性チェック（JavaScript成功パターン移植）
+    bool needs_cpp_line_based_fallback(const AnalysisResult& result, const std::string& content) {
+        // JavaScript戦略と同様: 複雑度 vs 検出数の妥当性検証
+        uint32_t complexity = result.complexity.cyclomatic_complexity;
+        size_t detected_classes = result.classes.size();
+        size_t detected_functions = result.functions.size();
         
-        // namespaceパターン検索
-        size_t pos = 0;
-        while ((pos = content.find("namespace ", pos)) != std::string::npos) {
-            size_t name_start = pos + 10; // "namespace "の長さ
-            while (name_start < content.size() && std::isspace(content[name_start])) {
-                name_start++;
+        // デバッグクラスを除外して実際の検出数を計算
+        size_t actual_classes = 0;
+        for (const auto& cls : result.classes) {
+            std::cerr << "🔍 Detected class: '" << cls.name << "'" << std::endl;
+            if (cls.name != "CPP_PEGTL_ANALYZER_CALLED") {
+                actual_classes++;
             }
-            
-            size_t name_end = name_start;
-            while (name_end < content.size() && 
-                   (std::isalnum(content[name_end]) || content[name_end] == '_')) {
-                name_end++;
-            }
-            
-            if (name_end > name_start) {
-                ClassInfo ns_info;
-                ns_info.name = "namespace:" + content.substr(name_start, name_end - name_start);
-                ns_info.start_line = 1; // 簡易版
-                classes.push_back(ns_info);
-            }
-            
-            pos = name_end;
         }
         
-        // classパターン検索
-        pos = 0;
-        while ((pos = content.find("class ", pos)) != std::string::npos) {
-            size_t name_start = pos + 6; // "class "の長さ
-            while (name_start < content.size() && std::isspace(content[name_start])) {
-                name_start++;
-            }
-            
-            size_t name_end = name_start;
-            while (name_end < content.size() && 
-                   (std::isalnum(content[name_end]) || content[name_end] == '_')) {
-                name_end++;
-            }
-            
-            if (name_end > name_start) {
-                ClassInfo class_info;
-                class_info.name = content.substr(name_start, name_end - name_start);
-                class_info.start_line = 1; // 簡易版
-                classes.push_back(class_info);
-            }
-            
-            pos = name_end;
+        // デバッグ出力
+        std::cerr << "🔍 Debug: complexity=" << complexity 
+                  << ", detected_classes=" << detected_classes
+                  << ", actual_classes=" << actual_classes
+                  << ", detected_functions=" << detected_functions << std::endl;
+        bool has_class = content.find("class ") != std::string::npos;
+        bool has_struct = content.find("struct ") != std::string::npos;
+        bool has_namespace = content.find("namespace ") != std::string::npos;
+        std::cerr << "🔍 Debug: has_class=" << has_class 
+                  << ", has_struct=" << has_struct 
+                  << ", has_namespace=" << has_namespace << std::endl;
+        
+        // C++特化閾値: 複雑度が高いのに検出数が少ない場合は明らかにおかしい
+        if (complexity > 50 && actual_classes == 0 && detected_functions < 5) {
+            std::cerr << "📊 Trigger reason: High complexity with low detection" << std::endl;
+            return true;
         }
         
-        return classes;
+        // 複雑度200以上で関数検出0は絶対におかしい
+        if (complexity > 200 && detected_functions == 0) {
+            std::cerr << "📊 Trigger reason: Very high complexity with no functions" << std::endl;
+            return true;
+        }
+        
+        // C++特有パターンがあるのに検出できていない場合
+        if ((has_class || has_struct || has_namespace) && actual_classes == 0) {
+            std::cerr << "📊 Trigger reason: C++ patterns found but no classes detected" << std::endl;
+            return true;
+        }
+        
+        std::cerr << "❌ No trigger conditions met" << std::endl;
+        return false;
     }
     
-    std::vector<FunctionInfo> extract_functions_fallback(const std::string& content) {
-        std::vector<FunctionInfo> functions;
+    // 🚀 C++ハイブリッド戦略: 行ベース補完解析（JavaScript成功パターン移植）
+    void apply_cpp_line_based_analysis(AnalysisResult& result, const std::string& content, const std::string& filename) {
+        // プリプロセッサ除去（C++特化）
+        std::string preprocessed = preprocess_cpp_content(content);
         
-        // 関数パターン検索 (identifier() { の簡易版)
-        size_t pos = 0;
-        while ((pos = content.find("(", pos)) != std::string::npos) {
-            // '(' より前の識別子を探す
-            if (pos == 0) {
-                pos++;
-                continue;
+        std::istringstream stream(preprocessed);
+        std::string line;
+        size_t line_number = 1;
+        
+        // 既存の要素名を記録（重複検出を防ぐ - JavaScript成功パターン）
+        std::set<std::string> existing_classes;
+        std::set<std::string> existing_functions;
+        
+        for (const auto& cls : result.classes) {
+            if (cls.name != "CPP_PEGTL_ANALYZER_CALLED") {
+                existing_classes.insert(cls.name);
             }
-            
-            size_t name_end = pos;
-            while (name_end > 0 && std::isspace(content[name_end - 1])) {
-                name_end--;
-            }
-            
-            size_t name_start = name_end;
-            while (name_start > 0 && 
-                   (std::isalnum(content[name_start - 1]) || content[name_start - 1] == '_')) {
-                name_start--;
-            }
-            
-            if (name_end > name_start) {
-                std::string func_name = content.substr(name_start, name_end - name_start);
-                
-                // キーワードを除外
-                if (func_name != "if" && func_name != "for" && func_name != "while" && 
-                    func_name != "switch" && func_name != "return" && func_name != "sizeof") {
-                    
-                    FunctionInfo func_info;
-                    func_info.name = func_name;
-                    func_info.start_line = 1; // 簡易版
-                    functions.push_back(func_info);
-                }
-            }
-            
-            pos++;
+        }
+        for (const auto& func : result.functions) {
+            existing_functions.insert(func.name);
         }
         
-        return functions;
+        // C++特化の行ベース解析
+        while (std::getline(stream, line)) {
+            extract_cpp_elements_from_line(line, line_number, result, existing_classes, existing_functions);
+            line_number++;
+        }
+    }
+    
+    // C++プリプロセッサ除去（戦略文書通り）
+    std::string preprocess_cpp_content(const std::string& content) {
+        std::istringstream stream(content);
+        std::string line;
+        std::ostringstream result;
+        
+        while (std::getline(stream, line)) {
+            // プリプロセッサ指令を除去
+            std::string trimmed = line;
+            size_t first_non_space = trimmed.find_first_not_of(" \t");
+            if (first_non_space == std::string::npos || trimmed[first_non_space] != '#') {
+                result << line << "\n";
+            }
+        }
+        
+        return result.str();
+    }
+    
+    // C++要素の行ベース抽出（JavaScript正規表現パターン移植＋C++特化）
+    void extract_cpp_elements_from_line(const std::string& line, size_t line_number,
+                                        AnalysisResult& result, 
+                                        std::set<std::string>& existing_classes,
+                                        std::set<std::string>& existing_functions) {
+        
+        // パターン1: class ClassName
+        std::regex class_pattern(R"(^\s*class\s+(\w+)(?:\s*:\s*(?:public|private|protected)\s+\w+)?\s*\{?)");
+        std::smatch match;
+        
+        if (std::regex_search(line, match, class_pattern)) {
+            std::string class_name = match[1].str();
+            if (existing_classes.find(class_name) == existing_classes.end()) {
+                ClassInfo class_info;
+                class_info.name = class_name;
+                class_info.start_line = line_number;
+                result.classes.push_back(class_info);
+                existing_classes.insert(class_name);
+            }
+        }
+        
+        // パターン2: struct StructName
+        std::regex struct_pattern(R"(^\s*struct\s+(\w+)(?:\s*:\s*(?:public|private|protected)\s+\w+)?\s*\{?)");
+        if (std::regex_search(line, match, struct_pattern)) {
+            std::string struct_name = match[1].str();
+            if (existing_classes.find("struct:" + struct_name) == existing_classes.end()) {
+                ClassInfo struct_info;
+                struct_info.name = "struct:" + struct_name;
+                struct_info.start_line = line_number;
+                result.classes.push_back(struct_info);
+                existing_classes.insert("struct:" + struct_name);
+            }
+        }
+        
+        // パターン3: namespace NamespaceName
+        std::regex namespace_pattern(R"(^\s*namespace\s+(\w+)\s*\{?)");
+        if (std::regex_search(line, match, namespace_pattern)) {
+            std::string ns_name = match[1].str();
+            if (existing_classes.find("namespace:" + ns_name) == existing_classes.end()) {
+                ClassInfo ns_info;
+                ns_info.name = "namespace:" + ns_name;
+                ns_info.start_line = line_number;
+                result.classes.push_back(ns_info);
+                existing_classes.insert("namespace:" + ns_name);
+            }
+        }
+        
+        // パターン4: 関数定義（戻り値型付き）
+        std::regex function_pattern(R"(^\s*(?:inline\s+|static\s+|virtual\s+|explicit\s+)*(?:\w+(?:\s*::\s*\w+)*\s*[&*]*)\s+(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:noexcept\s*)?(?:override\s*)?\s*\{?)");
+        if (std::regex_search(line, match, function_pattern)) {
+            std::string func_name = match[1].str();
+            
+            // C++キーワードを除外
+            if (func_name != "if" && func_name != "for" && func_name != "while" && 
+                func_name != "switch" && func_name != "return" && func_name != "sizeof" &&
+                func_name != "template" && func_name != "typename" && func_name != "class" &&
+                func_name != "struct" && func_name != "namespace" && func_name != "using") {
+                
+                if (existing_functions.find(func_name) == existing_functions.end()) {
+                    FunctionInfo func_info;
+                    func_info.name = func_name;
+                    func_info.start_line = line_number;
+                    result.functions.push_back(func_info);
+                    existing_functions.insert(func_name);
+                }
+            }
+        }
     }
 };
 
