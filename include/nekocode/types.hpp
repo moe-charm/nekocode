@@ -119,6 +119,7 @@ struct FunctionInfo {
     bool is_async = false;
     bool is_arrow_function = false;
     ComplexityInfo complexity;
+    std::unordered_map<std::string, std::string> metadata;  // 🧩 Unity等の拡張情報
     
     FunctionInfo() = default;
     explicit FunctionInfo(const std::string& func_name) : name(func_name) {}
@@ -131,6 +132,7 @@ struct ClassInfo {
     LineNumber end_line = 0;
     std::vector<FunctionInfo> methods;
     std::vector<std::string> properties;
+    std::unordered_map<std::string, std::string> metadata;  // 🧩 Unity等の拡張情報
     
     ClassInfo() = default;
     explicit ClassInfo(const std::string& class_name) : name(class_name) {}
