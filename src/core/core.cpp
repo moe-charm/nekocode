@@ -77,7 +77,7 @@ Result<AnalysisResult> NekoCodeCore::analyze_file(const FilePath& file_path) {
             return Result<AnalysisResult>(content_result.error());
         }
         
-        return analyze_content(content_result.value(), file_path.filename().string());
+        return analyze_content(content_result.value(), file_path.string());
     });
     
     // パフォーマンス統計更新
@@ -167,7 +167,7 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_file_multilang(const F
             // 言語自動検出
             Language detected_lang = impl_->language_detector_->detect_language(file_path, safe_content.content);
             
-            return analyze_content_multilang(safe_content.content, file_path.filename().string(), detected_lang);
+            return analyze_content_multilang(safe_content.content, file_path.string(), detected_lang);
             
         } catch (const std::exception& e) {
             return Result<MultiLanguageAnalysisResult>(
@@ -195,7 +195,7 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_file_with_language(con
                     AnalysisError(ErrorCode::FILE_NOT_FOUND, safe_content.error_message, file_path));
             }
             
-            return analyze_content_multilang(safe_content.content, file_path.filename().string(), language);
+            return analyze_content_multilang(safe_content.content, file_path.string(), language);
             
         } catch (const std::exception& e) {
             return Result<MultiLanguageAnalysisResult>(
