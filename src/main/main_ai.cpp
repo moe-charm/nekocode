@@ -25,6 +25,9 @@
 
 using namespace nekocode;
 
+// 🔧 グローバルデバッグフラグ（analyzer_factory.cppで定義済み）
+extern bool g_debug_mode;
+
 //=============================================================================
 // 📋 Command Line Parser
 //=============================================================================
@@ -43,6 +46,7 @@ struct CommandLineArgs {
     bool enable_progress = false;           // プログレス表示
     bool ssd_mode = false;                  // SSD最適化モード
     bool hdd_mode = false;                  // HDD最適化モード
+    bool debug_mode = false;                // --debug: デバッグログ表示モード
     
     // 事前チェック関連
     bool skip_precheck = false;             // --no-check: 事前チェックスキップ
@@ -81,6 +85,8 @@ struct CommandLineArgs {
                 args.ssd_mode = true;
             } else if (arg == "--hdd") {
                 args.hdd_mode = true;
+            } else if (arg == "--debug") {
+                args.debug_mode = true;
             } else if (args.target_path.empty()) {
                 args.target_path = arg;
             }
@@ -130,6 +136,7 @@ OPTIONS:
     --progress          進捗表示有効化（30,000ファイル対応）
     --ssd               SSD最適化（CPUコア数スレッド、並列I/O重視）
     --hdd               HDD最適化（1スレッド、シーケンシャル重視）
+    --debug             デバッグログ表示モード（詳細情報を表示）
     --no-check          事前チェックをスキップ（上級者向け）
     --force             確認なしで強制実行
     --check-only        プロジェクト規模のチェックのみ実行
@@ -370,6 +377,9 @@ int main(int argc, char* argv[]) {
 
 int analyze_target(const std::string& target_path, const CommandLineArgs& args) {
     try {
+        // 🔧 グローバルデバッグフラグ設定
+        g_debug_mode = args.debug_mode;
+        
         // 設定作成（フルモード）
         AnalysisConfig config;
         config.analyze_complexity = true;  // 正規表現問題解決済み

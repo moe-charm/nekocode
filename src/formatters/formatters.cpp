@@ -10,6 +10,9 @@
 #include <iomanip>
 #include <iostream>
 
+// 🔧 グローバルデバッグフラグ（analyzer_factory.cppで定義済み）
+extern bool g_debug_mode;
+
 namespace nekocode {
 
 //=============================================================================
@@ -47,8 +50,10 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
     };
     
     // 🔥 デバッグ：統計フィールド確認
-    std::cerr << "🔥 Formatter debug: result.stats.class_count=" << result.stats.class_count
-              << ", result.stats.function_count=" << result.stats.function_count << std::endl;
+    if (g_debug_mode) {
+        std::cerr << "🔥 Formatter debug: result.stats.class_count=" << result.stats.class_count
+                  << ", result.stats.function_count=" << result.stats.function_count << std::endl;
+    }
     
     json_result["statistics"] = {
         {"total_classes", result.stats.class_count},      // 🔥 修正：正しい統計フィールドを使用

@@ -53,6 +53,9 @@ make -j$(nproc)
 
 # 詳細な統計情報付き
 ./nekocode_ai --performance main.cpp
+
+# 🔧 デバッグログ付き解析（詳細情報表示）
+./nekocode_ai --debug main.cpp
 ```
 
 ### ディレクトリ全体の解析
@@ -183,6 +186,31 @@ SESSION_ID=ai_session_20250727_180532
 ./nekocode_ai session-cmd $SESSION_ID complexity
 # FileA.cpp: Complexity 23 (Simple)  ← 85%削減！
 ```
+
+### 🛠️ デバッグ機能
+
+NekoCodeには強力なデバッグ機能が搭載されています！
+
+```bash
+# 🔧 基本デバッグ - 詳細な処理状況を表示
+./nekocode_ai --debug your_file.js
+
+# 🔍 大規模ファイル用デバッグ - 戦略切り替えを可視化
+./nekocode_ai --debug large_project.ts
+# 出力例:
+# 🔧 デバッグ: use_high_speed_mode=1
+# 🔧 デバッグ: 40000以上か? 1
+# ⚡ 高速モード: 基本検出のみ（JavaScript戦略移植・Geminiスキップ）
+
+# 📊 セッション用デバッグ - 解析戦略の詳細確認
+./nekocode_ai session-create --debug project/
+./nekocode_ai session-cmd $SESSION_ID "find function --debug"
+```
+
+**デバッグ機能の活用法**:
+- **性能問題調査**: どの処理が重いかを特定
+- **戦略確認**: ファイルサイズに応じた最適化モードを確認  
+- **開発・検証**: 新機能のテスト時に内部動作を監視
 
 ## トラブルシューティング
 
