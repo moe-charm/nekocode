@@ -5,6 +5,7 @@
 //=============================================================================
 
 #include "nekocode/analyzers/cpp_language_analyzer.hpp"
+#include "nekocode/debug_logger.hpp"
 #include <iostream>
 #include <algorithm>
 
@@ -19,20 +20,46 @@ CppLanguageAnalyzer::CppLanguageAnalyzer()
 }
 
 AnalysisResult CppLanguageAnalyzer::analyze(const std::string& content, const std::string& filename) {
+    using namespace nekocode::debug;
+    NEKOCODE_PERF_TIMER("CppLanguageAnalyzer::analyze " + filename);
+    
+    NEKOCODE_LOG_INFO("CppAnalyzer", "Starting C++ analysis of " + filename + " (" + std::to_string(content.size()) + " bytes)");
+    std::cerr << "🔥 CppLanguageAnalyzer::analyze called for " << filename << std::endl;
+    
     // 既存のCppAnalyzerを使用
     CppAnalysisResult cpp_result = cpp_analyzer_->analyze_cpp_file(content, filename);
     
+    NEKOCODE_LOG_DEBUG("CppAnalyzer", "Raw C++ analysis completed: classes=" + std::to_string(cpp_result.cpp_classes.size()) +
+                      ", functions=" + std::to_string(cpp_result.cpp_functions.size()) +
+                      ", includes=" + std::to_string(cpp_result.includes.size()) +
+                      ", complexity=" + std::to_string(cpp_result.complexity.cyclomatic_complexity));
+    
     // 結果を変換
-    return convert_result(cpp_result);
+    AnalysisResult result = convert_result(cpp_result);
+    
+    NEKOCODE_LOG_DEBUG("CppAnalyzer", "Final analysis result: classes=" + std::to_string(result.classes.size()) +
+                      ", functions=" + std::to_string(result.functions.size()) +
+                      ", imports=" + std::to_string(result.imports.size()));
+    
+    NEKOCODE_LOG_INFO("CppAnalyzer", "C++ analysis completed successfully for " + filename);
+    
+    return result;
 }
 
 AnalysisResult CppLanguageAnalyzer::convert_result(const CppAnalysisResult& cpp_result) {
+    using namespace nekocode::debug;
+    NEKOCODE_PERF_TIMER("CppLanguageAnalyzer::convert_result");
+    
+    NEKOCODE_LOG_TRACE("CppAnalyzer", "Converting CppAnalysisResult to AnalysisResult");
+    
     AnalysisResult result;
     
     // 基本情報コピー
     result.file_info = cpp_result.file_info;
     result.language = cpp_result.language;
     result.complexity = cpp_result.complexity;
+    
+    NEKOCODE_LOG_TRACE("CppAnalyzer", "Basic info copied, converting classes/functions");
     
     // C++クラスを汎用クラス情報に変換
     for (const auto& cpp_class : cpp_result.cpp_classes) {
