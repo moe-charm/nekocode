@@ -3,6 +3,7 @@
 //=============================================================================
 
 #include "nekocode/analyzers/rust_analyzer.hpp"
+#include "nekocode/debug_logger.hpp"
 #include <sstream>
 #include <algorithm>
 #include <iostream>
@@ -14,7 +15,13 @@ namespace nekocode {
 //=============================================================================
 
 AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::string& filename) {
+    using namespace nekocode::debug;
+    NEKOCODE_PERF_TIMER("RustAnalyzer::analyze " + filename);
+    
+    NEKOCODE_LOG_INFO("RustAnalyzer", "Starting analysis of " + filename + " (" + std::to_string(content.size()) + " bytes)");
+    
     AnalysisResult result;
+    AnalysisStats stats;
     
     // ファイル情報設定
     result.file_info.name = filename;
@@ -29,15 +36,39 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
     impls_.clear();
     macros_.clear();
     
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Internal buffers cleared, starting element analysis");
+    
     // 各要素を解析
+    NEKOCODE_PERF_CHECKPOINT("functions");
     analyze_functions(content);
+    NEKOCODE_LOG_TRACE("RustAnalyzer", "Found " + std::to_string(rust_functions_.size()) + " functions");
+    
+    NEKOCODE_PERF_CHECKPOINT("structs");
     analyze_structs(content);
+    NEKOCODE_LOG_TRACE("RustAnalyzer", "Found " + std::to_string(structs_.size()) + " structs");
+    
+    NEKOCODE_PERF_CHECKPOINT("enums");
     analyze_enums(content);
+    NEKOCODE_LOG_TRACE("RustAnalyzer", "Found " + std::to_string(enums_.size()) + " enums");
+    
+    NEKOCODE_PERF_CHECKPOINT("traits");
     analyze_traits(content);
+    NEKOCODE_LOG_TRACE("RustAnalyzer", "Found " + std::to_string(traits_.size()) + " traits");
+    
+    NEKOCODE_PERF_CHECKPOINT("impls");
     analyze_impls(content);
+    NEKOCODE_LOG_TRACE("RustAnalyzer", "Found " + std::to_string(impls_.size()) + " impl blocks");
+    
+    NEKOCODE_PERF_CHECKPOINT("macros");
     analyze_macros(content);
+    NEKOCODE_LOG_TRACE("RustAnalyzer", "Found " + std::to_string(macros_.size()) + " macros");
+    
+    NEKOCODE_PERF_CHECKPOINT("modules");
     analyze_modules(content, result);
+    
+    NEKOCODE_PERF_CHECKPOINT("use_statements");
     analyze_use_statements(content, result);
+    NEKOCODE_LOG_TRACE("RustAnalyzer", "Found " + std::to_string(result.imports.size()) + " imports");
     
     // 🔥 重要：RustFunctionInfoをAnalysisResult.functionsに変換！
     for (const auto& rust_func : rust_functions_) {
@@ -83,7 +114,9 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
     }
     
     // 複雑度計算
+    NEKOCODE_PERF_CHECKPOINT("complexity");
     result.complexity = calculate_rust_complexity(content);
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Calculated complexity: " + std::to_string(result.complexity.cyclomatic_complexity));
     
     // Rust特有の統計情報をメタデータに追加
     nlohmann::json rust_specific;
@@ -132,7 +165,19 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
     result.file_info.empty_lines = empty_lines;
     
     // 🔥 重要：統計情報を更新！
+    NEKOCODE_PERF_CHECKPOINT("statistics");
     result.update_statistics();
+    
+    // 統計情報をログに出力
+    stats.total_lines = result.file_info.total_lines;
+    stats.code_lines = result.file_info.code_lines;
+    stats.functions_found = result.functions.size();
+    stats.classes_found = result.classes.size();
+    stats.imports_found = result.imports.size();
+    stats.complexity_score = result.complexity.cyclomatic_complexity;
+    stats.log_summary("Rust", filename);
+    
+    NEKOCODE_LOG_INFO("RustAnalyzer", "Analysis completed successfully for " + filename);
     
     return result;
 }
@@ -142,6 +187,10 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
 //=============================================================================
 
 void RustAnalyzer::analyze_functions(const std::string& content) {
+    using namespace nekocode::debug;
+    NEKOCODE_PERF_TIMER("RustAnalyzer::analyze_functions");
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Starting function analysis");
+    
     std::istringstream stream(content);
     std::string line;
     size_t line_number = 1;
@@ -190,6 +239,11 @@ void RustAnalyzer::analyze_functions(const std::string& content) {
             func_info.return_type = extract_return_type(line, name_end);
             
             rust_functions_.push_back(func_info);
+            NEKOCODE_LOG_TRACE("RustAnalyzer", "Found function: " + func_info.name + 
+                              (func_info.is_async ? " (async)" : "") + 
+                              (func_info.is_unsafe ? " (unsafe)" : "") + 
+                              (func_info.is_pub ? " (pub)" : "") +
+                              " at line " + std::to_string(func_info.line_number));
         }
         
         line_number++;
@@ -473,6 +527,10 @@ void RustAnalyzer::analyze_use_statements(const std::string& content, AnalysisRe
 //=============================================================================
 
 ComplexityInfo RustAnalyzer::calculate_rust_complexity(const std::string& content) {
+    using namespace nekocode::debug;
+    NEKOCODE_PERF_TIMER("RustAnalyzer::calculate_rust_complexity");
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Starting complexity calculation");
+    
     ComplexityInfo complexity;
     complexity.cyclomatic_complexity = 1;
     
@@ -516,6 +574,11 @@ ComplexityInfo RustAnalyzer::calculate_rust_complexity(const std::string& conten
     }
     
     complexity.update_rating();
+    
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Complexity calculation completed: " + 
+                      std::to_string(complexity.cyclomatic_complexity) + 
+                      " (" + complexity.to_string() + ")");
+    
     return complexity;
 }
 

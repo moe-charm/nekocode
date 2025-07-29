@@ -471,6 +471,7 @@ nlohmann::json SessionManager::cmd_files(const SessionData& session) const {
 }
 
 nlohmann::json SessionManager::cmd_complexity(const SessionData& session) const {
+    std::cerr << "[DEBUG] cmd_complexity called! is_directory=" << session.is_directory << std::endl;
     if (!session.is_directory) {
         return {
             {"command", "complexity"},
@@ -485,9 +486,24 @@ nlohmann::json SessionManager::cmd_complexity(const SessionData& session) const 
         };
     }
     
+    // 🔥 ファイルを複雑度順にソート（降順：高い複雑度から表示）
+    std::vector<AnalysisResult> sorted_files = session.directory_result.files;
+    std::cerr << "[DEBUG] Before sort: files count = " << sorted_files.size() << std::endl;
+    if (!sorted_files.empty()) {
+        std::cerr << "[DEBUG] First file complexity: " << sorted_files[0].complexity.cyclomatic_complexity << std::endl;
+    }
+    std::sort(sorted_files.begin(), sorted_files.end(), 
+              [](const AnalysisResult& a, const AnalysisResult& b) {
+                  return a.complexity.cyclomatic_complexity > b.complexity.cyclomatic_complexity;
+              });
+    std::cerr << "[DEBUG] After sort: files count = " << sorted_files.size() << std::endl;
+    if (!sorted_files.empty()) {
+        std::cerr << "[DEBUG] First file complexity after sort: " << sorted_files[0].complexity.cyclomatic_complexity << std::endl;
+    }
+    
     nlohmann::json complex_files = nlohmann::json::array();
     
-    for (const auto& file : session.directory_result.files) {
+    for (const auto& file : sorted_files) {
         complex_files.push_back({
             {"file", file.file_info.name},
             {"complexity", file.complexity.cyclomatic_complexity},
@@ -498,8 +514,13 @@ nlohmann::json SessionManager::cmd_complexity(const SessionData& session) const 
     return {
         {"command", "complexity"},
         {"result", complex_files},
+        {"debug_info", {
+            {"function_called", "cmd_complexity"},
+            {"files_count", sorted_files.size()},
+            {"first_file_complexity", sorted_files.empty() ? 0 : sorted_files[0].complexity.cyclomatic_complexity}
+        }},
         {"summary", "Analyzed " + std::to_string(session.directory_result.files.size()) + 
-                    " files for complexity"}
+                    " files for complexity (sorted by complexity, highest first)"}
     };
 }
 

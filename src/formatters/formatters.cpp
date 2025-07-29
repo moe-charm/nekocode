@@ -8,6 +8,7 @@
 #include "nekocode/cpp_analyzer.hpp"
 #include <sstream>
 #include <iomanip>
+#include <iostream>
 
 namespace nekocode {
 
@@ -45,11 +46,15 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
         {"size_bytes", result.file_info.size_bytes}
     };
     
+    // 🔥 デバッグ：統計フィールド確認
+    std::cerr << "🔥 Formatter debug: result.stats.class_count=" << result.stats.class_count
+              << ", result.stats.function_count=" << result.stats.function_count << std::endl;
+    
     json_result["statistics"] = {
-        {"total_classes", result.classes.size()},
-        {"total_functions", result.functions.size()},
-        {"total_imports", result.imports.size()},
-        {"total_exports", result.exports.size()}
+        {"total_classes", result.stats.class_count},      // 🔥 修正：正しい統計フィールドを使用
+        {"total_functions", result.stats.function_count}, // 🔥 修正：正しい統計フィールドを使用
+        {"total_imports", result.stats.import_count},     // 🔥 修正：正しい統計フィールドを使用
+        {"total_exports", result.stats.export_count}      // 🔥 修正：正しい統計フィールドを使用
     };
     
     // 🎯 詳細なクラス情報
