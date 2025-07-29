@@ -145,6 +145,8 @@ set(NEKOCODE_SOURCES
     # ${SRC_DIR}/analyzers/csharp/csharp_analyzer.cpp # regex版は削除済み
     ${SRC_DIR}/analyzers/csharp/csharp_pegtl_analyzer.cpp
     ${SRC_DIR}/analyzers/unity/unity_analyzer.cpp
+    ${SRC_DIR}/analyzers/go/go_analyzer.cpp
+    ${SRC_DIR}/analyzers/rust/rust_analyzer.cpp
 )
 
 # ヘッダーファイル
@@ -170,6 +172,8 @@ set(NEKOCODE_HEADERS
     ${INCLUDE_DIR}/nekocode/analyzers/unity_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/unity_patterns.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/unity_components.hpp
+    ${INCLUDE_DIR}/nekocode/analyzers/go_analyzer.hpp
+    ${INCLUDE_DIR}/nekocode/analyzers/rust_analyzer.hpp
 )
 
 # 静的ライブラリ作成

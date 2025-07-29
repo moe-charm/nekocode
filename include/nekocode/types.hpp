@@ -25,6 +25,8 @@ enum class Language {
     C,             // C
     PYTHON,        // Python 🐍
     CSHARP,        // C# 🎯
+    GO,            // Go 🐹
+    RUST,          // Rust 🦀
     UNKNOWN        // 不明・未対応
 };
 
