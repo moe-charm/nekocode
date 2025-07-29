@@ -12,6 +12,9 @@
 #include <sstream>
 #include <set>
 #include <chrono>
+#include <execution>
+#include <mutex>
+#include <atomic>
 
 namespace nekocode {
 
@@ -731,14 +734,14 @@ private:
         return lines.size() - 1;  // ファイル終端まで
     }
 
-    // 🎯 【ユーザー天才アイデア】無限ネスト掘削アタック！（最適化版）
+    // 🎯 【ユーザー天才アイデア】無限ネスト掘削アタック！（並列化版）
     void infinite_nested_function_attack(const std::string& content, AnalysisResult& result, 
                                        std::set<std::string>& existing_functions) {
-        std::cerr << "🚀 【ユーザー天才アイデア】無限ネスト掘削アタック開始！（最適化版）" << std::endl;
+        std::cerr << "🚀 【ユーザー天才アイデア】無限ネスト掘削アタック開始！（並列化版）" << std::endl;
         
         // 🕐 性能測定追加
         auto total_start = std::chrono::high_resolution_clock::now();
-        size_t total_lines_scanned = 0;
+        std::atomic<size_t> total_lines_scanned{0};
         
         // 全内容を行単位で分割（一度だけ！）
         std::vector<std::string> lines;
@@ -764,14 +767,22 @@ private:
                       << search_ranges.size() << "個）" << std::endl;
             
             std::vector<FunctionRange> next_search_ranges;  // 次回の検索範囲
-            size_t round_detections = 0;
-            size_t round_lines_scanned = 0;
+            std::atomic<size_t> round_detections{0};
+            std::atomic<size_t> round_lines_scanned{0};
             
-            // 各範囲を検索
-            for (const auto& range : search_ranges) {
+            // 🔒 並列処理用のミューテックス
+            std::mutex functions_mutex;
+            std::mutex ranges_mutex;
+            std::mutex output_mutex;
+            
+            // 🚀 各範囲を並列検索！
+            std::for_each(std::execution::par_unseq,
+                          search_ranges.begin(),
+                          search_ranges.end(),
+                          [&](const FunctionRange& range) {
                 for (size_t line_idx = range.start_line; line_idx <= range.end_line && line_idx < lines.size(); line_idx++) {
                     const std::string& line = lines[line_idx];
-                    round_lines_scanned++;
+                    round_lines_scanned.fetch_add(1);
                 
                     // 🎯 完全掘削モード：同一行に複数関数も検出！
                     size_t line_number = line_idx + 1;  // 1ベースの行番号
@@ -783,9 +794,21 @@ private:
                     if (std::regex_search(line, match, nested_function_pattern)) {
                         std::string func_name = match[1].str();
                         
-                        if (existing_functions.find(func_name) == existing_functions.end()) {
-                            std::cerr << "🎯 第" << attack_round << "回でネスト関数発見: " << func_name 
-                                      << " (行:" << line_number << ")" << std::endl;
+                        bool should_add = false;
+                        {
+                            std::lock_guard<std::mutex> lock(functions_mutex);
+                            if (existing_functions.find(func_name) == existing_functions.end()) {
+                                existing_functions.insert(func_name);
+                                should_add = true;
+                            }
+                        }
+                        
+                        if (should_add) {
+                            {
+                                std::lock_guard<std::mutex> lock(output_mutex);
+                                std::cerr << "🎯 第" << attack_round << "回でネスト関数発見: " << func_name 
+                                          << " (行:" << line_number << ")" << std::endl;
+                            }
                             
                             FunctionInfo func_info;
                             func_info.name = func_name;
@@ -796,9 +819,11 @@ private:
                                 func_info.is_async = true;
                             }
                             
-                            result.functions.push_back(func_info);
-                            existing_functions.insert(func_name);
-                            round_detections++;
+                            {
+                                std::lock_guard<std::mutex> lock(functions_mutex);
+                                result.functions.push_back(func_info);
+                            }
+                            round_detections.fetch_add(1);
                             
                             // 🚀 関数の範囲を特定して次回検索対象に追加！
                             size_t func_end = find_function_end_line(lines, line_idx);
@@ -810,10 +835,14 @@ private:
                                 
                                 // 🛡️ 深さ制限（5レベルまで）
                                 if (new_range.indent_level <= 5) {
+                                    std::lock_guard<std::mutex> lock(ranges_mutex);
                                     next_search_ranges.push_back(new_range);
-                                    std::cerr << "  → 次回検索範囲追加: 行" << new_range.start_line + 1 
-                                              << "-" << new_range.end_line + 1 
-                                              << " (深さ:" << new_range.indent_level << ")" << std::endl;
+                                    {
+                                        std::lock_guard<std::mutex> out_lock(output_mutex);
+                                        std::cerr << "  → 次回検索範囲追加: 行" << new_range.start_line + 1 
+                                                  << "-" << new_range.end_line + 1 
+                                                  << " (深さ:" << new_range.indent_level << ")" << std::endl;
+                                    }
                                 }
                             }
                         }
@@ -826,9 +855,21 @@ private:
                 if (std::regex_search(line, arrow_match, nested_arrow_pattern)) {
                     std::string arrow_name = arrow_match[2].str();
                     
-                    if (existing_functions.find(arrow_name) == existing_functions.end()) {
-                        std::cerr << "🎯 第" << attack_round << "回でネストアロー関数発見: " << arrow_name 
-                                  << " (行:" << line_number << ")" << std::endl;
+                    bool should_add_arrow = false;
+                    {
+                        std::lock_guard<std::mutex> lock(functions_mutex);
+                        if (existing_functions.find(arrow_name) == existing_functions.end()) {
+                            existing_functions.insert(arrow_name);
+                            should_add_arrow = true;
+                        }
+                    }
+                    
+                    if (should_add_arrow) {
+                        {
+                            std::lock_guard<std::mutex> lock(output_mutex);
+                            std::cerr << "🎯 第" << attack_round << "回でネストアロー関数発見: " << arrow_name 
+                                      << " (行:" << line_number << ")" << std::endl;
+                        }
                         
                         FunctionInfo func_info;
                         func_info.name = arrow_name;
@@ -839,9 +880,11 @@ private:
                             func_info.is_async = true;
                         }
                         
-                        result.functions.push_back(func_info);
-                        existing_functions.insert(arrow_name);
-                        round_detections++;
+                        {
+                            std::lock_guard<std::mutex> lock(functions_mutex);
+                            result.functions.push_back(func_info);
+                        }
+                        round_detections.fetch_add(1);
                         
                         // 🚀 アロー関数の範囲も次回検索対象に！
                         size_t func_end = find_function_end_line(lines, line_idx);
@@ -853,6 +896,7 @@ private:
                             
                             // 🛡️ 深さ制限（5レベルまで）
                             if (new_range.indent_level <= 5) {
+                                std::lock_guard<std::mutex> lock(ranges_mutex);
                                 next_search_ranges.push_back(new_range);
                             }
                         }
@@ -866,17 +910,31 @@ private:
                 if (std::regex_search(line, assign_match, nested_func_assign_pattern)) {
                     std::string assign_name = assign_match[2].str();
                     
-                    if (existing_functions.find(assign_name) == existing_functions.end()) {
-                        std::cerr << "🎯 第" << attack_round << "回でネスト関数式発見: " << assign_name 
-                                  << " (行:" << line_number << ")" << std::endl;
+                    bool should_add_assign = false;
+                    {
+                        std::lock_guard<std::mutex> lock(functions_mutex);
+                        if (existing_functions.find(assign_name) == existing_functions.end()) {
+                            existing_functions.insert(assign_name);
+                            should_add_assign = true;
+                        }
+                    }
+                    
+                    if (should_add_assign) {
+                        {
+                            std::lock_guard<std::mutex> lock(output_mutex);
+                            std::cerr << "🎯 第" << attack_round << "回でネスト関数式発見: " << assign_name 
+                                      << " (行:" << line_number << ")" << std::endl;
+                        }
                         
                         FunctionInfo func_info;
                         func_info.name = assign_name;
                         func_info.start_line = line_number;
                         
-                        result.functions.push_back(func_info);
-                        existing_functions.insert(assign_name);
-                        round_detections++;
+                        {
+                            std::lock_guard<std::mutex> lock(functions_mutex);
+                            result.functions.push_back(func_info);
+                        }
+                        round_detections.fetch_add(1);
                         
                         // 🚀 関数式の範囲も次回検索対象に！
                         size_t func_end = find_function_end_line(lines, line_idx);
@@ -888,21 +946,22 @@ private:
                             
                             // 🛡️ 深さ制限（5レベルまで）
                             if (new_range.indent_level <= 5) {
+                                std::lock_guard<std::mutex> lock(ranges_mutex);
                                 next_search_ranges.push_back(new_range);
                             }
                         }
                     }
                 }
                 }  // 行ループ終了
-            }  // 範囲ループ終了
+            });  // 並列処理終了
             
             // 性能測定
             auto round_end = std::chrono::high_resolution_clock::now();
             auto round_duration = std::chrono::duration_cast<std::chrono::milliseconds>(round_end - round_start).count();
-            total_lines_scanned += round_lines_scanned;
+            total_lines_scanned.fetch_add(round_lines_scanned.load());
             
-            std::cerr << "🎯 第" << attack_round << "回攻撃完了！新規検出: " << round_detections << "個"
-                      << " (処理時間: " << round_duration << "ms, 処理行数: " << round_lines_scanned << "行)" << std::endl;
+            std::cerr << "🎯 第" << attack_round << "回攻撃完了！新規検出: " << round_detections.load() << "個"
+                      << " (処理時間: " << round_duration << "ms, 処理行数: " << round_lines_scanned.load() << "行)" << std::endl;
             
             // 次回の検索範囲を更新
             search_ranges = std::move(next_search_ranges);
@@ -928,7 +987,7 @@ private:
         auto total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(total_end - total_start).count();
         
         std::cerr << "🏆 無限ネスト掘削アタック最終結果：" << total_nested << "個のネスト関数を発見！" << std::endl;
-        std::cerr << "⏱️  総処理時間: " << total_duration << "ms, 総スキャン行数: " << total_lines_scanned 
+        std::cerr << "⏱️  総処理時間: " << total_duration << "ms, 総スキャン行数: " << total_lines_scanned.load() 
                   << "行 (ラウンド数: " << (attack_round - 1) << "回)" << std::endl;
     }
     
