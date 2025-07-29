@@ -313,6 +313,40 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                 break;
             }
             
+            case Language::GO: {
+                // 🐹 Go言語解析（Goroutine & Channel Detection）
+                auto analyzer = AnalyzerFactory::create_analyzer(result.detected_language);
+                if (analyzer) {
+                    auto go_result = analyzer->analyze(content, filename);
+                    
+                    // Go固有の結果をJS結果として格納（共通構造がないため）
+                    result.js_result = go_result;
+                    result.file_info = go_result.file_info;
+                    
+                    std::cerr << "🐹 Go analyzer used successfully for: " << filename << std::endl;
+                } else {
+                    std::cerr << "ERROR: Failed to create Go analyzer for: " << filename << std::endl;
+                }
+                break;
+            }
+            
+            case Language::RUST: {
+                // 🦀 Rust言語解析（trait, impl, macro Detection）
+                auto analyzer = AnalyzerFactory::create_analyzer(result.detected_language);
+                if (analyzer) {
+                    auto rust_result = analyzer->analyze(content, filename);
+                    
+                    // Rust固有の結果をJS結果として格納（共通構造がないため）
+                    result.js_result = rust_result;
+                    result.file_info = rust_result.file_info;
+                    
+                    // Rust解析成功
+                } else {
+                    std::cerr << "ERROR: Failed to create Rust analyzer for: " << filename << std::endl;
+                }
+                break;
+            }
+            
             case Language::UNKNOWN:
             default: {
                 // 不明な言語の場合はJavaScriptとして解析を試行

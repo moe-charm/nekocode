@@ -15,6 +15,8 @@
 // #include "nekocode/analyzers/csharp_analyzer.hpp" // regex版は削除済み
 #include "nekocode/analyzers/csharp_pegtl_analyzer.hpp"
 #include "nekocode/analyzers/unity_analyzer.hpp"
+#include "nekocode/analyzers/go_analyzer.hpp"
+#include "nekocode/analyzers/rust_analyzer.hpp"
 #include <algorithm>
 #include <cctype>
 
@@ -48,6 +50,14 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer(Language language
         case Language::CSHARP:
             // PEGTL版を使用（std::regex版から移行）
             return std::make_unique<CSharpPEGTLAnalyzer>();
+            
+        case Language::GO:
+            // Go言語解析エンジン（Goroutine & Channel detection）
+            return std::make_unique<GoAnalyzer>();
+            
+        case Language::RUST:
+            // Rust言語解析エンジン（trait, impl, macro detection）
+            return std::make_unique<RustAnalyzer>();
             
         default:
             return nullptr;
@@ -94,6 +104,18 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
         // TODO: Unity プロジェクト自動検出を実装
         // 現在は基本的な C# アナライザーを使用
         return std::make_unique<CSharpPEGTLAnalyzer>();
+    }
+    
+    // Go
+    if (ext == ".go") {
+        // Go言語解析エンジン（Goroutine & Channel detection）
+        return std::make_unique<GoAnalyzer>();
+    }
+    
+    // Rust
+    if (ext == ".rs") {
+        // Rust言語解析エンジン（trait, impl, macro detection）
+        return std::make_unique<RustAnalyzer>();
     }
     
     // .h ファイルはデフォルトでC++として扱う

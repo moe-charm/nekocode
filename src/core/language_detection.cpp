@@ -50,7 +50,13 @@ void LanguageDetector::initialize_language_data() {
         
         // C#
         {".cs", Language::CSHARP},
-        {".csx", Language::CSHARP}
+        {".csx", Language::CSHARP},
+        
+        // Go
+        {".go", Language::GO},
+        
+        // Rust
+        {".rs", Language::RUST}
     };
     
     // 言語情報初期化
@@ -131,6 +137,35 @@ void LanguageDetector::initialize_language_data() {
     };
     language_info_[Language::CSHARP].comment_patterns = {"//", "/*", "*/"};
     
+    language_info_[Language::GO] = LanguageInfo{
+        Language::GO,
+        "go",
+        "Go"
+    };
+    language_info_[Language::GO].extensions = {".go"};
+    language_info_[Language::GO].keywords = {
+        "package", "import", "func", "type", "struct", "interface", "go", "chan",
+        "select", "defer", "make", "new", "var", "const", "if", "else", "for",
+        "range", "switch", "case", "default", "return", "break", "continue",
+        "fallthrough", "goto", "panic", "recover"
+    };
+    language_info_[Language::GO].comment_patterns = {"//", "/*", "*/"};
+    
+    language_info_[Language::RUST] = LanguageInfo{
+        Language::RUST,
+        "rust",
+        "Rust"
+    };
+    language_info_[Language::RUST].extensions = {".rs"};
+    language_info_[Language::RUST].keywords = {
+        "fn", "let", "mut", "const", "static", "struct", "enum", "trait", "impl",
+        "pub", "mod", "use", "extern", "crate", "async", "await", "move",
+        "if", "else", "match", "for", "while", "loop", "break", "continue",
+        "return", "yield", "where", "unsafe", "macro_rules", "dyn", "ref",
+        "as", "in", "self", "Self", "super", "type"
+    };
+    language_info_[Language::RUST].comment_patterns = {"//", "/*", "*/"};
+    
     language_info_[Language::UNKNOWN] = LanguageInfo{
         Language::UNKNOWN, 
         "unknown", 
@@ -196,7 +231,21 @@ Language LanguageDetector::detect_by_content(const std::string& content) const {
         "public int", "[HttpPost]", "[ApiController]", "=> ", "{ get; set; }"
     };
     
-    int cpp_score = 0, ts_score = 0, js_score = 0, c_score = 0, python_score = 0, csharp_score = 0;
+    // Go 特有パターン検出
+    std::vector<std::string> go_indicators = {
+        "package ", "func ", "go ", "chan ", "defer ", "select ",
+        "type struct", "interface{", "make(", "goroutine", "fmt."
+    };
+    
+    // Rust 特有パターン検出
+    std::vector<std::string> rust_indicators = {
+        "fn ", "let mut ", "impl ", "trait ", "pub fn", "match ",
+        "Some(", "None", "Ok(", "Err(", "unwrap()", "expect(",
+        "use std::", "mod ", "struct ", "enum ", "macro_rules!",
+        "&mut ", "&self", "self.", "::", "->", ".clone()"
+    };
+    
+    int cpp_score = 0, ts_score = 0, js_score = 0, c_score = 0, python_score = 0, csharp_score = 0, go_score = 0, rust_score = 0;
     
     // スコア計算
     for (const auto& indicator : cpp_indicators) {
@@ -235,10 +284,24 @@ Language LanguageDetector::detect_by_content(const std::string& content) const {
         }
     }
     
+    for (const auto& indicator : go_indicators) {
+        if (content.find(indicator) != std::string::npos) {
+            go_score++;
+        }
+    }
+    
+    for (const auto& indicator : rust_indicators) {
+        if (content.find(indicator) != std::string::npos) {
+            rust_score++;
+        }
+    }
+    
     // 最高スコアの言語を返す
-    int max_score = std::max({cpp_score, ts_score, js_score, c_score, python_score, csharp_score});
+    int max_score = std::max({cpp_score, ts_score, js_score, c_score, python_score, csharp_score, go_score, rust_score});
     if (max_score == 0) return Language::UNKNOWN;
     
+    if (rust_score == max_score) return Language::RUST;
+    if (go_score == max_score) return Language::GO;
     if (csharp_score == max_score) return Language::CSHARP;
     if (python_score == max_score) return Language::PYTHON;
     if (cpp_score == max_score) return Language::CPP;
@@ -283,7 +346,7 @@ const LanguageInfo& LanguageDetector::get_language_info(Language lang) const {
 }
 
 std::vector<Language> LanguageDetector::get_supported_languages() const {
-    return {Language::JAVASCRIPT, Language::TYPESCRIPT, Language::CPP, Language::C, Language::PYTHON, Language::CSHARP};
+    return {Language::JAVASCRIPT, Language::TYPESCRIPT, Language::CPP, Language::C, Language::PYTHON, Language::CSHARP, Language::GO, Language::RUST};
 }
 
 std::vector<std::string> LanguageDetector::get_extensions_for_language(Language lang) const {
@@ -399,6 +462,29 @@ LanguageAnalysisConfig LanguageAnalysisConfig::for_language(Language lang) {
             config.analyze_inheritance = true;
             config.analyze_includes = false;
             config.analyze_imports = true;    // using文
+            config.analyze_exports = false;
+            config.include_private_members = true;
+            break;
+            
+        case Language::GO:
+            config.analyze_classes = false;
+            config.analyze_functions = true;
+            config.analyze_namespaces = false;
+            config.analyze_templates = false;
+            config.analyze_inheritance = false;
+            config.analyze_includes = false;
+            config.analyze_imports = true;
+            config.analyze_exports = false;
+            break;
+            
+        case Language::RUST:
+            config.analyze_classes = true;    // struct/enum
+            config.analyze_functions = true;
+            config.analyze_namespaces = true; // mod
+            config.analyze_templates = true;  // generics
+            config.analyze_inheritance = false;
+            config.analyze_includes = false;
+            config.analyze_imports = true;    // use文
             config.analyze_exports = false;
             config.include_private_members = true;
             break;
