@@ -40,16 +40,24 @@ public:
     }
     
     AnalysisResult analyze(const std::string& content, const std::string& filename) override {
+        // 🔥 前処理革命：コメント・文字列除去システム（Gemini先生戦略！）
+        std::string preprocessed_content = preprocess_content(content);
+        
+        // 安全な削減量計算（アンダーフロー防止）
+        long long size_diff = static_cast<long long>(content.length()) - static_cast<long long>(preprocessed_content.length());
+        std::cerr << "🧹 前処理完了: " << content.length() << " → " << preprocessed_content.length() 
+                  << " bytes (削減: " << size_diff << ")" << std::endl;
+        
         // 基本的にJavaScript PEGTLの解析を使用（ハイブリッド戦略含む）
-        auto result = JavaScriptPEGTLAnalyzer::analyze(content, filename);
+        auto result = JavaScriptPEGTLAnalyzer::analyze(preprocessed_content, filename);
         
         std::cerr << "📜 TypeScript analyzer: Base JS detected classes=" << result.classes.size() 
                   << ", functions=" << result.functions.size() << std::endl;
         
         // 🚀 TypeScript特有のハイブリッド戦略追加
-        if (needs_typescript_specific_analysis(result, content)) {
+        if (needs_typescript_specific_analysis(result, preprocessed_content)) {
             std::cerr << "📜 TypeScript specific analysis triggered!" << std::endl;
-            apply_typescript_line_based_analysis(result, content, filename);
+            apply_typescript_line_based_analysis(result, preprocessed_content, filename);
         }
         
         // TypeScript専用の追加解析（将来的に実装）
@@ -111,6 +119,10 @@ private:
             extract_typescript_functions_from_line(line, line_number, result, existing_functions);
             extract_typescript_classes_from_line(line, line_number, result, existing_classes);
             extract_typescript_interfaces_from_line(line, line_number, result, existing_classes);
+            
+            // 🚀 Gemini先生A案：行レベル二重アタック！
+            gemini_line_level_double_attack(line, line_number, result, existing_functions);
+            
             line_number++;
         }
         
@@ -519,6 +531,252 @@ private:
     // 文字列内の位置から行番号を計算
     size_t calculate_line_number(const std::string& content, size_t pos) {
         return std::count(content.begin(), content.begin() + pos, '\n') + 1;
+    }
+    
+    // 🚀 Gemini先生A案：行レベル二重アタック！未検出メソッド攻略
+    void gemini_line_level_double_attack(const std::string& line, size_t line_number,
+                                        AnalysisResult& result, std::set<std::string>& existing_functions) {
+        
+        std::cerr << "⚡ Gemini行レベル二重アタック: " << line.substr(0, 50) << "..." << std::endl;
+        
+        // 🎯 アタックパターン1: オブジェクトメソッド (method() {})
+        gemini_attack_object_methods(line, line_number, result, existing_functions);
+        
+        // 🎯 アタックパターン2: プロパティ構文 (prop: function() {})
+        gemini_attack_property_functions(line, line_number, result, existing_functions);
+        
+        // 🎯 アタックパターン3: アロー関数プロパティ (prop: () => {})
+        gemini_attack_arrow_properties(line, line_number, result, existing_functions);
+        
+        // 🎯 アタックパターン4: インターフェースメソッド (method(): type;)
+        gemini_attack_interface_methods(line, line_number, result, existing_functions);
+    }
+    
+    // 🎯 オブジェクトメソッド攻撃 (method() {})
+    void gemini_attack_object_methods(const std::string& line, size_t line_number,
+                                     AnalysisResult& result, std::set<std::string>& existing_functions) {
+        // Gemini先生推奨パターン: ^\s*([a-zA-Z0-9_$]+)\s*\([^)]*\)\s*{
+        std::regex object_method_pattern(R"(^\s*([a-zA-Z0-9_$]+)\s*\([^)]*\)\s*\{)");
+        std::smatch match;
+        
+        if (std::regex_search(line, match, object_method_pattern)) {
+            std::string method_name = match[1].str();
+            
+            // 制御フロー文除外
+            if (method_name == "if" || method_name == "for" || method_name == "while" || 
+                method_name == "switch" || method_name == "try" || method_name == "catch" ||
+                method_name == "else" || method_name == "return") {
+                return;
+            }
+            
+            if (existing_functions.find(method_name) == existing_functions.end()) {
+                std::cerr << "🎯 Geminiオブジェクトメソッド発見: " << method_name << std::endl;
+                
+                FunctionInfo func_info;
+                func_info.name = method_name;
+                func_info.start_line = line_number;
+                
+                // 詳細検出
+                if (line.find("async") != std::string::npos) {
+                    func_info.is_async = true;
+                }
+                
+                result.functions.push_back(func_info);
+                existing_functions.insert(method_name);
+            }
+        }
+    }
+    
+    // 🎯 プロパティ構文攻撃 (prop: function() {})
+    void gemini_attack_property_functions(const std::string& line, size_t line_number,
+                                         AnalysisResult& result, std::set<std::string>& existing_functions) {
+        // Gemini先生推奨パターン: ^\s*([a-zA-Z0-9_$]+)\s*:\s*(?:async\s+)?function
+        std::regex property_function_pattern(R"(^\s*([a-zA-Z0-9_$]+)\s*:\s*(?:async\s+)?function)");
+        std::smatch match;
+        
+        if (std::regex_search(line, match, property_function_pattern)) {
+            std::string prop_name = match[1].str();
+            
+            if (existing_functions.find(prop_name) == existing_functions.end()) {
+                std::cerr << "🎯 Geminiプロパティ関数発見: " << prop_name << std::endl;
+                
+                FunctionInfo func_info;
+                func_info.name = prop_name;
+                func_info.start_line = line_number;
+                
+                if (line.find("async") != std::string::npos) {
+                    func_info.is_async = true;
+                }
+                
+                result.functions.push_back(func_info);
+                existing_functions.insert(prop_name);
+            }
+        }
+    }
+    
+    // 🎯 アロー関数プロパティ攻撃 (prop: () => {})
+    void gemini_attack_arrow_properties(const std::string& line, size_t line_number,
+                                       AnalysisResult& result, std::set<std::string>& existing_functions) {
+        // Gemini先生推奨パターン: ^\s*([a-zA-Z0-9_$]+)\s*:\s*\(.*\)\s*=>
+        std::regex arrow_property_pattern(R"(^\s*([a-zA-Z0-9_$]+)\s*:\s*\(.*\)\s*=>)");
+        std::smatch match;
+        
+        if (std::regex_search(line, match, arrow_property_pattern)) {
+            std::string prop_name = match[1].str();
+            
+            if (existing_functions.find(prop_name) == existing_functions.end()) {
+                std::cerr << "🎯 Geminiアロー関数プロパティ発見: " << prop_name << std::endl;
+                
+                FunctionInfo func_info;
+                func_info.name = prop_name;
+                func_info.start_line = line_number;
+                func_info.is_arrow_function = true;
+                
+                result.functions.push_back(func_info);
+                existing_functions.insert(prop_name);
+            }
+        }
+    }
+    
+    // 🎯 インターフェースメソッド攻撃 (method(): type;)
+    void gemini_attack_interface_methods(const std::string& line, size_t line_number,
+                                        AnalysisResult& result, std::set<std::string>& existing_functions) {
+        // Gemini先生推奨パターン: ^\s*([a-zA-Z0-9_$]+)\s*\(([^;]*)\)\s*:\s*[^;]+;
+        std::regex interface_method_pattern(R"(^\s*([a-zA-Z0-9_$]+)\s*\([^)]*\)\s*:\s*[^;]+;)");
+        std::smatch match;
+        
+        if (std::regex_search(line, match, interface_method_pattern)) {
+            std::string method_name = match[1].str();
+            
+            if (existing_functions.find(method_name) == existing_functions.end()) {
+                std::cerr << "🎯 Geminiインターフェースメソッド発見: " << method_name << std::endl;
+                
+                FunctionInfo func_info;
+                func_info.name = method_name;
+                func_info.start_line = line_number;
+                
+                result.functions.push_back(func_info);
+                existing_functions.insert(method_name);
+            }
+        }
+    }
+    
+    // 🔥 前処理革命：コメント・文字列除去システム（Gemini先生の知恵！）
+    std::string preprocess_content(const std::string& content) {
+        std::string result = content;
+        std::cerr << "🧹 前処理開始: コメント・文字列除去システム起動" << std::endl;
+        
+        // 1. 複数行コメント /* ... */ を除去
+        result = remove_multiline_comments(result);
+        
+        // 2. 単行コメント // ... を除去  
+        result = remove_single_line_comments(result);
+        
+        // 3. 文字列リテラル "...", '...', `...` を除去
+        result = remove_string_literals(result);
+        
+        std::cerr << "🧹 前処理完了: 全てのコメント・文字列を無害化" << std::endl;
+        return result;
+    }
+    
+    // 複数行コメント /* ... */ 除去
+    std::string remove_multiline_comments(const std::string& content) {
+        std::string result;
+        size_t pos = 0;
+        
+        while (pos < content.length()) {
+            size_t comment_start = content.find("/*", pos);
+            if (comment_start == std::string::npos) {
+                result += content.substr(pos);
+                break;
+            }
+            
+            // コメント開始前までをコピー
+            result += content.substr(pos, comment_start - pos);
+            
+            // コメント終了を検索
+            size_t comment_end = content.find("*/", comment_start + 2);
+            if (comment_end == std::string::npos) {
+                // コメントが閉じられていない場合、残り全部をスペースに
+                result += std::string(content.length() - comment_start, ' ');
+                break;
+            }
+            
+            // コメント部分をスペースで置換（行数維持のため）
+            std::string comment_text = content.substr(comment_start, comment_end - comment_start + 2);
+            for (char c : comment_text) {
+                result += (c == '\n') ? '\n' : ' ';
+            }
+            
+            pos = comment_end + 2;
+        }
+        
+        return result;
+    }
+    
+    // 単行コメント // ... 除去
+    std::string remove_single_line_comments(const std::string& content) {
+        std::istringstream stream(content);
+        std::string result;
+        std::string line;
+        
+        while (std::getline(stream, line)) {
+            size_t comment_pos = line.find("//");
+            if (comment_pos != std::string::npos) {
+                // コメント部分をスペースで置換
+                std::string clean_line = line.substr(0, comment_pos);
+                clean_line += std::string(line.length() - comment_pos, ' ');
+                result += clean_line + "\n";
+            } else {
+                result += line + "\n";
+            }
+        }
+        
+        return result;
+    }
+    
+    // 文字列リテラル "...", '...', `...` 除去
+    std::string remove_string_literals(const std::string& content) {
+        std::string result;
+        size_t pos = 0;
+        
+        while (pos < content.length()) {
+            char c = content[pos];
+            
+            // 文字列開始文字を検出
+            if (c == '"' || c == '\'' || c == '`') {
+                char quote = c;
+                result += ' '; // クォート自体もスペースに
+                pos++;
+                
+                // 文字列終了まで検索
+                while (pos < content.length()) {
+                    char current = content[pos];
+                    
+                    if (current == quote) {
+                        result += ' '; // 終了クォートもスペースに
+                        pos++;
+                        break;
+                    } else if (current == '\\' && pos + 1 < content.length()) {
+                        // エスケープシーケンス処理
+                        result += (current == '\n') ? '\n' : ' ';
+                        pos++;
+                        if (pos < content.length()) {
+                            result += (content[pos] == '\n') ? '\n' : ' ';
+                            pos++;
+                        }
+                    } else {
+                        result += (current == '\n') ? '\n' : ' ';
+                        pos++;
+                    }
+                }
+            } else {
+                result += c;
+                pos++;
+            }
+        }
+        
+        return result;
     }
 };
 
