@@ -252,8 +252,16 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                     cpp_result.file_info = analysis_result.file_info;
                     cpp_result.complexity = analysis_result.complexity;
                     
+                    // 🔥 CRITICAL FIX: 統計情報を直接コピー（変換で失われるのを防ぐ）
+                    cpp_result.stats = analysis_result.stats;
+                    
                     // クラス・関数情報を変換
                     for (const auto& cls : analysis_result.classes) {
+                        // デバッグクラスを除外
+                        if (cls.name == "CPP_PEGTL_ANALYZER_CALLED") {
+                            continue;
+                        }
+                        
                         CppClass cpp_class;
                         cpp_class.name = cls.name;
                         cpp_class.start_line = cls.start_line;
@@ -274,7 +282,11 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                         cpp_result.cpp_functions.push_back(cpp_func);
                     }
                     
-                    cpp_result.update_statistics();
+                    // 🔥 統計再計算は不要！PEGTL結果を信頼
+                    // cpp_result.update_statistics(); // ← これが問題の原因だった！
+                    
+                    std::cerr << "✅ Stats preserved: classes=" << cpp_result.stats.class_count 
+                              << ", functions=" << cpp_result.stats.function_count << std::endl;
                     
                     result.cpp_result = cpp_result;
                     result.file_info = analysis_result.file_info;

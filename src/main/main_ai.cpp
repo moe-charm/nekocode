@@ -437,6 +437,10 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 analysis_result.file_info = multilang_result.cpp_result->file_info;
                 analysis_result.complexity = multilang_result.cpp_result->complexity;
                 analysis_result.language = Language::CPP;
+                
+                // 🔥 CRITICAL FIX: 統計情報をコピー（バグ修正）
+                analysis_result.stats = multilang_result.cpp_result->stats;
+                
                 // 他のフィールドは必要に応じて変換
             } else {
                 // フォールバック
