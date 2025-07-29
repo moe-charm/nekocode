@@ -16,6 +16,11 @@
 #include <sstream>
 #include <set>
 #include <iostream>
+#include <chrono> 
+#include <execution>
+#include <mutex>
+#include <atomic>
+#include <iomanip>
 
 namespace nekocode {
 
@@ -682,11 +687,21 @@ private:
         return false;
     }
     
-    // 🚀 ハイブリッド戦略: 行ベース補完解析
-    void apply_line_based_analysis(AnalysisResult& result, const std::string& content, const std::string& filename) {
+    // 🚀 JavaScript世界最強戦略: 自動最適化ハイブリッド解析（TypeScript成功パターン移植）
+    void apply_line_based_analysis(AnalysisResult& result, const std::string& content, const std::string& /* filename */) {
+        // 🎯 ファイルサイズ検出と戦略決定
+        std::vector<std::string> all_lines;
         std::istringstream stream(content);
         std::string line;
-        size_t line_number = 1;
+        while (std::getline(stream, line)) {
+            all_lines.push_back(line);
+        }
+        
+        const size_t total_lines = all_lines.size();
+        const bool use_full_analysis = total_lines < 15000;     // JavaScript特化調整: 15K行未満で全機能
+        const bool use_sampling_mode = total_lines >= 15000 && total_lines < 40000;  // サンプリングモード
+        
+        std::cerr << "📊 JavaScript解析開始: " << total_lines << "行検出" << std::endl;
         
         // 既存の関数名を記録（重複検出を防ぐ）
         std::set<std::string> existing_functions;
@@ -694,10 +709,71 @@ private:
             existing_functions.insert(func.name);
         }
         
-        // 行ベース解析: IIFE内関数を救済
-        while (std::getline(stream, line)) {
-            extract_functions_from_line(line, line_number, result, existing_functions);
-            line_number++;
+        // 🕐 処理時間測定開始
+        auto analysis_start = std::chrono::high_resolution_clock::now();
+        size_t processed_lines = 0;
+        
+        if (use_full_analysis) {
+            std::cerr << "🚀 通常モード: 全機能有効（JavaScript最高精度）" << std::endl;
+            // 通常モード：全行処理
+            for (size_t i = 0; i < all_lines.size(); i++) {
+                const std::string& current_line = all_lines[i];
+                size_t current_line_number = i + 1;
+                
+                extract_functions_from_line(current_line, current_line_number, result, existing_functions);
+                processed_lines++;
+            }
+        } else if (use_sampling_mode) {
+            std::cerr << "🎲 サンプリングモード: 10行に1行処理（効率重視）" << std::endl;
+            // サンプリングモード：10行に1行だけ処理
+            for (size_t i = 0; i < all_lines.size(); i += 10) {
+                const std::string& current_line = all_lines[i];
+                size_t current_line_number = i + 1;
+                
+                extract_functions_from_line(current_line, current_line_number, result, existing_functions);
+                processed_lines++;
+            }
+        } else {
+            std::cerr << "⚡ 高速モード: 基本検出のみ（大規模JS対応）" << std::endl;
+            // 高速モード：基本検出のみ
+            for (size_t i = 0; i < all_lines.size(); i++) {
+                const std::string& current_line = all_lines[i];
+                size_t current_line_number = i + 1;
+                
+                // 基本的な関数パターンのみ検出
+                extract_basic_functions_from_line(current_line, current_line_number, result, existing_functions);
+                processed_lines++;
+            }
+        }
+        
+        auto analysis_end = std::chrono::high_resolution_clock::now();
+        auto analysis_time = std::chrono::duration_cast<std::chrono::milliseconds>(analysis_end - analysis_start);
+        
+        std::cerr << "✅ JavaScript第1段階完了: " << processed_lines << "行処理 (" 
+                  << analysis_time.count() << "ms)" << std::endl;
+        
+        // 🚀 【JavaScriptコールバック地獄専用】無限ネスト掘削アタック開始！
+        if (use_full_analysis || use_sampling_mode) {
+            std::cerr << "🚀 【JavaScript専用】無限ネスト掘削アタック開始！（コールバック地獄対応版）" << std::endl;
+            size_t initial_function_count = result.functions.size();
+            
+            // 関数範囲を特定してネスト検索
+            extract_nested_functions_recursively(result, all_lines, existing_functions);
+            
+            size_t nested_functions_found = result.functions.size() - initial_function_count;
+            std::cerr << "🏆 JavaScript無限ネスト掘削アタック最終結果：" << nested_functions_found 
+                      << "個のネスト関数を発見！" << std::endl;
+        } else {
+            std::cerr << "⚡ 高速モード: ネスト掘削スキップ（大規模JS対応）" << std::endl;
+        }
+        
+        // 🏁 処理戦略のサマリー
+        if (!use_full_analysis && !use_sampling_mode) {
+            std::cerr << "\n📊 処理戦略: 大規模JSファイルモード（基本検出のみ）" << std::endl;
+        } else if (use_sampling_mode) {
+            std::cerr << "\n📊 処理戦略: サンプリングモード（10%処理）" << std::endl;
+        } else {
+            std::cerr << "\n📊 処理戦略: 通常モード（全機能有効）" << std::endl;
         }
     }
     
@@ -810,6 +886,62 @@ private:
             }
         }
         
+        // 🔥 【JavaScript行レベル二重アタック】パターン8: ES2015オブジェクトメソッドショートハンド - method() { (TypeScript成功パターン移植)
+        std::regex es2015_method_pattern(R"(^\s*(\w+)\s*\(\s*[^)]*\s*\)\s*\{)");
+        if (std::regex_search(line, match, es2015_method_pattern)) {
+            std::string method_name = match[1].str();
+            // constructor、get、set、制御構造は除外
+            if (method_name != "constructor" && method_name != "get" && method_name != "set" && 
+                !is_control_keyword(method_name) && existing_functions.find(method_name) == existing_functions.end()) {
+                // クラス内かオブジェクト内かを判定（簡易版）
+                bool is_likely_method = (line.find("class") == std::string::npos) && 
+                                       (line.find("function") == std::string::npos);
+                if (is_likely_method) {
+                    FunctionInfo func_info;
+                    func_info.name = method_name;
+                    func_info.start_line = line_number;
+                    func_info.metadata["is_es2015_method"] = "true";
+                    func_info.metadata["pattern_type"] = "shorthand_method";
+                    result.functions.push_back(func_info);
+                    existing_functions.insert(method_name);
+                    // std::cerr << "[DEBUG] 🔥 ES2015 method shorthand: " << method_name << " at line " << line_number << std::endl;
+                }
+            }
+        }
+        
+        // 🚀 【JavaScript行レベル二重アタック】パターン9: アロー関数プロパティ - prop: () => { (TypeScript成功パターン移植)
+        std::regex arrow_property_pattern(R"(^\s*(\w+):\s*\([^)]*\)\s*=>\s*\{?)");
+        if (std::regex_search(line, match, arrow_property_pattern)) {
+            std::string prop_name = match[1].str();
+            if (!is_control_keyword(prop_name) && existing_functions.find(prop_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = prop_name;
+                func_info.start_line = line_number;
+                func_info.is_arrow_function = true;
+                func_info.metadata["is_property_arrow"] = "true";
+                func_info.metadata["pattern_type"] = "arrow_property";
+                result.functions.push_back(func_info);
+                existing_functions.insert(prop_name);
+                // std::cerr << "[DEBUG] 🚀 Arrow property: " << prop_name << " at line " << line_number << std::endl;
+            }
+        }
+        
+        // 🎯 【JavaScript行レベル二重アタック】パターン10: 複雑なプロパティ構文 - prop: function() { (TypeScript成功パターン移植)
+        std::regex complex_property_pattern(R"(^\s*(\w+):\s*function\s*\([^)]*\)\s*\{)");
+        if (std::regex_search(line, match, complex_property_pattern)) {
+            std::string prop_name = match[1].str();
+            if (!is_control_keyword(prop_name) && existing_functions.find(prop_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = prop_name;
+                func_info.start_line = line_number;
+                func_info.metadata["is_property_function"] = "true";
+                func_info.metadata["pattern_type"] = "property_function";
+                result.functions.push_back(func_info);
+                existing_functions.insert(prop_name);
+                // std::cerr << "[DEBUG] 🎯 Property function: " << prop_name << " at line " << line_number << std::endl;
+            }
+        }
+        
         // パターン7: async class method - async methodName(params) { 🔥 NEW!
         std::regex async_class_method_pattern(R"(^\s*async\s+(\w+)\s*\(\s*[^)]*\s*\)\s*\{)");
         if (std::regex_search(line, match, async_class_method_pattern)) {
@@ -824,6 +956,348 @@ private:
                 result.functions.push_back(func_info);
                 existing_functions.insert(method_name);
                 // std::cerr << "[DEBUG] Fallback found async class method: " << method_name << " at line " << line_number << std::endl;
+            }
+        }
+    }
+    
+    // 🚀 【JavaScript専用】無限ネスト掘削アタック（コールバック地獄対応版）
+    void extract_nested_functions_recursively(AnalysisResult& result, const std::vector<std::string>& all_lines, 
+                                               std::set<std::string>& existing_functions) {
+        
+        // 📈 層別プロファイリング用
+        std::vector<std::chrono::milliseconds> layer_times;
+        std::vector<size_t> layer_ranges;
+        std::vector<size_t> layer_detections;
+        std::vector<size_t> layer_lines;
+        
+        // 初期範囲設定：全体を1つの範囲として開始
+        std::vector<FunctionRange> current_ranges = {{1, all_lines.size(), 0}};
+        size_t total_processing_time = 0;
+        size_t total_scanned_lines = 0;
+        size_t round_count = 0;
+        const size_t MAX_DEPTH = 5; // JavaScript特化：コールバック地獄でも5層まで
+        
+        // 📊 ネスト掘削統計
+        std::atomic<size_t> total_nested_found{0};
+        
+        while (!current_ranges.empty() && round_count < MAX_DEPTH) {
+            round_count++;
+            
+            auto round_start = std::chrono::high_resolution_clock::now();
+            std::vector<FunctionRange> next_ranges;
+            std::atomic<size_t> round_detections{0};
+            size_t round_lines = 0;
+            
+            // スレッドセーフな範囲・出力管理
+            std::mutex ranges_mutex;
+            std::mutex output_mutex;
+            
+            std::cerr << "🎯 JavaScript第" << round_count << "回ネスト掘削攻撃開始！（検索範囲: " 
+                      << current_ranges.size() << "個）" << std::endl;
+            
+            // 🔥 並列処理でコールバック地獄を高速攻略！
+            std::for_each(std::execution::par_unseq,
+                          current_ranges.begin(),
+                          current_ranges.end(),
+                          [&](const FunctionRange& range) {
+                              
+                size_t range_lines = 0;
+                              
+                for (size_t line_idx = range.start_line - 1; 
+                     line_idx < std::min(range.end_line, all_lines.size()); line_idx++) {
+                    
+                    const std::string& line = all_lines[line_idx];
+                    size_t current_line_number = line_idx + 1;
+                    range_lines++;
+                    
+                    // 🎯 JavaScriptネスト関数パターン検出
+                    std::vector<FunctionInfo> detected_functions = 
+                        detect_javascript_nested_functions(line, current_line_number, existing_functions);
+                    
+                    if (!detected_functions.empty()) {
+                        // 検出された関数を結果に追加
+                        {
+                            std::lock_guard<std::mutex> output_lock(output_mutex);
+                            for (const auto& func : detected_functions) {
+                                result.functions.push_back(func);
+                                existing_functions.insert(func.name);
+                                round_detections++;
+                                total_nested_found++;
+                                
+                                std::cerr << "🎯 第" << round_count << "回でネスト" 
+                                          << (func.is_arrow_function ? "アロー" : "") 
+                                          << "関数発見: " << func.name << " (行:" << func.start_line << ")" << std::endl;
+                                
+                                // 次回検索範囲の追加（コールバック地獄対応）
+                                if (range.indent_level < MAX_DEPTH - 1) {
+                                    size_t next_start = func.start_line + 1;
+                                    size_t next_end = std::min(static_cast<size_t>(func.start_line + 50), all_lines.size()); // JavaScript関数は50行程度の範囲
+                                    
+                                    if (next_start < next_end) {
+                                        std::lock_guard<std::mutex> ranges_lock(ranges_mutex);
+                                        next_ranges.push_back({next_start, next_end, range.indent_level + 1});
+                                        std::cerr << "  → 次回検索範囲追加: 行" << next_start << "-" << next_end 
+                                                  << " (深さ:" << (range.indent_level + 1) << ")" << std::endl;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // 🔢 行数統計の更新
+                {
+                    std::lock_guard<std::mutex> output_lock(output_mutex);
+                    round_lines += range_lines;
+                }
+            });
+            
+            auto round_end = std::chrono::high_resolution_clock::now();
+            auto round_time = std::chrono::duration_cast<std::chrono::milliseconds>(round_end - round_start);
+            
+            // 📊 層別統計記録
+            layer_times.push_back(round_time);
+            layer_ranges.push_back(current_ranges.size());
+            layer_detections.push_back(round_detections);
+            layer_lines.push_back(round_lines);
+            
+            total_processing_time += round_time.count();
+            total_scanned_lines += round_lines;
+            
+            std::cerr << "🎯 JavaScript第" << round_count << "回攻撃完了！新規検出: " << round_detections 
+                      << "個 (処理時間: " << round_time.count() << "ms, 処理行数: " << round_lines << "行)" << std::endl;
+            
+            current_ranges = std::move(next_ranges);
+            
+            if (round_detections == 0) {
+                std::cerr << "🎉 JavaScript無限ネスト掘削アタック完了！検索範囲が空になりました" << std::endl;
+                break;
+            }
+        }
+        
+        std::cerr << "⏱️  JavaScript総処理時間: " << total_processing_time << "ms, 総スキャン行数: " 
+                  << total_scanned_lines << "行 (ラウンド数: " << round_count << "回)" << std::endl;
+        
+        // 📊 詳細プロファイリング出力
+        std::cerr << "\n📊 === JavaScript層ごとの詳細プロファイリング ===" << std::endl;
+        for (size_t i = 0; i < layer_times.size(); i++) {
+            double ms_per_line = layer_lines[i] > 0 ? static_cast<double>(layer_times[i].count()) / layer_lines[i] : 0.0;
+            std::cerr << "📈 JavaScript第" << (i+1) << "層: " << layer_times[i].count() << "ms, " 
+                      << layer_ranges[i] << "範囲, " << layer_detections[i] << "個検出, " 
+                      << layer_lines[i] << "行処理 (1行あたり: " 
+                      << std::fixed << std::setprecision(3) << ms_per_line << "ms)" << std::endl;
+        }
+        
+        // 📊 累積処理時間
+        std::cerr << "\n📊 === JavaScript累積処理時間 ===" << std::endl;
+        size_t cumulative_time = 0;
+        for (size_t i = 0; i < layer_times.size(); i++) {
+            cumulative_time += layer_times[i].count();
+            std::cerr << "🏃 JavaScript第1層〜第" << (i+1) << "層までの累積: " << cumulative_time << "ms" << std::endl;
+        }
+        std::cerr << "===================================" << std::endl;
+    }
+    
+    // 🎯 JavaScriptネスト関数検出（コールバック地獄専用）
+    std::vector<FunctionInfo> detect_javascript_nested_functions(const std::string& line, size_t line_number, 
+                                                                 std::set<std::string>& existing_functions) {
+        std::vector<FunctionInfo> detected_functions;
+        std::smatch match;
+        
+        // 制御構造フィルタリング
+        static const std::set<std::string> control_keywords = {
+            "if", "else", "for", "while", "do", "switch", "case", "catch", 
+            "try", "finally", "return", "break", "continue", "throw", 
+            "typeof", "instanceof", "new", "delete", "var", "let", "const"
+        };
+        
+        auto is_control_keyword = [&](const std::string& name) {
+            return control_keywords.find(name) != control_keywords.end();
+        };
+        
+        // 🎯 パターン1: コールバック内関数 - function(
+        std::regex nested_function_pattern(R"(function\s+(\w+)\s*\()");
+        auto func_begin = std::sregex_iterator(line.begin(), line.end(), nested_function_pattern);
+        auto func_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = func_begin; i != func_end; ++i) {
+            std::smatch match = *i;
+            std::string func_name = match[1].str();
+            
+            if (!is_control_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.metadata["nested_type"] = "callback_function";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        // 🎯 パターン2: アロー関数変数 - const name = (
+        std::regex nested_arrow_pattern(R"((?:const|let|var)\s+(\w+)\s*=\s*\([^)]*\)\s*=>)");
+        auto arrow_begin = std::sregex_iterator(line.begin(), line.end(), nested_arrow_pattern);
+        auto arrow_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = arrow_begin; i != arrow_end; ++i) {
+            std::smatch match = *i;
+            std::string func_name = match[1].str();
+            
+            if (!is_control_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.is_arrow_function = true;
+                func_info.metadata["nested_type"] = "arrow_callback";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        // 🎯 パターン3: オブジェクトメソッド - methodName: function(
+        std::regex method_pattern(R"((\w+):\s*function\s*\()");
+        auto method_begin = std::sregex_iterator(line.begin(), line.end(), method_pattern);
+        auto method_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = method_begin; i != method_end; ++i) {
+            std::smatch match = *i;
+            std::string method_name = match[1].str();
+            
+            if (!is_control_keyword(method_name) && existing_functions.find(method_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = method_name;
+                func_info.start_line = line_number;
+                func_info.metadata["nested_type"] = "object_method";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        // 🎯 パターン4: 関数式 - const name = function
+        std::regex function_expression_pattern(R"((?:const|let|var)\s+(\w+)\s*=\s*function\s*\()");
+        if (std::regex_search(line, match, function_expression_pattern)) {
+            std::string func_name = match[1].str();
+            
+            if (!is_control_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.metadata["nested_type"] = "function_expression";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        // 🔥 【JavaScript無限ネスト掘削アタック強化】パターン5: ES2015ネストメソッドショートハンド - method() { (TypeScript成功パターン移植)
+        std::regex nested_es2015_method_pattern(R"((\w+)\s*\(\s*[^)]*\s*\)\s*\{)");
+        auto es2015_begin = std::sregex_iterator(line.begin(), line.end(), nested_es2015_method_pattern);
+        auto es2015_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = es2015_begin; i != es2015_end; ++i) {
+            std::smatch match = *i;
+            std::string method_name = match[1].str();
+            
+            if (method_name != "constructor" && method_name != "get" && method_name != "set" && 
+                !is_control_keyword(method_name) && existing_functions.find(method_name) == existing_functions.end()) {
+                // ネスト内のメソッドショートハンド
+                FunctionInfo func_info;
+                func_info.name = method_name;
+                func_info.start_line = line_number;
+                func_info.metadata["nested_type"] = "es2015_method_shorthand";
+                func_info.metadata["pattern_source"] = "nested_detection";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        // 🚀 【JavaScript無限ネスト掘削アタック強化】パターン6: ネストアロー関数プロパティ - prop: () => { (TypeScript成功パターン移植)
+        std::regex nested_arrow_property_pattern(R"((\w+):\s*\([^)]*\)\s*=>\s*\{?)");
+        auto arrow_prop_begin = std::sregex_iterator(line.begin(), line.end(), nested_arrow_property_pattern);
+        auto arrow_prop_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = arrow_prop_begin; i != arrow_prop_end; ++i) {
+            std::smatch match = *i;
+            std::string prop_name = match[1].str();
+            
+            if (!is_control_keyword(prop_name) && existing_functions.find(prop_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = prop_name;
+                func_info.start_line = line_number;
+                func_info.is_arrow_function = true;
+                func_info.metadata["nested_type"] = "arrow_property_nested";
+                func_info.metadata["pattern_source"] = "nested_detection";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        // 🎯 【JavaScript無限ネスト掘削アタック強化】パターン7: 複雑ネストプロパティ関数 - prop: function() { (TypeScript成功パターン移植)
+        std::regex nested_complex_property_pattern(R"((\w+):\s*function\s*\([^)]*\)\s*\{)");
+        auto complex_prop_begin = std::sregex_iterator(line.begin(), line.end(), nested_complex_property_pattern);
+        auto complex_prop_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = complex_prop_begin; i != complex_prop_end; ++i) {
+            std::smatch match = *i;
+            std::string prop_name = match[1].str();
+            
+            if (!is_control_keyword(prop_name) && existing_functions.find(prop_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = prop_name;
+                func_info.start_line = line_number;
+                func_info.metadata["nested_type"] = "property_function_nested";
+                func_info.metadata["pattern_source"] = "nested_detection";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        return detected_functions;
+    }
+    
+    // 🌟 JavaScriptのスコープ範囲構造体（コールバック地獄対応）
+    struct FunctionRange {
+        size_t start_line;
+        size_t end_line;
+        size_t indent_level;
+    };
+    
+    // 🚀 高速モード専用：基本的な関数パターンのみ検出（大規模JS対応）
+    void extract_basic_functions_from_line(const std::string& line, size_t line_number, 
+                                          AnalysisResult& result, std::set<std::string>& existing_functions) {
+        
+        // 制御構造キーワードフィルタリング
+        static const std::set<std::string> control_keywords = {
+            "if", "else", "for", "while", "do", "switch", "case", "catch", 
+            "try", "finally", "return", "break", "continue", "throw", 
+            "typeof", "instanceof", "new", "delete", "var", "let", "const"
+        };
+        
+        auto is_control_keyword = [&](const std::string& name) {
+            return control_keywords.find(name) != control_keywords.end();
+        };
+        
+        // 🎯 高速モード：最も一般的なパターンのみ検出
+        std::smatch match;
+        
+        // パターン1: function name( - 最も基本的
+        std::regex basic_function_pattern(R"(^\s*function\s+(\w+)\s*\()");
+        if (std::regex_search(line, match, basic_function_pattern)) {
+            std::string func_name = match[1].str();
+            if (!is_control_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.metadata["detection_mode"] = "basic";
+                result.functions.push_back(func_info);
+                existing_functions.insert(func_name);
+            }
+        }
+        
+        // パターン2: const/let/var name = function( - ES6対応最小限
+        std::regex basic_arrow_pattern(R"(^\s*(?:const|let|var)\s+(\w+)\s*=\s*function\s*\()");
+        if (std::regex_search(line, match, basic_arrow_pattern)) {
+            std::string func_name = match[1].str();
+            if (!is_control_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.is_arrow_function = true;
+                func_info.metadata["detection_mode"] = "basic";
+                result.functions.push_back(func_info);
+                existing_functions.insert(func_name);
             }
         }
     }
