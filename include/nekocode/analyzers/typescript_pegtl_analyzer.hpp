@@ -11,6 +11,7 @@
 #include <regex>
 #include <sstream>
 #include <set>
+#include <chrono>
 
 namespace nekocode {
 
@@ -114,7 +115,10 @@ private:
             existing_classes.insert(cls.name);
         }
         
-        // 第1段階: 行ベース解析（従来通り） 
+        // 第1段階: 行ベース解析（従来通り）
+        size_t gemini_processed_lines = 0;
+        auto gemini_start = std::chrono::high_resolution_clock::now();
+        
         while (std::getline(stream, line)) {
             extract_typescript_functions_from_line(line, line_number, result, existing_functions);
             extract_typescript_classes_from_line(line, line_number, result, existing_classes);
@@ -124,11 +128,28 @@ private:
             gemini_line_level_double_attack(line, line_number, result, existing_functions);
             
             line_number++;
+            gemini_processed_lines++;
+            
+            // 進捗表示（10000行ごと）
+            if (gemini_processed_lines % 10000 == 0) {
+                auto gemini_current = std::chrono::high_resolution_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(gemini_current - gemini_start).count();
+                std::cerr << "⏳ Gemini行レベル処理中: " << gemini_processed_lines << "行処理済み (" 
+                          << elapsed << "ms経過)" << std::endl;
+            }
         }
+        
+        auto gemini_end = std::chrono::high_resolution_clock::now();
+        auto gemini_duration = std::chrono::duration_cast<std::chrono::milliseconds>(gemini_end - gemini_start).count();
+        std::cerr << "✅ Gemini行レベル二重アタック完了: " << gemini_processed_lines 
+                  << "行処理 (" << gemini_duration << "ms)" << std::endl;
         
         // 第2段階: 二重正規表現アタック！クラス全体を捕獲してメソッド検出
         std::cerr << "🎯 二重正規表現アタック開始！" << std::endl;
         double_regex_attack_for_class_methods(content, result, existing_functions);
+        
+        // 🚀 第3段階: 【ユーザー天才アイデア】無限ネスト掘削アタック！
+        infinite_nested_function_attack(content, result, existing_functions);
     }
     
     // TypeScript関数パターンの抽出
@@ -537,7 +558,8 @@ private:
     void gemini_line_level_double_attack(const std::string& line, size_t line_number,
                                         AnalysisResult& result, std::set<std::string>& existing_functions) {
         
-        std::cerr << "⚡ Gemini行レベル二重アタック: " << line.substr(0, 50) << "..." << std::endl;
+        // 🔇 行レベルデバッグログ無効化（巨大ファイル対策）
+        // std::cerr << "⚡ Gemini行レベル二重アタック: " << line.substr(0, 50) << "..." << std::endl;
         
         // 🎯 アタックパターン1: オブジェクトメソッド (method() {})
         gemini_attack_object_methods(line, line_number, result, existing_functions);
@@ -659,6 +681,255 @@ private:
                 existing_functions.insert(method_name);
             }
         }
+    }
+
+    // 🎯 関数範囲を表す構造体
+    struct FunctionRange {
+        size_t start_line;
+        size_t end_line;
+        size_t indent_level;  // インデントレベルで深さを管理
+    };
+    
+    // 🔍 関数の終了行を見つける（ブレースバランス方式）
+    size_t find_function_end_line(const std::vector<std::string>& lines, size_t start_line) {
+        int brace_count = 0;
+        bool in_function = false;
+        
+        for (size_t i = start_line; i < lines.size(); i++) {
+            const std::string& line = lines[i];
+            
+            // ブレースをカウント
+            for (char ch : line) {
+                if (ch == '{') {
+                    brace_count++;
+                    in_function = true;
+                } else if (ch == '}') {
+                    brace_count--;
+                    if (in_function && brace_count == 0) {
+                        return i;  // 関数の終了行
+                    }
+                }
+            }
+            
+            // アロー関数の単一式の場合（セミコロンで終了）
+            if (!in_function && line.find("=>") != std::string::npos) {
+                if (line.find(';') != std::string::npos) {
+                    return i;
+                }
+                // 次の行がインデントされていない場合も終了
+                if (i + 1 < lines.size()) {
+                    size_t next_indent = lines[i + 1].find_first_not_of(" \t");
+                    size_t curr_indent = line.find_first_not_of(" \t");
+                    if (next_indent != std::string::npos && curr_indent != std::string::npos &&
+                        next_indent <= curr_indent) {
+                        return i;
+                    }
+                }
+            }
+        }
+        
+        return lines.size() - 1;  // ファイル終端まで
+    }
+
+    // 🎯 【ユーザー天才アイデア】無限ネスト掘削アタック！（最適化版）
+    void infinite_nested_function_attack(const std::string& content, AnalysisResult& result, 
+                                       std::set<std::string>& existing_functions) {
+        std::cerr << "🚀 【ユーザー天才アイデア】無限ネスト掘削アタック開始！（最適化版）" << std::endl;
+        
+        // 🕐 性能測定追加
+        auto total_start = std::chrono::high_resolution_clock::now();
+        size_t total_lines_scanned = 0;
+        
+        // 全内容を行単位で分割（一度だけ！）
+        std::vector<std::string> lines;
+        std::istringstream iss(content);
+        std::string line;
+        while (std::getline(iss, line)) {
+            lines.push_back(line);
+        }
+        
+        int attack_round = 1;
+        size_t previous_count = existing_functions.size();
+        
+        // 次回検索する関数範囲のリスト
+        std::vector<FunctionRange> search_ranges;
+        
+        // 第1回は全体を検索対象に
+        search_ranges.push_back({0, lines.size() - 1, 0});
+        
+        // 0個になるまで繰り返し攻撃！
+        while (!search_ranges.empty()) {
+            auto round_start = std::chrono::high_resolution_clock::now();
+            std::cerr << "🎯 第" << attack_round << "回ネスト掘削攻撃開始！（検索範囲: " 
+                      << search_ranges.size() << "個）" << std::endl;
+            
+            std::vector<FunctionRange> next_search_ranges;  // 次回の検索範囲
+            size_t round_detections = 0;
+            size_t round_lines_scanned = 0;
+            
+            // 各範囲を検索
+            for (const auto& range : search_ranges) {
+                for (size_t line_idx = range.start_line; line_idx <= range.end_line && line_idx < lines.size(); line_idx++) {
+                    const std::string& line = lines[line_idx];
+                    round_lines_scanned++;
+                
+                    // 🎯 完全掘削モード：同一行に複数関数も検出！
+                    size_t line_number = line_idx + 1;  // 1ベースの行番号
+                    
+                    // パターン1: インデント付きfunction検出（ネスト関数）
+                    std::regex nested_function_pattern(R"(^[ \t]+function\s+([a-zA-Z_]\w*)\s*[<(])");
+                    std::smatch match;
+                    
+                    if (std::regex_search(line, match, nested_function_pattern)) {
+                        std::string func_name = match[1].str();
+                        
+                        if (existing_functions.find(func_name) == existing_functions.end()) {
+                            std::cerr << "🎯 第" << attack_round << "回でネスト関数発見: " << func_name 
+                                      << " (行:" << line_number << ")" << std::endl;
+                            
+                            FunctionInfo func_info;
+                            func_info.name = func_name;
+                            func_info.start_line = line_number;
+                            
+                            // async判定
+                            if (line.find("async") != std::string::npos) {
+                                func_info.is_async = true;
+                            }
+                            
+                            result.functions.push_back(func_info);
+                            existing_functions.insert(func_name);
+                            round_detections++;
+                            
+                            // 🚀 関数の範囲を特定して次回検索対象に追加！
+                            size_t func_end = find_function_end_line(lines, line_idx);
+                            if (func_end > line_idx) {
+                                FunctionRange new_range;
+                                new_range.start_line = line_idx + 1;  // 関数内部から開始
+                                new_range.end_line = func_end - 1;    // 閉じブレースの前まで
+                                new_range.indent_level = range.indent_level + 1;
+                                
+                                // 🛡️ 深さ制限（5レベルまで）
+                                if (new_range.indent_level <= 5) {
+                                    next_search_ranges.push_back(new_range);
+                                    std::cerr << "  → 次回検索範囲追加: 行" << new_range.start_line + 1 
+                                              << "-" << new_range.end_line + 1 
+                                              << " (深さ:" << new_range.indent_level << ")" << std::endl;
+                                }
+                            }
+                        }
+                    }
+                
+                // パターン2: インデント付きアロー関数（const/let/var）
+                std::regex nested_arrow_pattern(R"(^[ \t]+(const|let|var)\s+([a-zA-Z_]\w*)\s*=\s*.*=>)");
+                std::smatch arrow_match;
+                
+                if (std::regex_search(line, arrow_match, nested_arrow_pattern)) {
+                    std::string arrow_name = arrow_match[2].str();
+                    
+                    if (existing_functions.find(arrow_name) == existing_functions.end()) {
+                        std::cerr << "🎯 第" << attack_round << "回でネストアロー関数発見: " << arrow_name 
+                                  << " (行:" << line_number << ")" << std::endl;
+                        
+                        FunctionInfo func_info;
+                        func_info.name = arrow_name;
+                        func_info.start_line = line_number;
+                        func_info.is_arrow_function = true;
+                        
+                        if (line.find("async") != std::string::npos) {
+                            func_info.is_async = true;
+                        }
+                        
+                        result.functions.push_back(func_info);
+                        existing_functions.insert(arrow_name);
+                        round_detections++;
+                        
+                        // 🚀 アロー関数の範囲も次回検索対象に！
+                        size_t func_end = find_function_end_line(lines, line_idx);
+                        if (func_end > line_idx) {
+                            FunctionRange new_range;
+                            new_range.start_line = line_idx + 1;
+                            new_range.end_line = func_end - 1;
+                            new_range.indent_level = range.indent_level + 1;
+                            
+                            // 🛡️ 深さ制限（5レベルまで）
+                            if (new_range.indent_level <= 5) {
+                                next_search_ranges.push_back(new_range);
+                            }
+                        }
+                    }
+                }
+                
+                // パターン3: インデント付き関数式代入
+                std::regex nested_func_assign_pattern(R"(^[ \t]+(const|let|var)\s+([a-zA-Z_]\w*)\s*=\s*function)");
+                std::smatch assign_match;
+                
+                if (std::regex_search(line, assign_match, nested_func_assign_pattern)) {
+                    std::string assign_name = assign_match[2].str();
+                    
+                    if (existing_functions.find(assign_name) == existing_functions.end()) {
+                        std::cerr << "🎯 第" << attack_round << "回でネスト関数式発見: " << assign_name 
+                                  << " (行:" << line_number << ")" << std::endl;
+                        
+                        FunctionInfo func_info;
+                        func_info.name = assign_name;
+                        func_info.start_line = line_number;
+                        
+                        result.functions.push_back(func_info);
+                        existing_functions.insert(assign_name);
+                        round_detections++;
+                        
+                        // 🚀 関数式の範囲も次回検索対象に！
+                        size_t func_end = find_function_end_line(lines, line_idx);
+                        if (func_end > line_idx) {
+                            FunctionRange new_range;
+                            new_range.start_line = line_idx + 1;
+                            new_range.end_line = func_end - 1;
+                            new_range.indent_level = range.indent_level + 1;
+                            
+                            // 🛡️ 深さ制限（5レベルまで）
+                            if (new_range.indent_level <= 5) {
+                                next_search_ranges.push_back(new_range);
+                            }
+                        }
+                    }
+                }
+                }  // 行ループ終了
+            }  // 範囲ループ終了
+            
+            // 性能測定
+            auto round_end = std::chrono::high_resolution_clock::now();
+            auto round_duration = std::chrono::duration_cast<std::chrono::milliseconds>(round_end - round_start).count();
+            total_lines_scanned += round_lines_scanned;
+            
+            std::cerr << "🎯 第" << attack_round << "回攻撃完了！新規検出: " << round_detections << "個"
+                      << " (処理時間: " << round_duration << "ms, 処理行数: " << round_lines_scanned << "行)" << std::endl;
+            
+            // 次回の検索範囲を更新
+            search_ranges = std::move(next_search_ranges);
+            
+            // 検索範囲が空になったら終了！
+            if (search_ranges.empty()) {
+                std::cerr << "🎉 無限ネスト掘削アタック完了！検索範囲が空になりました" << std::endl;
+                break;
+            }
+            
+            attack_round++;
+            
+            // 無限ループ防止（最大20回まで - 深いネストに対応）
+            if (attack_round > 20) {
+                std::cerr << "⚠️ 安全装置発動：20回で強制終了" << std::endl;
+                break;
+            }
+        }
+        
+        size_t total_nested = existing_functions.size() - previous_count;
+        // 総計性能測定
+        auto total_end = std::chrono::high_resolution_clock::now();
+        auto total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(total_end - total_start).count();
+        
+        std::cerr << "🏆 無限ネスト掘削アタック最終結果：" << total_nested << "個のネスト関数を発見！" << std::endl;
+        std::cerr << "⏱️  総処理時間: " << total_duration << "ms, 総スキャン行数: " << total_lines_scanned 
+                  << "行 (ラウンド数: " << (attack_round - 1) << "回)" << std::endl;
     }
     
     // 🔥 前処理革命：コメント・文字列除去システム（Gemini先生の知恵！）
