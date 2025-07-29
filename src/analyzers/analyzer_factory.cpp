@@ -18,6 +18,9 @@
 #include "nekocode/analyzers/go_analyzer.hpp"
 #include "nekocode/analyzers/rust_analyzer.hpp"
 #include <algorithm>
+
+// 🔧 グローバルデバッグフラグ定義
+bool g_debug_mode = false;
 #include <cctype>
 
 namespace nekocode {
