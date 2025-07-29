@@ -15,6 +15,7 @@
 #include <execution>
 #include <mutex>
 #include <atomic>
+#include <iomanip>
 
 namespace nekocode {
 
@@ -44,8 +45,13 @@ public:
     }
     
     AnalysisResult analyze(const std::string& content, const std::string& filename) override {
+        // 🕐 全体の処理時間測定開始
+        auto total_start = std::chrono::high_resolution_clock::now();
+        
         // 🔥 前処理革命：コメント・文字列除去システム（Gemini先生戦略！）
+        auto preprocess_start = std::chrono::high_resolution_clock::now();
         std::string preprocessed_content = preprocess_content(content);
+        auto preprocess_end = std::chrono::high_resolution_clock::now();
         
         // 安全な削減量計算（アンダーフロー防止）
         long long size_diff = static_cast<long long>(content.length()) - static_cast<long long>(preprocessed_content.length());
@@ -118,33 +124,72 @@ private:
             existing_classes.insert(cls.name);
         }
         
-        // 第1段階: 行ベース解析（従来通り）
+        // 🎯 ファイルサイズ検出と戦略決定
+        std::vector<std::string> all_lines;
+        while (std::getline(stream, line)) {
+            all_lines.push_back(line);
+        }
+        
+        const size_t total_lines = all_lines.size();
+        const bool use_gemini_first_pass = total_lines < 20000;  // 20000行未満でのみGemini実行
+        const bool use_sampling_mode = total_lines >= 20000 && total_lines < 50000;  // サンプリングモード
+        
+        std::cerr << "📊 ファイル情報: " << total_lines << "行検出" << std::endl;
+        
+        // 第1段階: 行ベース解析（最適化版）
         size_t gemini_processed_lines = 0;
         auto gemini_start = std::chrono::high_resolution_clock::now();
         
-        while (std::getline(stream, line)) {
-            extract_typescript_functions_from_line(line, line_number, result, existing_functions);
-            extract_typescript_classes_from_line(line, line_number, result, existing_classes);
-            extract_typescript_interfaces_from_line(line, line_number, result, existing_classes);
-            
-            // 🚀 Gemini先生A案：行レベル二重アタック！
-            gemini_line_level_double_attack(line, line_number, result, existing_functions);
-            
-            line_number++;
-            gemini_processed_lines++;
-            
-            // 進捗表示（10000行ごと）
-            if (gemini_processed_lines % 10000 == 0) {
-                auto gemini_current = std::chrono::high_resolution_clock::now();
-                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(gemini_current - gemini_start).count();
-                std::cerr << "⏳ Gemini行レベル処理中: " << gemini_processed_lines << "行処理済み (" 
-                          << elapsed << "ms経過)" << std::endl;
+        if (use_gemini_first_pass) {
+            std::cerr << "🚀 通常モード: 全機能有効" << std::endl;
+            // 通常モード：全行処理
+            for (size_t i = 0; i < all_lines.size(); i++) {
+                const std::string& current_line = all_lines[i];
+                size_t current_line_number = i + 1;
+                
+                extract_typescript_functions_from_line(current_line, current_line_number, result, existing_functions);
+                extract_typescript_classes_from_line(current_line, current_line_number, result, existing_classes);
+                extract_typescript_interfaces_from_line(current_line, current_line_number, result, existing_classes);
+                
+                // 🚀 にゃー先生天才アイデア：行レベル二重アタック！
+                gemini_line_level_double_attack(current_line, current_line_number, result, existing_functions);
+                
+                gemini_processed_lines++;
+            }
+        } else if (use_sampling_mode) {
+            std::cerr << "🎲 サンプリングモード: 10行に1行処理" << std::endl;
+            // サンプリングモード：10行に1行だけ処理
+            for (size_t i = 0; i < all_lines.size(); i += 10) {
+                const std::string& current_line = all_lines[i];
+                size_t current_line_number = i + 1;
+                
+                extract_typescript_functions_from_line(current_line, current_line_number, result, existing_functions);
+                extract_typescript_classes_from_line(current_line, current_line_number, result, existing_classes);
+                extract_typescript_interfaces_from_line(current_line, current_line_number, result, existing_classes);
+                
+                // 🚀 にゃー先生天才アイデア：行レベル二重アタック！
+                gemini_line_level_double_attack(current_line, current_line_number, result, existing_functions);
+                
+                gemini_processed_lines++;
+            }
+        } else {
+            std::cerr << "⚡ 高速モード: 基本検出のみ（Geminiスキップ）" << std::endl;
+            // 高速モード：基本検出のみ、Geminiスキップ
+            for (size_t i = 0; i < all_lines.size(); i++) {
+                const std::string& current_line = all_lines[i];
+                size_t current_line_number = i + 1;
+                
+                extract_typescript_functions_from_line(current_line, current_line_number, result, existing_functions);
+                extract_typescript_classes_from_line(current_line, current_line_number, result, existing_classes);
+                extract_typescript_interfaces_from_line(current_line, current_line_number, result, existing_classes);
+                
+                gemini_processed_lines++;
             }
         }
         
         auto gemini_end = std::chrono::high_resolution_clock::now();
         auto gemini_duration = std::chrono::duration_cast<std::chrono::milliseconds>(gemini_end - gemini_start).count();
-        std::cerr << "✅ Gemini行レベル二重アタック完了: " << gemini_processed_lines 
+        std::cerr << "✅ 第1段階完了: " << gemini_processed_lines 
                   << "行処理 (" << gemini_duration << "ms)" << std::endl;
         
         // 第2段階: 二重正規表現アタック！クラス全体を捕獲してメソッド検出
@@ -557,12 +602,12 @@ private:
         return std::count(content.begin(), content.begin() + pos, '\n') + 1;
     }
     
-    // 🚀 Gemini先生A案：行レベル二重アタック！未検出メソッド攻略
+    // 🚀 にゃー先生天才アイデア：行レベル二重アタック！未検出メソッド攻略
     void gemini_line_level_double_attack(const std::string& line, size_t line_number,
                                         AnalysisResult& result, std::set<std::string>& existing_functions) {
         
         // 🔇 行レベルデバッグログ無効化（巨大ファイル対策）
-        // std::cerr << "⚡ Gemini行レベル二重アタック: " << line.substr(0, 50) << "..." << std::endl;
+        // std::cerr << "⚡ にゃー先生行レベル二重アタック: " << line.substr(0, 50) << "..." << std::endl;
         
         // 🎯 アタックパターン1: オブジェクトメソッド (method() {})
         gemini_attack_object_methods(line, line_number, result, existing_functions);
@@ -580,7 +625,7 @@ private:
     // 🎯 オブジェクトメソッド攻撃 (method() {})
     void gemini_attack_object_methods(const std::string& line, size_t line_number,
                                      AnalysisResult& result, std::set<std::string>& existing_functions) {
-        // Gemini先生推奨パターン: ^\s*([a-zA-Z0-9_$]+)\s*\([^)]*\)\s*{
+        // にゃー先生推奨パターン: ^\s*([a-zA-Z0-9_$]+)\s*\([^)]*\)\s*{
         std::regex object_method_pattern(R"(^\s*([a-zA-Z0-9_$]+)\s*\([^)]*\)\s*\{)");
         std::smatch match;
         
@@ -759,6 +804,12 @@ private:
         
         // 第1回は全体を検索対象に
         search_ranges.push_back({0, lines.size() - 1, 0});
+        
+        // 🕐 各層の処理時間を記録
+        std::vector<std::chrono::milliseconds> layer_times;
+        std::vector<size_t> layer_ranges;
+        std::vector<size_t> layer_detections;
+        std::vector<size_t> layer_lines;
         
         // 0個になるまで繰り返し攻撃！
         while (!search_ranges.empty()) {
@@ -957,11 +1008,17 @@ private:
             
             // 性能測定
             auto round_end = std::chrono::high_resolution_clock::now();
-            auto round_duration = std::chrono::duration_cast<std::chrono::milliseconds>(round_end - round_start).count();
+            auto round_duration = std::chrono::duration_cast<std::chrono::milliseconds>(round_end - round_start);
             total_lines_scanned.fetch_add(round_lines_scanned.load());
             
+            // 🕐 層ごとの統計を記録
+            layer_times.push_back(round_duration);
+            layer_ranges.push_back(search_ranges.size());
+            layer_detections.push_back(round_detections.load());
+            layer_lines.push_back(round_lines_scanned.load());
+            
             std::cerr << "🎯 第" << attack_round << "回攻撃完了！新規検出: " << round_detections.load() << "個"
-                      << " (処理時間: " << round_duration << "ms, 処理行数: " << round_lines_scanned.load() << "行)" << std::endl;
+                      << " (処理時間: " << round_duration.count() << "ms, 処理行数: " << round_lines_scanned.load() << "行)" << std::endl;
             
             // 次回の検索範囲を更新
             search_ranges = std::move(next_search_ranges);
@@ -989,6 +1046,32 @@ private:
         std::cerr << "🏆 無限ネスト掘削アタック最終結果：" << total_nested << "個のネスト関数を発見！" << std::endl;
         std::cerr << "⏱️  総処理時間: " << total_duration << "ms, 総スキャン行数: " << total_lines_scanned.load() 
                   << "行 (ラウンド数: " << (attack_round - 1) << "回)" << std::endl;
+        
+        // 🕐 層ごとの詳細プロファイリング結果
+        std::cerr << "\n📊 === 層ごとの詳細プロファイリング ===" << std::endl;
+        for (size_t i = 0; i < layer_times.size(); i++) {
+            std::cerr << "📈 第" << (i + 1) << "層: "
+                      << layer_times[i].count() << "ms, "
+                      << layer_ranges[i] << "範囲, "
+                      << layer_detections[i] << "個検出, "
+                      << layer_lines[i] << "行処理";
+            
+            // 1行あたりの処理時間を計算
+            if (layer_lines[i] > 0) {
+                double ms_per_line = static_cast<double>(layer_times[i].count()) / layer_lines[i];
+                std::cerr << " (1行あたり: " << std::fixed << std::setprecision(3) << ms_per_line << "ms)";
+            }
+            std::cerr << std::endl;
+        }
+        
+        // 🕐 累積時間も表示
+        std::cerr << "\n📊 === 累積処理時間 ===" << std::endl;
+        std::chrono::milliseconds cumulative_time{0};
+        for (size_t i = 0; i < layer_times.size(); i++) {
+            cumulative_time += layer_times[i];
+            std::cerr << "🏃 第1層〜第" << (i + 1) << "層までの累積: " << cumulative_time.count() << "ms" << std::endl;
+        }
+        std::cerr << "===================================\n" << std::endl;
     }
     
     // 🔥 前処理革命：コメント・文字列除去システム（Gemini先生の知恵！）
