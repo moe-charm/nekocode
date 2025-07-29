@@ -9,6 +9,7 @@
 
 #include "nekocode/analyzers/base_analyzer.hpp"
 #include "nekocode/analyzers/cpp_minimal_grammar.hpp"
+#include "nekocode/debug_logger.hpp"
 #include <tao/pegtl.hpp>
 #include <vector>
 #include <string>
@@ -210,6 +211,11 @@ public:
     }
     
     AnalysisResult analyze(const std::string& content, const std::string& filename) override {
+        using namespace nekocode::debug;
+        NEKOCODE_PERF_TIMER("CppPEGTLAnalyzer::analyze " + filename);
+        
+        NEKOCODE_LOG_INFO("CppAnalyzer", "Starting C++ PEGTL analysis of " + filename + " (" + std::to_string(content.size()) + " bytes)");
+        
         AnalysisResult result;
         
         // ファイル情報設定
@@ -266,20 +272,56 @@ public:
         }
         
         // 複雑度計算（ハイブリッド戦略の前に実行）
+        NEKOCODE_PERF_CHECKPOINT("complexity");
         result.complexity = calculate_cpp_complexity(content);
+        NEKOCODE_LOG_DEBUG("CppAnalyzer", "Complexity calculated: " + std::to_string(result.complexity.cyclomatic_complexity));
+        
+        // PEGTL解析結果のデバッグ
+        NEKOCODE_LOG_DEBUG("CppAnalyzer", "PEGTL analysis result: classes=" + std::to_string(result.classes.size()) +
+                          ", functions=" + std::to_string(result.functions.size()) + 
+                          ", pegtl_success=" + (pegtl_success ? "true" : "false"));
         
         // 🚀 C++ハイブリッド戦略: JavaScript/TypeScript成功パターン移植
+        NEKOCODE_PERF_CHECKPOINT("hybrid_strategy");
         if (needs_cpp_line_based_fallback(result, content)) {
             std::cerr << "🔥 C++ Hybrid Strategy TRIGGERED!" << std::endl;
+            NEKOCODE_LOG_INFO("CppAnalyzer", "Hybrid strategy triggered - applying line-based fallback");
+            
+            size_t classes_before = result.classes.size();
+            size_t functions_before = result.functions.size();
+            
             apply_cpp_line_based_analysis(result, content, filename);
+            
             std::cerr << "✅ C++ Line-based analysis completed. Classes: " << result.classes.size() 
                       << ", Functions: " << result.functions.size() << std::endl;
+            std::cerr << "🔍 Debug: Classes before=" << classes_before << ", after=" << result.classes.size() 
+                      << ", Functions before=" << functions_before << ", after=" << result.functions.size() << std::endl;
+            NEKOCODE_LOG_DEBUG("CppAnalyzer", "Hybrid strategy completed: classes " + 
+                              std::to_string(classes_before) + "->" + std::to_string(result.classes.size()) +
+                              ", functions " + std::to_string(functions_before) + "->" + std::to_string(result.functions.size()));
         } else {
             std::cerr << "⚠️  C++ Hybrid Strategy NOT triggered" << std::endl;
+            NEKOCODE_LOG_DEBUG("CppAnalyzer", "Hybrid strategy not needed");
         }
         
         // 統計更新
+        NEKOCODE_PERF_CHECKPOINT("statistics");
+        std::cerr << "🔍 Before update_statistics: classes=" << result.classes.size() 
+                  << ", functions=" << result.functions.size() << std::endl;
+        
         result.update_statistics();
+        
+        std::cerr << "🔍 After update_statistics: stats.class_count=" << result.stats.class_count 
+                  << ", stats.function_count=" << result.stats.function_count << std::endl;
+        
+        NEKOCODE_LOG_DEBUG("CppAnalyzer", "Final statistics: total_classes=" + std::to_string(result.stats.class_count) +
+                          ", total_functions=" + std::to_string(result.stats.function_count));
+        
+        NEKOCODE_LOG_INFO("CppAnalyzer", "C++ PEGTL analysis completed successfully for " + filename);
+        
+        // 🔥 デバッグ：最終リターン直前の統計確認
+        std::cerr << "🔥 Final return: result.stats.class_count=" << result.stats.class_count 
+                  << ", result.stats.function_count=" << result.stats.function_count << std::endl;
         
         return result;
     }
