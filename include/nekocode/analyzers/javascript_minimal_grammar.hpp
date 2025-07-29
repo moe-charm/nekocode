@@ -33,13 +33,14 @@ struct ignore : star<sor<space, comment, newline>> {};
 // 🎯 関数（基本）
 //=============================================================================
 
-struct function_keyword : TAO_PEGTL_STRING("function") {};
-struct async_keyword : TAO_PEGTL_STRING("async") {};
-struct const_keyword : TAO_PEGTL_STRING("const") {};
-struct let_keyword : TAO_PEGTL_STRING("let") {};
-struct var_keyword : TAO_PEGTL_STRING("var") {};
-struct class_keyword : TAO_PEGTL_STRING("class") {};
-struct export_keyword : TAO_PEGTL_STRING("export") {};
+// 単語境界チェック付きキーワード
+struct function_keyword : seq<TAO_PEGTL_STRING("function"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct async_keyword : seq<TAO_PEGTL_STRING("async"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct const_keyword : seq<TAO_PEGTL_STRING("const"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct let_keyword : seq<TAO_PEGTL_STRING("let"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct var_keyword : seq<TAO_PEGTL_STRING("var"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct class_keyword : seq<TAO_PEGTL_STRING("class"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct export_keyword : seq<TAO_PEGTL_STRING("export"), not_at<sor<alnum, one<'_', '$'>>>> {};
 
 // ブロックをスキップする汎用ルール
 struct block;
@@ -99,16 +100,21 @@ struct class_header : seq<
     >>
 > {};
 
-// クラスブロック（メソッド含む）
+// クラスメソッド検出: [async] [static] methodName(params) { ... }
 struct class_method : seq<
+    star<space>,  // インデント許可
+    opt<seq<async_keyword, plus<space>>>,  // 🔥 async メソッド対応追加！
+    opt<seq<TAO_PEGTL_STRING("static"), plus<space>>>,  // static メソッド対応
     identifier,
-    ignore,
-    function_params,
-    ignore,
+    star<space>,
+    one<'('>,  // 🔥 より柔軟なパラメータ対応のため詳細化
+    star<not_one<')'>>,  // 🔥 デフォルトパラメータ等を含む任意の内容を許可
+    one<')'>,
+    star<space>,
     one<'{'>
 > {};
 
-// クラス内容（とりあえず}まで読み飛ばし）
+// クラス内容（メソッドを含む）
 struct class_content : star<sor<class_method, not_one<'}'>>> {};
 
 // クラスブロック
@@ -168,9 +174,9 @@ struct simple_function : seq<
 struct async_function : seq<
     star<space>,  // インデントを許可
     async_keyword,
-    plus<space>,
+    star<space>,  // 空白を緩くする
     function_keyword,
-    plus<space>,
+    star<space>,  // 空白を緩くする
     identifier,
     star<space>,
     function_params,
@@ -212,6 +218,24 @@ struct simple_arrow : seq<
     block  // 関数本体全体を読み飛ばす
 > {};
 
+// async arrow function: const name = async () => { ... }
+struct async_arrow : seq<
+    star<space>,  // インデントを許可
+    const_keyword,
+    plus<space>,
+    identifier,
+    star<space>,
+    one<'='>,
+    star<space>,
+    async_keyword,
+    star<space>,
+    function_params,
+    star<space>,
+    TAO_PEGTL_STRING("=>"),
+    star<space>,
+    block  // 関数本体全体を読み飛ばす
+> {};
+
 // import文 基本版: import { name } from 'module' 
 struct simple_import : seq<
     import_keyword,
@@ -237,7 +261,7 @@ struct simple_class : seq<
     block  // クラス本体全体を読み飛ばす
 > {};
 
-// export class: export class Name { ... }
+// export class: export class Name [extends Parent] { ... }
 struct export_class : seq<
     star<space>,  // インデントを許可
     export_keyword,
@@ -246,6 +270,12 @@ struct export_class : seq<
     plus<space>,
     identifier,
     star<space>,
+    opt<seq<   // 🔥 extends対応を追加！
+        extends_keyword,
+        plus<space>,
+        identifier,
+        star<space>
+    >>,
     block  // クラス本体全体を読み飛ばす
 > {};
 
@@ -254,7 +284,9 @@ struct javascript_element : sor<
     export_class,
     export_function,  // TypeScript対応
     simple_class,
-    async_function,
+    class_method,     // class method を独立したルールとして追加
+    async_function,   // 🔥 async関数検出を有効化！
+    async_arrow,      // 🔥 async arrow関数検出を有効化！
     simple_function,
     simple_arrow,
     simple_import

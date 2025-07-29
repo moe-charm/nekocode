@@ -15,6 +15,7 @@
 #include <regex>
 #include <sstream>
 #include <set>
+#include <iostream>
 
 namespace nekocode {
 
@@ -55,6 +56,7 @@ struct javascript_action<javascript::minimal_grammar::simple_function> {
     template<typename ParseInput>
     static void apply(const ParseInput& in, JavaScriptParseState& state) {
         std::string matched = in.string();
+        // std::cerr << "[DEBUG] simple_function matched: " << matched.substr(0, 50) << "..." << std::endl;
         
         // function name から名前抽出
         size_t func_pos = matched.find("function");
@@ -76,7 +78,7 @@ struct javascript_action<javascript::minimal_grammar::simple_function> {
                 state.update_line_from_position(in.position().byte);
                 func_info.start_line = state.current_line;
                 state.functions.push_back(func_info);
-                //std::cerr << "[DEBUG] Found function: " << func_info.name << " at line " << func_info.start_line << std::endl;
+                // std::cerr << "[DEBUG] Found simple function: " << func_info.name << " at line " << func_info.start_line << std::endl;
             }
         }
     }
@@ -88,6 +90,7 @@ struct javascript_action<javascript::minimal_grammar::async_function> {
     template<typename ParseInput>
     static void apply(const ParseInput& in, JavaScriptParseState& state) {
         std::string matched = in.string();
+        // std::cerr << "[DEBUG] async_function matched: " << matched.substr(0, 50) << "..." << std::endl;
         
         // async function name() { から名前抽出
         size_t func_pos = matched.find("function");
@@ -106,9 +109,11 @@ struct javascript_action<javascript::minimal_grammar::async_function> {
             if (name_end > name_start) {
                 FunctionInfo func_info;
                 func_info.name = matched.substr(name_start, name_end - name_start);
+                state.update_line_from_position(in.position().byte);  // 🔥 行番号更新追加
                 func_info.start_line = state.current_line;
                 func_info.is_async = true;
                 state.functions.push_back(func_info);
+                // std::cerr << "[DEBUG] Found async function: " << func_info.name << " at line " << func_info.start_line << std::endl;
             }
         }
     }
@@ -138,9 +143,46 @@ struct javascript_action<javascript::minimal_grammar::simple_arrow> {
             if (name_end > name_start) {
                 FunctionInfo func_info;
                 func_info.name = matched.substr(name_start, name_end - name_start);
+                state.update_line_from_position(in.position().byte);  // 🔥 行番号更新追加
                 func_info.start_line = state.current_line;
                 func_info.is_arrow_function = true;
                 state.functions.push_back(func_info);
+            }
+        }
+    }
+};
+
+// ⚡ async arrow関数検出
+template<>
+struct javascript_action<javascript::minimal_grammar::async_arrow> {
+    template<typename ParseInput>
+    static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        std::string matched = in.string();
+        // std::cerr << "[DEBUG] async_arrow matched: " << matched.substr(0, 50) << "..." << std::endl;
+        
+        // const name = async () => { から名前抽出
+        size_t const_pos = matched.find("const");
+        if (const_pos != std::string::npos) {
+            size_t name_start = const_pos + 5; // "const"の長さ
+            while (name_start < matched.size() && std::isspace(matched[name_start])) {
+                name_start++;
+            }
+            
+            size_t name_end = name_start;
+            while (name_end < matched.size() && 
+                   (std::isalnum(matched[name_end]) || matched[name_end] == '_' || matched[name_end] == '$')) {
+                name_end++;
+            }
+            
+            if (name_end > name_start) {
+                FunctionInfo func_info;
+                func_info.name = matched.substr(name_start, name_end - name_start);
+                state.update_line_from_position(in.position().byte);
+                func_info.start_line = state.current_line;
+                func_info.is_arrow_function = true;
+                func_info.is_async = true;
+                state.functions.push_back(func_info);
+                // std::cerr << "[DEBUG] Found async arrow: " << func_info.name << " at line " << func_info.start_line << std::endl;
             }
         }
     }
@@ -182,6 +224,7 @@ struct javascript_action<javascript::minimal_grammar::simple_class> {
     template<typename ParseInput>
     static void apply(const ParseInput& in, JavaScriptParseState& state) {
         std::string matched = in.string();
+        // std::cerr << "[DEBUG] simple_class matched: " << matched.substr(0, 50) << "..." << std::endl;
         
         // class Name { から名前抽出
         size_t class_pos = matched.find("class");
@@ -200,8 +243,10 @@ struct javascript_action<javascript::minimal_grammar::simple_class> {
             if (name_end > name_start) {
                 ClassInfo class_info;
                 class_info.name = matched.substr(name_start, name_end - name_start);
+                state.update_line_from_position(in.position().byte);
                 class_info.start_line = state.current_line;
                 state.classes.push_back(class_info);
+                // std::cerr << "[DEBUG] Found simple class: " << class_info.name << " at line " << class_info.start_line << std::endl;
             }
         }
     }
@@ -366,6 +411,7 @@ struct javascript_action<javascript::minimal_grammar::class_header> {
             if (name_end > name_start) {
                 ClassInfo class_info;
                 class_info.name = matched.substr(name_start, name_end - name_start);
+                state.update_line_from_position(in.position().byte);
                 class_info.start_line = state.current_line;
                 
                 // extends Parent 検出
@@ -389,6 +435,51 @@ struct javascript_action<javascript::minimal_grammar::class_header> {
                 
                 state.classes.push_back(class_info);
             }
+        }
+    }
+};
+
+// 🏛️ class method検出
+template<>
+struct javascript_action<javascript::minimal_grammar::class_method> {
+    template<typename ParseInput>
+    static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        std::string matched = in.string();
+        // std::cerr << "[DEBUG] class_method matched: " << matched.substr(0, 50) << "..." << std::endl;
+        
+        // static methodName() { または methodName() { から名前抽出
+        bool is_static = (matched.find("static") != std::string::npos);
+        
+        // メソッド名抽出位置を決定
+        size_t name_start = 0;
+        if (is_static) {
+            size_t static_pos = matched.find("static");
+            name_start = static_pos + 6; // "static"の長さ
+        }
+        
+        // 空白をスキップ
+        while (name_start < matched.size() && std::isspace(matched[name_start])) {
+            name_start++;
+        }
+        
+        // メソッド名を抽出
+        size_t name_end = name_start;
+        while (name_end < matched.size() && 
+               (std::isalnum(matched[name_end]) || matched[name_end] == '_' || matched[name_end] == '$')) {
+            name_end++;
+        }
+        
+        if (name_end > name_start) {
+            FunctionInfo func_info;
+            func_info.name = matched.substr(name_start, name_end - name_start);
+            state.update_line_from_position(in.position().byte);
+            func_info.start_line = state.current_line;
+            if (is_static) {
+                func_info.metadata["is_static"] = "true";
+            }
+            func_info.metadata["is_class_method"] = "true";
+            state.functions.push_back(func_info);
+            // std::cerr << "[DEBUG] Found class method: " << func_info.name << " at line " << func_info.start_line << std::endl;
         }
     }
 };
@@ -491,7 +582,7 @@ public:
                 result.exports = std::move(state.exports);
                 
                 // デバッグ出力
-                //std::cerr << "[DEBUG] Functions found: " << result.functions.size() << std::endl;
+                //// std::cerr << "[DEBUG] Functions found: " << result.functions.size() << std::endl;
                 //for (const auto& f : result.functions) {
                 //    std::cerr << "  - " << f.name << " at line " << f.start_line << std::endl;
                 //}
@@ -564,6 +655,7 @@ private:
         // 戦略ドキュメント通り: 複雑度 vs 検出数の妖当性検証
         uint32_t complexity = result.complexity.cyclomatic_complexity;
         size_t detected_functions = result.functions.size();
+        size_t detected_classes = result.classes.size();
         
         // 経験的闾値: 複雑度100以上で関数検出が10未満は明らかにおかしい
         if (complexity > 100 && detected_functions < 10) {
@@ -572,6 +664,12 @@ private:
         
         // 複雑度500以上で関数検出0は絶対におかしい（lodashケース）
         if (complexity > 500 && detected_functions == 0) {
+            return true;
+        }
+        
+        // クラスがあるのに関数が少ない場合（class methodsが検出されていない可能性）
+        if (detected_classes > 0 && detected_functions < 5) {
+            // std::cerr << "[DEBUG] Class method fallback triggered: classes=" << detected_classes << ", functions=" << detected_functions << std::endl;
             return true;
         }
         
@@ -607,13 +705,24 @@ private:
     void extract_functions_from_line(const std::string& line, size_t line_number, 
                                       AnalysisResult& result, std::set<std::string>& existing_functions) {
         
+        // 制御構造キーワードフィルタリング 🔥 NEW!
+        static const std::set<std::string> control_keywords = {
+            "if", "else", "for", "while", "do", "switch", "case", "catch", 
+            "try", "finally", "return", "break", "continue", "throw", 
+            "typeof", "instanceof", "new", "delete", "var", "let", "const"
+        };
+        
+        auto is_control_keyword = [&](const std::string& name) {
+            return control_keywords.find(name) != control_keywords.end();
+        };
+        
         // パターン1: function name(
         std::regex function_pattern(R"(^\s*function\s+(\w+)\s*\()");
         std::smatch match;
         
         if (std::regex_search(line, match, function_pattern)) {
             std::string func_name = match[1].str();
-            if (existing_functions.find(func_name) == existing_functions.end()) {
+            if (!is_control_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {  // 🔥 フィルタリング追加!
                 FunctionInfo func_info;
                 func_info.name = func_name;
                 func_info.start_line = line_number;
@@ -649,6 +758,72 @@ private:
                 // func_info.is_fallback_detected = true;
                 result.functions.push_back(func_info);
                 existing_functions.insert(func_name);
+                // std::cerr << "[DEBUG] Fallback found arrow function: " << func_name << " at line " << line_number << std::endl;
+            }
+        }
+        
+        // パターン4: class method - methodName() {
+        std::regex class_method_pattern(R"(^\s*(\w+)\s*\(\s*[^)]*\s*\)\s*\{)");
+        if (std::regex_search(line, match, class_method_pattern)) {
+            std::string method_name = match[1].str();
+            // constructorや制御構造は関数として扱わない 🔥 フィルタリング強化!
+            if (method_name != "constructor" && !is_control_keyword(method_name) && 
+                existing_functions.find(method_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = method_name;
+                func_info.start_line = line_number;
+                func_info.metadata["is_class_method"] = "true";
+                result.functions.push_back(func_info);
+                existing_functions.insert(method_name);
+                // std::cerr << "[DEBUG] Fallback found class method: " << method_name << " at line " << line_number << std::endl;
+            }
+        }
+        
+        // パターン5: static class method - static methodName() {
+        std::regex static_method_pattern(R"(^\s*static\s+(\w+)\s*\(\s*[^)]*\s*\)\s*\{)");
+        if (std::regex_search(line, match, static_method_pattern)) {
+            std::string method_name = match[1].str();
+            if (existing_functions.find(method_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = method_name;
+                func_info.start_line = line_number;
+                func_info.metadata["is_class_method"] = "true";
+                func_info.metadata["is_static"] = "true";
+                result.functions.push_back(func_info);
+                existing_functions.insert(method_name);
+                // std::cerr << "[DEBUG] Fallback found static method: " << method_name << " at line " << line_number << std::endl;
+            }
+        }
+        
+        // パターン6: async function
+        std::regex async_function_pattern(R"(^\s*async\s+function\s+(\w+)\s*\()");
+        if (std::regex_search(line, match, async_function_pattern)) {
+            std::string func_name = match[1].str();
+            if (existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.is_async = true;
+                result.functions.push_back(func_info);
+                existing_functions.insert(func_name);
+                // std::cerr << "[DEBUG] Fallback found async function: " << func_name << " at line " << line_number << std::endl;
+            }
+        }
+        
+        // パターン7: async class method - async methodName(params) { 🔥 NEW!
+        std::regex async_class_method_pattern(R"(^\s*async\s+(\w+)\s*\(\s*[^)]*\s*\)\s*\{)");
+        if (std::regex_search(line, match, async_class_method_pattern)) {
+            std::string method_name = match[1].str();
+            // constructorは関数として扱わない
+            if (method_name != "constructor" && existing_functions.find(method_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = method_name;
+                func_info.start_line = line_number;
+                func_info.is_async = true;
+                func_info.metadata["is_class_method"] = "true";
+                result.functions.push_back(func_info);
+                existing_functions.insert(method_name);
+                // std::cerr << "[DEBUG] Fallback found async class method: " << method_name << " at line " << line_number << std::endl;
             }
         }
     }
