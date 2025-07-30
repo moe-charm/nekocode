@@ -360,7 +360,9 @@ struct AnalysisConfig {
     
     // パフォーマンス設定
     bool enable_parallel_processing = true;
-    std::uint32_t max_threads = 0; // 0 = auto detect
+    std::uint32_t max_threads = 0; // 0 = auto detect (廃止予定)
+    std::uint32_t io_threads = 4;  // 🆕 同時ファイル読み込み数
+    std::uint32_t cpu_threads = 0; // 🆕 解析スレッド数 (0 = auto)
     StorageMode storage_mode = StorageMode::AUTO; // ストレージ最適化モード
     
     // 出力設定
@@ -373,26 +375,33 @@ struct AnalysisConfig {
     }
     
     void calculate_optimal_threads() {
-        if (max_threads != 0) return; // 手動設定済みならスキップ
-        
         std::uint32_t cores = std::thread::hardware_concurrency();
         if (cores == 0) cores = 4; // fallback
         
-        switch (storage_mode) {
-            case StorageMode::SSD:
-                max_threads = cores; // CPU全力だが他のアプリを圧迫しない
-                break;
-            case StorageMode::HDD:
-                max_threads = 1; // シーケンシャル重視、安全第一
-                break;
-            case StorageMode::MANUAL:
-                // 手動指定の場合は何もしない（既に設定済み）
-                break;
-            case StorageMode::AUTO:
-            default:
-                max_threads = cores; // 標準的な設定
-                break;
+        // cpu_threadsのデフォルト設定
+        if (cpu_threads == 0) {
+            cpu_threads = cores;
         }
+        
+        // 後方互換性: max_threadsからio_threads/cpu_threadsへマップ
+        if (max_threads != 0) {
+            cpu_threads = max_threads;
+            // ストレージモードに基づいてio_threadsを設定
+            switch (storage_mode) {
+                case StorageMode::HDD:
+                    io_threads = 1;  // HDDモード: シーケンシャル読み込み
+                    break;
+                case StorageMode::SSD:
+                    io_threads = std::min(cores, 8u);  // SSDモード: 並列読み込み（最大8）
+                    break;
+                default:
+                    // io_threadsはデフォルト値(4)のまま
+                    break;
+            }
+        }
+        
+        // max_threadsも更新（後方互換性）
+        max_threads = cpu_threads;
     }
 };
 
