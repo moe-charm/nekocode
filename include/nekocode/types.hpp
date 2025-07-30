@@ -127,6 +127,24 @@ struct FunctionInfo {
     explicit FunctionInfo(const std::string& func_name) : name(func_name) {}
 };
 
+// 🔍 メンバ変数情報（analyze機能用）
+struct MemberVariable {
+    std::string name;
+    std::string type;
+    LineNumber declaration_line = 0;
+    bool is_static = false;
+    bool is_const = false;
+    std::string access_modifier = "private";  // public/private/protected
+    
+    // Phase2で追加される情報
+    std::vector<std::string> used_by_methods;
+    std::vector<std::string> modified_by_methods;
+    
+    MemberVariable() = default;
+    MemberVariable(const std::string& var_name, const std::string& var_type, LineNumber line)
+        : name(var_name), type(var_type), declaration_line(line) {}
+};
+
 struct ClassInfo {
     std::string name;
     std::string parent_class;
@@ -134,10 +152,27 @@ struct ClassInfo {
     LineNumber end_line = 0;
     std::vector<FunctionInfo> methods;
     std::vector<std::string> properties;
+    std::vector<MemberVariable> member_variables;  // 🆕 メンバ変数リスト
     std::unordered_map<std::string, std::string> metadata;  // 🧩 Unity等の拡張情報
     
     ClassInfo() = default;
     explicit ClassInfo(const std::string& class_name) : name(class_name) {}
+};
+
+// 📊 クラス統計用構造体（analyze機能用）
+struct ClassMetrics {
+    std::uint32_t member_variable_count = 0;
+    std::uint32_t method_count = 0;
+    std::uint32_t total_lines = 0;
+    std::uint32_t responsibility_score = 0;  // variables × methods
+    float cohesion = 0.0f;  // 0.0-1.0
+    std::uint32_t coupling = 0;  // 外部クラス参照数
+    
+    ClassMetrics() = default;
+    
+    void calculate_responsibility() {
+        responsibility_score = member_variable_count * method_count;
+    }
 };
 
 //=============================================================================

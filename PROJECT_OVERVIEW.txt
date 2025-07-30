@@ -22,12 +22,20 @@
 
 💡 主要機能（即使用可能）
 -------------------------
-• stats           - プロジェクト統計（ファイル数・行数・複雑度）
-• complexity      - 複雑度ランキング（リファクタ対象特定）
-• large-files     - 大きいファイル検出（--threshold オプション対応）
-• duplicates      - 重複ファイル検出（バックアップ・古いバージョン）
-• todo            - TODOコメント検出（優先度別）
-• find <symbol>   - シンボル検索（関数・変数・クラス）
+• stats                      - プロジェクト統計（ファイル数・行数・複雑度）
+• complexity                 - 複雑度ランキング（リファクタ対象特定）
+• complexity-ranking         - 関数複雑度ランキング（トップ50）
+• complexity --methods <file> - ファイル内メソッド複雑度ランキング【新機能】
+• structure                  - クラス・関数構造解析
+• structure --detailed <file> - 詳細構造解析（メソッド・複雑度情報）【新機能】
+• calls                      - 関数呼び出し統計
+• calls --detailed <function> - 関数の詳細呼び出し関係【新機能】
+• analyze                    - クラス責務分析（メンバ変数×メソッド）【新機能】
+• analyze <file>             - ファイル別クラス責務分析【新機能】
+• large-files                - 大きいファイル検出（--threshold オプション対応）
+• duplicates                 - 重複ファイル検出（バックアップ・古いバージョン）
+• todo                       - TODOコメント検出（優先度別）
+• find <symbol>              - シンボル検索（関数・変数・クラス）
 
 🌍 対応言語（全て本格対応済み）
 -------------------------------
@@ -65,6 +73,13 @@
 # 開発支援
 ./nekocode_ai session-cmd <session_id> todo
 ./nekocode_ai session-cmd <session_id> "find main"
+
+# 詳細解析（NEW! 2025-07-31）
+./nekocode_ai session-cmd <session_id> "structure --detailed UICore.cpp"
+./nekocode_ai session-cmd <session_id> "complexity --methods main.cpp"
+./nekocode_ai session-cmd <session_id> "calls --detailed processData"
+./nekocode_ai session-cmd <session_id> analyze
+./nekocode_ai session-cmd <session_id> "analyze UICore.h"
 
 📁 重要なファイルの場所
 -----------------------

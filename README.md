@@ -220,14 +220,25 @@ make -j
 
 ## 📋 利用可能なコマンド
 
-| コマンド | 説明 |
-|---------|------|
-| `stats` | プロジェクト統計の概要 |
-| `files` | ファイル一覧と詳細情報 |
-| `complexity` | 複雑度ランキング |
+| Command | Description |
+|---------|-------------|
+| `stats` | Project statistics overview |
+| `files` | File list with details |
+| `complexity` | Complexity ranking by file |
+| `complexity-ranking` | Function complexity ranking (top 50) |
+| `complexity --methods <file>` | Method complexity ranking for specific file |
 | `structure` | Class/function structure analysis |
-| `calls` | 関数呼び出し統計 |
-| `find <term>` | ファイル名検索 |
+| `structure --detailed <file>` | Detailed structure with methods and complexity |
+| `calls` | Function call statistics |
+| `calls --detailed <function>` | Detailed call analysis for specific function |
+| `find <symbol>` | Symbol search (functions, variables) |
+| `large-files` | List large files (default: >500 lines) |
+| `large-files --threshold N` | List files larger than N lines |
+| `duplicates` | Duplicate/backup file detection |
+| `todo` | TODO/FIXME/BUG comment detection |
+| `analyze` | Class responsibility analysis (member vars × methods) |
+| `analyze <file>` | Analyze specific file's class responsibility |
+| `analyze <file> --deep` | Deep analysis with usage patterns (**Phase 2**) |
 | `include-graph` | Include dependency graph |
 | `include-cycles` | Circular dependency detection |
 | `include-impact` | 変更影響範囲分析 |

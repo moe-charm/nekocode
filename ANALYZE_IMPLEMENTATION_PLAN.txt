@@ -1,0 +1,354 @@
+# 🔍 NekoCode analyze コマンド実装計画書
+作成日: 2025-07-31
+目的: クラスの責務分析と分割可能性を評価する統計データ提供
+
+## 📊 概要
+
+新コマンド `analyze` は、クラスの構造を分析し、リファクタリング判断に必要な統計データを提供する。
+2段階解析方式を採用し、基本統計は高速に、詳細解析は必要時のみ実行。
+
+## 🎯 設計方針
+
+### 基本コンセプト
+```
+クラス = 状態（変数） × 振る舞い（メソッド）
+責務スコア = 変数数 × メソッド数
+```
+
+### 2段階解析
+1. **基本解析（高速）**: セッションデータから即座に計算
+2. **詳細解析（--deep）**: 変数使用状況、メソッドグループ化等
+
+## 📁 実装ファイル構成
+
+### 1. データ構造拡張
+**ファイル**: `include/nekocode/types.hpp`
+```cpp
+// 新規追加
+struct MemberVariable {
+    std::string name;
+    std::string type;
+    LineNumber declaration_line;
+    bool is_static = false;
+    bool is_const = false;
+    std::string access_modifier = "private";  // public/private/protected
+    
+    // Phase2で追加される情報
+    std::vector<std::string> used_by_methods;
+    std::vector<std::string> modified_by_methods;
+};
+
+// ClassInfo構造体に追加
+struct ClassInfo {
+    // 既存フィールド...
+    std::vector<MemberVariable> member_variables;  // 新規追加
+};
+
+// 統計用構造体
+struct ClassMetrics {
+    std::uint32_t member_variable_count = 0;
+    std::uint32_t method_count = 0;
+    std::uint32_t total_lines = 0;
+    std::uint32_t responsibility_score = 0;  // variables × methods
+    float cohesion = 0.0f;  // 0.0-1.0
+    std::uint32_t coupling = 0;  // 外部クラス参照数
+};
+```
+
+### 2. アナライザー拡張
+**ファイル**: `include/nekocode/analyzers/cpp_pegtl_analyzer.hpp`
+```cpp
+// メンバ変数検出メソッド追加
+std::vector<MemberVariable> detectMemberVariables(
+    const std::string& content,
+    LineNumber class_start,
+    LineNumber class_end
+);
+```
+
+### 3. セッション管理拡張
+**ファイル**: `src/core/session_manager.cpp`
+
+#### 新規コマンド追加
+```cpp
+// execute_command メソッドに追加
+} else if (command.substr(0, 7) == "analyze") {
+    // analyze [filename] [--deep]
+    auto parts = split_command(command);
+    std::string filename = parts.size() > 1 ? parts[1] : "";
+    bool deep = (parts.size() > 2 && parts[2] == "--deep");
+    result = cmd_analyze(session, filename, deep);
+}
+```
+
+#### cmd_analyze 実装
+```cpp
+nlohmann::json SessionManager::cmd_analyze(
+    const SessionData& session,
+    const std::string& filename,
+    bool deep) const {
+    
+    nlohmann::json result;
+    result["command"] = "analyze";
+    result["mode"] = deep ? "deep" : "basic";
+    
+    if (!session.is_directory) {
+        // 単一ファイルの場合
+        return analyzeFile(session.single_file_result, deep);
+    }
+    
+    // ディレクトリの場合
+    if (filename.empty()) {
+        // 全ファイルのサマリー
+        return analyzeDirectory(session.directory_result, deep);
+    } else {
+        // 特定ファイルの分析
+        for (const auto& file : session.directory_result.files) {
+            if (file.file_info.name == filename || 
+                file.file_info.path.filename() == filename) {
+                return analyzeFile(file, deep);
+            }
+        }
+        result["error"] = "ファイル '" + filename + "' が見つかりません";
+    }
+    
+    return result;
+}
+```
+
+## 🔧 実装詳細
+
+### Phase 1: 基本統計（軽量版）
+```cpp
+nlohmann::json analyzeFile(const AnalysisResult& file, bool deep) {
+    nlohmann::json result;
+    result["file"] = file.file_info.name;
+    result["total_lines"] = file.file_info.total_lines;
+    
+    // クラス別統計
+    nlohmann::json classes_json = nlohmann::json::array();
+    for (const auto& cls : file.classes) {
+        nlohmann::json class_json;
+        class_json["name"] = cls.name;
+        class_json["lines"] = cls.end_line - cls.start_line;
+        
+        // 基本メトリクス
+        ClassMetrics metrics;
+        metrics.member_variable_count = cls.member_variables.size();
+        metrics.method_count = cls.methods.size();
+        metrics.total_lines = cls.end_line - cls.start_line;
+        metrics.responsibility_score = metrics.member_variable_count * metrics.method_count;
+        
+        class_json["metrics"] = {
+            {"member_variables", metrics.member_variable_count},
+            {"methods", metrics.method_count},
+            {"responsibility_score", metrics.responsibility_score},
+            {"lines", metrics.total_lines}
+        };
+        
+        // 変数リスト（基本情報のみ）
+        nlohmann::json vars_json = nlohmann::json::array();
+        for (const auto& var : cls.member_variables) {
+            vars_json.push_back({
+                {"name", var.name},
+                {"type", var.type},
+                {"line", var.declaration_line}
+            });
+        }
+        class_json["member_variables"] = vars_json;
+        
+        // 判定
+        if (metrics.responsibility_score > 500) {
+            class_json["warning"] = "責務が大きすぎる可能性があります";
+        }
+        
+        classes_json.push_back(class_json);
+    }
+    
+    result["classes"] = classes_json;
+    
+    // ファイル全体のサマリー
+    result["summary"] = calculateSummary(file);
+    
+    if (deep) {
+        // Phase 2の詳細解析を追加
+        result["deep_analysis"] = performDeepAnalysis(file);
+    }
+    
+    return result;
+}
+```
+
+### Phase 2: 詳細解析（--deepオプション）
+```cpp
+nlohmann::json performDeepAnalysis(const AnalysisResult& file) {
+    nlohmann::json result;
+    
+    for (const auto& cls : file.classes) {
+        nlohmann::json class_analysis;
+        
+        // 1. 変数使用状況分析
+        auto variable_usage = analyzeVariableUsage(cls, file.function_calls);
+        
+        // 2. メソッドグループ化
+        auto method_groups = groupMethodsBySharedVariables(cls, variable_usage);
+        
+        // 3. 凝集度計算
+        float cohesion = calculateCohesion(cls, variable_usage);
+        
+        // 4. 結合度計算
+        int coupling = calculateCoupling(cls, file);
+        
+        class_analysis["variable_usage"] = variable_usage;
+        class_analysis["method_groups"] = method_groups;
+        class_analysis["cohesion"] = cohesion;
+        class_analysis["coupling"] = coupling;
+        
+        // 5. 分割提案
+        if (method_groups.size() > 1 && cohesion < 0.5) {
+            class_analysis["split_suggestion"] = generateSplitSuggestion(cls, method_groups);
+        }
+        
+        result[cls.name] = class_analysis;
+    }
+    
+    return result;
+}
+```
+
+## 📊 出力フォーマット
+
+### 基本解析出力
+```json
+{
+  "command": "analyze",
+  "mode": "basic",
+  "file": "UICore.cpp",
+  "total_lines": 2500,
+  "classes": [
+    {
+      "name": "UICore",
+      "lines": 1200,
+      "metrics": {
+        "member_variables": 25,
+        "methods": 45,
+        "responsibility_score": 1125,
+        "lines": 1200
+      },
+      "member_variables": [
+        {"name": "m_widgets", "type": "vector<Widget*>", "line": 55},
+        {"name": "m_theme", "type": "Theme", "line": 56}
+      ],
+      "warning": "責務が大きすぎる可能性があります"
+    }
+  ],
+  "summary": {
+    "total_classes": 3,
+    "largest_class": "UICore (1200行)",
+    "highest_responsibility": "UICore (スコア: 1125)"
+  }
+}
+```
+
+### 詳細解析追加出力（--deep）
+```json
+{
+  "deep_analysis": {
+    "UICore": {
+      "variable_usage": {
+        "m_widgets": {
+          "used_by": ["createWidget", "updateWidget", "removeWidget"],
+          "usage_count": 45,
+          "usage_percentage": 26.7
+        }
+      },
+      "method_groups": [
+        {
+          "name": "Widget管理",
+          "methods": ["createWidget", "updateWidget", "removeWidget"],
+          "shared_variables": ["m_widgets", "m_widgetMap"],
+          "cohesion": 0.85
+        }
+      ],
+      "cohesion": 0.45,
+      "coupling": 12,
+      "split_suggestion": {
+        "feasible": true,
+        "recommended_splits": [
+          {
+            "class_name": "UIWidgetManager",
+            "methods": ["createWidget", "updateWidget", "removeWidget"],
+            "variables": ["m_widgets", "m_widgetMap"]
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+## 🚀 実装順序
+
+### Step 1: データ構造（30分）
+1. types.hpp に MemberVariable 構造体追加
+2. ClassInfo に member_variables フィールド追加
+3. ClassMetrics 構造体追加
+
+### Step 2: C++アナライザー拡張（1時間）
+1. メンバ変数検出正規表現パターン作成
+2. detectMemberVariables メソッド実装
+3. 既存の analyze メソッドで member_variables を設定
+
+### Step 3: セッション保存・読み込み（30分）
+1. to_json でメンバ変数情報を保存
+2. from_json でメンバ変数情報を復元
+
+### Step 4: analyze コマンド基本実装（1時間）
+1. cmd_analyze メソッド実装
+2. 基本統計計算ロジック
+3. 責務スコア、警告判定
+
+### Step 5: テスト（30分）
+1. 新しいセッション作成
+2. analyze コマンドテスト
+3. 出力確認・調整
+
+### Step 6: 詳細解析実装（2時間）- 後日
+1. 変数使用状況分析
+2. メソッドグループ化
+3. 凝集度・結合度計算
+
+## 🧪 テスト計画
+
+```bash
+# 1. セッション作成（メンバ変数検出含む）
+./nekocode_ai session-create test-projects/nyamesh-cpp
+
+# 2. 基本解析テスト
+./nekocode_ai session-cmd <session_id> "analyze"
+./nekocode_ai session-cmd <session_id> "analyze UICore.h"
+
+# 3. エラーケース
+./nekocode_ai session-cmd <session_id> "analyze nonexistent.cpp"
+
+# 4. 詳細解析テスト（実装後）
+./nekocode_ai session-cmd <session_id> "analyze UICore.h --deep"
+```
+
+## ⚠️ 注意事項
+
+1. **後方互換性**: 既存のセッションデータも読み込めるようにする
+2. **パフォーマンス**: 基本解析は高速に（セッションデータから計算）
+3. **言語対応**: まずC++から実装、他言語は順次追加
+4. **エラー処理**: ファイル未発見、クラスなしファイル等
+
+## 📈 期待される効果
+
+1. **客観的判断**: 数値化された責務スコアでリファクタリング判断
+2. **高速フィードバック**: 基本統計は即座に表示
+3. **段階的分析**: 必要に応じて詳細解析
+4. **実用的**: Claude Codeがすぐに活用できる情報
+
+---
+実装開始: 2025-07-31
+目標完了: Phase 1-5を本日中、Phase 6は後日
