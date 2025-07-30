@@ -1,0 +1,106 @@
+🐱 NekoCode 改善作業 引き継ぎ文書
+================================
+日時: 2025-07-30
+状況: Claude Codeからのフィードバックを基に改善計画策定完了
+
+📌 重要な決定事項
+================
+1. **NekoCodeはClaude Code専用ツール**として開発
+2. **解析ツールの役割に徹する**（削除等の実行系機能は実装しない）
+3. **簡単な機能から順番に実装**（複雑な機能は後回し）
+
+📊 現在の状況
+============
+- C++並列処理実装完了（8倍高速化達成）✅
+- ベンチマーク測定完了 ✅
+- 改善計画策定完了 ✅
+- 実装開始前の状態
+
+🎯 実装優先順位（難易度順）
+========================
+
+【🟢 簡単・最優先】Week 1
+1. **バグ修正: セッションパス問題**
+   - 問題: セッション作成時と実行時でパス解決が異なる
+   - 解決: session_state.jsonに"root_path"フィールド追加
+   - ファイル: src/core/session_manager.cpp
+
+2. **バグ修正: デバッグ出力分離**
+   - 問題: stdoutにDEBUGメッセージが混入
+   - 解決: LOG_DEBUGマクロをstd::cerrに変更
+   - ファイル: include/nekocode/debug_logger.hpp
+
+3. **新機能: duplicatesコマンド**
+   - 機能: ファイル名パターンで重複候補検出
+   - パターン: *_backup*, *_Fixed*, *_old*, *.bak
+   - 実装: src/commands/duplicates_command.cpp（新規）
+
+4. **新機能: large-filesコマンド**
+   - 機能: 指定行数以上のファイル一覧
+   - オプション: --threshold 1000
+   - 実装: src/commands/large_files_command.cpp（新規）
+
+【🟡 中程度】Week 2
+5. **新機能: todoコマンド**
+   - 機能: TODO/FIXME/XXXコメント検出
+   - 実装: 正規表現で簡単に実装可能
+
+6. **新機能: complexity-rankingコマンド**
+   - 機能: 関数の複雑度でランキング表示
+   - 実装: 既存のcomplexity計算を活用
+
+7. **改善: 出力フォーマット**
+   - Claude Code向け50行制限対応
+   - 段階的詳細化
+
+【🔴 難しい・後回し】
+- suggest-split（コード構造理解が必要）
+- find-duplicates（コードブロック類似性判定）
+- unused（未使用関数検出）
+
+📁 重要ファイル
+==============
+- NEKOCODE_IMPROVEMENT_PLAN.md - 詳細な改善計画
+- docs/claude-code/DESIGN_PHILOSOPHY.md - Claude Code専用設計の理念
+- src/commands/ - 新コマンド実装場所
+- src/core/session_manager.cpp - パス問題修正対象
+
+💡 実装のポイント
+===============
+1. **シンプルに実装**
+   - 複雑な機能は避ける
+   - まずは動くものを作る
+
+2. **解析ツールの本分を守る**
+   - 情報提供まで
+   - 実行はユーザーに任せる
+
+3. **Claude Code最適化**
+   - 50行制限を意識
+   - エラーメッセージを明確に
+
+🚀 次のアクション
+================
+1. session_manager.cppを開いてパス問題を修正
+2. debug_logger.hppでstderr出力に変更
+3. duplicates_command.cppを新規作成
+
+⚠️ 注意事項
+===========
+- cleanupコマンドは実装しない（役割外と判断）
+- 難しい機能は無理に実装しない
+- テストを忘れずに
+
+📝 参考コマンド例
+===============
+# ビルド
+cd build && cmake .. && make -j8
+
+# テスト（新機能）
+./nekocode_ai session-cmd <session_id> duplicates
+./nekocode_ai session-cmd <session_id> large-files --threshold 1000
+./nekocode_ai session-cmd <session_id> todo
+
+---
+この引き継ぎ文書を基に、簡単な機能から着実に実装を進めてください。
+複雑になったら立ち止まって、シンプルな解決策を探してくださいにゃ！
