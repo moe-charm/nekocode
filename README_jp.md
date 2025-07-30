@@ -219,10 +219,16 @@ make -j
 | `duplicates` | 重複ファイル検出 | _backup, _old等を検出 |
 | `todo` | TODOコメント検出 | TODO/FIXME/BUG等を優先度別表示 |
 | `complexity-ranking` | 関数複雑度ランキング | 最も複雑な関数トップ50 |
+| `analyze` | クラス責務分析 | メンバ変数×メソッド数で責務スコア計算 |
+| `analyze <file>` | ファイル別責務分析 | 特定ファイルのクラス責務を詳細分析 |
+| `analyze <file> --deep` | 詳細分析モード | 変数使用パターン等を含む詳細解析（Phase 2） |
 | `find <symbol>` | シンボル検索 | 関数・変数の使用箇所 |
 | `files` | ファイル一覧と詳細情報 | 詳細ファイル情報 |
 | `structure` | クラス/関数構造解析 | 構造分析 |
+| `structure --detailed <file>` | 詳細構造解析 | クラス・メソッド・複雑度情報 |
 | `calls` | 関数呼び出し統計 | 呼び出し頻度 |
+| `calls --detailed <function>` | 関数詳細解析 | 呼び出し元・呼び出し先情報 |
+| `complexity --methods <file>` | メソッド複雑度 | ファイル内メソッドの複雑度ランキング |
 | `include-graph` | インクルード依存関係グラフ | C++依存関係 |
 | `include-cycles` | 循環依存検出 | 循環依存問題 |
 | `include-impact` | 変更影響範囲分析 | 影響範囲 |

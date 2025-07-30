@@ -29,6 +29,11 @@ cd build && cmake .. && make -j8
 ./build/nekocode_ai session-cmd ai_session_20250730_123456 large-files
 ./build/nekocode_ai session-cmd ai_session_20250730_123456 duplicates
 ./build/nekocode_ai session-cmd ai_session_20250730_123456 todo
+
+# 新機能: 詳細解析
+./build/nekocode_ai session-cmd ai_session_20250730_123456 "structure --detailed main.cpp"
+./build/nekocode_ai session-cmd ai_session_20250730_123456 "complexity --methods main.cpp"
+./build/nekocode_ai session-cmd ai_session_20250730_123456 "calls --detailed processData"
 ```
 
 ## 🎯 主要コマンド一覧
@@ -43,6 +48,17 @@ cd build && cmake .. && make -j8
 | `todo` | TODOコメント検出 | TODO/FIXME/BUG等を優先度別表示 |
 | `complexity-ranking` | 関数複雑度ランキング | 最も複雑な関数トップ50 |
 | `find <symbol>` | シンボル検索 | 関数・変数の使用箇所 |
+
+## 🔍 新機能: 詳細解析コマンド (2025-07-31追加)
+
+| コマンド | 説明 | 使用例 |
+|---------|------|--------|
+| `structure --detailed <file>` | クラス・メソッド詳細情報 | `structure --detailed UICore.cpp` |
+| `complexity --methods <file>` | ファイル別メソッド複雑度 | `complexity --methods main.cpp` |
+| `calls --detailed <function>` | 関数の呼び出し関係詳細 | `calls --detailed createElement` |
+| `analyze` | クラス責務分析（メンバ変数×メソッド） | `analyze` |
+| `analyze <file>` | ファイル別クラス責務分析 | `analyze UICore.h` |
+| `analyze <file> --deep` | 詳細分析モード（Phase 2） | `analyze UICore.h --deep` |
 
 ## 🚀 実用例
 

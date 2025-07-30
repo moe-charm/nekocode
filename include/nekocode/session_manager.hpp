@@ -108,6 +108,14 @@ private:
     nlohmann::json cmd_large_files(const SessionData& session, int threshold) const;
     nlohmann::json cmd_todo(const SessionData& session) const;
     nlohmann::json cmd_complexity_ranking(const SessionData& session) const;
+    nlohmann::json cmd_analyze(const SessionData& session, const std::string& filename, bool deep) const;
+    nlohmann::json cmd_structure_detailed(const SessionData& session, const std::string& filename) const;
+    nlohmann::json cmd_complexity_methods(const SessionData& session, const std::string& filename) const;
+    nlohmann::json cmd_calls_detailed(const SessionData& session, const std::string& function_name) const;
+    
+    // analyze用ヘルパー関数
+    nlohmann::json analyze_file(const AnalysisResult& file, bool deep) const;
+    nlohmann::json analyze_directory(const DirectoryAnalysis& dir_result, bool deep) const;
     
     // ユーティリティ
     std::string generate_session_id() const;

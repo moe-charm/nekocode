@@ -69,6 +69,80 @@ nlohmann::json SessionData::to_json() const {
                 {"max_nesting_depth", file.complexity.max_nesting_depth},
                 {"rating", file.complexity.to_string()}
             };
+            
+            // クラス詳細情報を追加
+            nlohmann::json classes_json = nlohmann::json::array();
+            for (const auto& cls : file.classes) {
+                nlohmann::json class_json;
+                class_json["name"] = cls.name;
+                class_json["parent_class"] = cls.parent_class;
+                class_json["start_line"] = cls.start_line;
+                class_json["end_line"] = cls.end_line;
+                
+                nlohmann::json methods_json = nlohmann::json::array();
+                for (const auto& method : cls.methods) {
+                    nlohmann::json method_json;
+                    method_json["name"] = method.name;
+                    method_json["start_line"] = method.start_line;
+                    method_json["end_line"] = method.end_line;
+                    method_json["complexity"] = method.complexity.cyclomatic_complexity;
+                    method_json["parameters"] = method.parameters;
+                    methods_json.push_back(method_json);
+                }
+                class_json["methods"] = methods_json;
+                
+                // メンバ変数情報を追加
+                nlohmann::json member_vars_json = nlohmann::json::array();
+                for (const auto& var : cls.member_variables) {
+                    nlohmann::json var_json;
+                    var_json["name"] = var.name;
+                    var_json["type"] = var.type;
+                    var_json["declaration_line"] = var.declaration_line;
+                    var_json["is_static"] = var.is_static;
+                    var_json["is_const"] = var.is_const;
+                    var_json["access_modifier"] = var.access_modifier;
+                    // Phase2の情報は必要に応じて追加
+                    if (!var.used_by_methods.empty()) {
+                        var_json["used_by_methods"] = var.used_by_methods;
+                    }
+                    if (!var.modified_by_methods.empty()) {
+                        var_json["modified_by_methods"] = var.modified_by_methods;
+                    }
+                    member_vars_json.push_back(var_json);
+                }
+                class_json["member_variables"] = member_vars_json;
+                
+                classes_json.push_back(class_json);
+            }
+            file_json["classes"] = classes_json;
+            
+            // 関数詳細情報を追加
+            nlohmann::json functions_json = nlohmann::json::array();
+            for (const auto& func : file.functions) {
+                nlohmann::json func_json;
+                func_json["name"] = func.name;
+                func_json["start_line"] = func.start_line;
+                func_json["end_line"] = func.end_line;
+                func_json["complexity"] = func.complexity.cyclomatic_complexity;
+                func_json["parameters"] = func.parameters;
+                functions_json.push_back(func_json);
+            }
+            file_json["functions"] = functions_json;
+            
+            // 関数呼び出し情報を追加
+            nlohmann::json calls_json = nlohmann::json::array();
+            for (const auto& call : file.function_calls) {
+                nlohmann::json call_json;
+                call_json["function_name"] = call.function_name;
+                call_json["line_number"] = call.line_number;
+                call_json["is_method_call"] = call.is_method_call;
+                if (!call.object_name.empty()) {
+                    call_json["object_name"] = call.object_name;
+                }
+                calls_json.push_back(call_json);
+            }
+            file_json["function_calls"] = calls_json;
+            
             files_json.push_back(file_json);
         }
         j["directory_files"] = files_json;
@@ -160,6 +234,89 @@ SessionData SessionData::from_json(const nlohmann::json& j) {
                     file_result.complexity.update_rating();
                 }
                 
+                // クラス詳細情報復元
+                if (file_json.contains("classes")) {
+                    for (const auto& class_json : file_json["classes"]) {
+                        ClassInfo cls;
+                        cls.name = class_json["name"];
+                        if (class_json.contains("parent_class")) {
+                            cls.parent_class = class_json["parent_class"];
+                        }
+                        cls.start_line = class_json["start_line"];
+                        cls.end_line = class_json["end_line"];
+                        
+                        // メソッド復元
+                        if (class_json.contains("methods")) {
+                            for (const auto& method_json : class_json["methods"]) {
+                                FunctionInfo method;
+                                method.name = method_json["name"];
+                                method.start_line = method_json["start_line"];
+                                method.end_line = method_json["end_line"];
+                                method.complexity.cyclomatic_complexity = method_json["complexity"];
+                                method.complexity.update_rating();
+                                if (method_json.contains("parameters")) {
+                                    method.parameters = method_json["parameters"];
+                                }
+                                cls.methods.push_back(method);
+                            }
+                        }
+                        
+                        // メンバ変数復元
+                        if (class_json.contains("member_variables")) {
+                            for (const auto& var_json : class_json["member_variables"]) {
+                                MemberVariable var;
+                                var.name = var_json["name"];
+                                var.type = var_json["type"];
+                                var.declaration_line = var_json["declaration_line"];
+                                var.is_static = var_json.value("is_static", false);
+                                var.is_const = var_json.value("is_const", false);
+                                var.access_modifier = var_json.value("access_modifier", "private");
+                                
+                                // Phase2の情報があれば復元
+                                if (var_json.contains("used_by_methods")) {
+                                    var.used_by_methods = var_json["used_by_methods"].get<std::vector<std::string>>();
+                                }
+                                if (var_json.contains("modified_by_methods")) {
+                                    var.modified_by_methods = var_json["modified_by_methods"].get<std::vector<std::string>>();
+                                }
+                                cls.member_variables.push_back(var);
+                            }
+                        }
+                        
+                        file_result.classes.push_back(cls);
+                    }
+                }
+                
+                // 関数詳細情報復元
+                if (file_json.contains("functions")) {
+                    for (const auto& func_json : file_json["functions"]) {
+                        FunctionInfo func;
+                        func.name = func_json["name"];
+                        func.start_line = func_json["start_line"];
+                        func.end_line = func_json["end_line"];
+                        func.complexity.cyclomatic_complexity = func_json["complexity"];
+                        func.complexity.update_rating();
+                        if (func_json.contains("parameters")) {
+                            func.parameters = func_json["parameters"];
+                        }
+                        file_result.functions.push_back(func);
+                    }
+                }
+                
+                // 関数呼び出し情報復元
+                if (file_json.contains("function_calls")) {
+                    for (const auto& call_json : file_json["function_calls"]) {
+                        FunctionCall call;
+                        call.function_name = call_json["function_name"];
+                        call.line_number = call_json["line_number"];
+                        call.is_method_call = call_json["is_method_call"];
+                        if (call_json.contains("object_name")) {
+                            call.object_name = call_json["object_name"];
+                        }
+                        file_result.function_calls.push_back(call);
+                    }
+                }
+                
                 data.directory_result.files.push_back(file_result);
             }
         }
@@ -239,10 +396,140 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
             result = cmd_files(session);
         } else if (command == "complexity") {
             result = cmd_complexity(session);
+        } else if (command.substr(0, 11) == "complexity ") {
+            // complexity --methods <file> コマンドのパース
+            std::string args = command.substr(11);
+            
+            // トークン分割
+            std::vector<std::string> tokens;
+            std::string current_token;
+            bool in_quotes = false;
+            
+            for (char c : args) {
+                if (c == '"') {
+                    in_quotes = !in_quotes;
+                } else if (c == ' ' && !in_quotes) {
+                    if (!current_token.empty()) {
+                        tokens.push_back(current_token);
+                        current_token.clear();
+                    }
+                } else {
+                    current_token += c;
+                }
+            }
+            if (!current_token.empty()) {  
+                tokens.push_back(current_token);
+            }
+            
+            // オプション解析
+            bool methods_flag = false;
+            std::string filename;
+            
+            for (const auto& token : tokens) {
+                if (token == "--methods") {
+                    methods_flag = true;
+                } else if (token.size() > 0 && token[0] != '-') {
+                    filename = token;
+                }
+            }
+            
+            if (methods_flag) {
+                result = cmd_complexity_methods(session, filename);
+            } else {
+                result = {{"error", "complexity: 使用法: complexity --methods [filename]"}};
+            }
         } else if (command == "structure") {
             result = cmd_structure(session);
+        } else if (command.substr(0, 10) == "structure ") {
+            // structure --detailed <file> コマンドのパース
+            std::string args = command.substr(10);
+            
+            // トークン分割（findコマンドと同じロジック）
+            std::vector<std::string> tokens;
+            std::string current_token;
+            bool in_quotes = false;
+            
+            for (char c : args) {
+                if (c == '"') {
+                    in_quotes = !in_quotes;
+                } else if (c == ' ' && !in_quotes) {
+                    if (!current_token.empty()) {
+                        tokens.push_back(current_token);
+                        current_token.clear();
+                    }
+                } else {
+                    current_token += c;
+                }
+            }
+            if (!current_token.empty()) {
+                tokens.push_back(current_token);
+            }
+            
+            // オプション解析
+            bool detailed = false;
+            std::string filename;
+            
+            for (const auto& token : tokens) {
+                if (token == "--detailed") {
+                    detailed = true;
+                } else if (token.size() > 0 && token[0] != '-') {
+                    filename = token;
+                }
+            }
+            
+            if (detailed && !filename.empty()) {
+                result = cmd_structure_detailed(session, filename);
+            } else if (detailed) {
+                result = cmd_structure_detailed(session, "");  // 全ファイル
+            } else {
+                result = {{"error", "structure: 使用法: structure --detailed [filename]"}};
+            }
         } else if (command == "calls") {
             result = cmd_calls(session);
+        } else if (command.substr(0, 6) == "calls ") {
+            // calls --detailed <function> コマンドのパース
+            std::string args = command.substr(6);
+            
+            // トークン分割
+            std::vector<std::string> tokens;
+            std::string current_token;
+            bool in_quotes = false;
+            
+            for (char c : args) {
+                if (c == '"') {
+                    in_quotes = !in_quotes;
+                } else if (c == ' ' && !in_quotes) {
+                    if (!current_token.empty()) {
+                        tokens.push_back(current_token);
+                        current_token.clear();
+                    }
+                } else {
+                    current_token += c;
+                }
+            }
+            if (!current_token.empty()) {
+                tokens.push_back(current_token);
+            }
+            
+            // オプション解析
+            bool detailed_flag = false;
+            std::string function_name;
+            
+            for (const auto& token : tokens) {
+                if (token == "--detailed") {
+                    detailed_flag = true;
+                } else if (token.size() > 0 && token[0] != '-') {
+                    function_name = token;
+                }
+            }
+            
+            if (detailed_flag && !function_name.empty()) {
+                result = cmd_calls_detailed(session, function_name);
+            } else if (detailed_flag) {
+                result = {{"error", "calls: 使用法: calls --detailed <function_name>"}};
+            } else {
+                result = {{"error", "calls: 使用法: calls --detailed <function_name>"}};
+            }
         } else if (command.substr(0, 5) == "find ") {
             // find コマンドのパース
             std::string args = command.substr(5);
@@ -372,6 +659,28 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
             result = cmd_todo(session);
         } else if (command == "complexity-ranking") {
             result = cmd_complexity_ranking(session);
+        } else if (command.substr(0, 7) == "analyze") {
+            // analyze [filename] [--deep]
+            std::string args = command.substr(7);
+            std::string filename;
+            bool deep = false;
+            
+            // --deep フラグをチェック
+            size_t deep_pos = args.find("--deep");
+            if (deep_pos != std::string::npos) {
+                deep = true;
+                // --deepを削除
+                args = args.substr(0, deep_pos) + args.substr(deep_pos + 6);
+            }
+            
+            // ファイル名を抽出（先頭と末尾の空白を除去）
+            size_t start = args.find_first_not_of(" \t");
+            if (start != std::string::npos) {
+                size_t end = args.find_last_not_of(" \t");
+                filename = args.substr(start, end - start + 1);
+            }
+            
+            result = cmd_analyze(session, filename, deep);
         } else if (command == "help") {
             result = cmd_help();
         } else {
@@ -381,7 +690,8 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                                         "structure", "calls", "find <term>", 
                                         "include-graph", "include-cycles", "include-impact",
                                         "include-unused", "include-optimize", "duplicates", 
-                                        "large-files", "todo", "complexity-ranking", "help"}}
+                                        "large-files", "todo", "complexity-ranking", 
+                                        "analyze", "help"}}
             };
         }
         
@@ -641,6 +951,198 @@ nlohmann::json SessionManager::cmd_find(const SessionData& session, const std::s
     };
 }
 
+nlohmann::json SessionManager::cmd_analyze(const SessionData& session, 
+                                            const std::string& filename, 
+                                            bool deep) const {
+    nlohmann::json result;
+    result["command"] = "analyze";
+    result["mode"] = deep ? "deep" : "basic";
+    
+    // 単一ファイルモード
+    if (!session.is_directory) {
+        return analyze_file(session.single_file_result, deep);
+    }
+    
+    // ディレクトリモード
+    if (filename.empty()) {
+        // 全ファイルのサマリー
+        return analyze_directory(session.directory_result, deep);
+    } else {
+        // 特定ファイルの分析
+        for (const auto& file : session.directory_result.files) {
+            if (file.file_info.name == filename || 
+                file.file_info.path.filename() == filename) {
+                return analyze_file(file, deep);
+            }
+        }
+        result["error"] = "ファイル '" + filename + "' が見つかりません";
+        return result;
+    }
+}
+
+nlohmann::json SessionManager::analyze_file(const AnalysisResult& file, bool deep) const {
+    nlohmann::json result;
+    result["command"] = "analyze";
+    result["mode"] = deep ? "deep" : "basic";
+    result["file"] = file.file_info.name;
+    result["total_lines"] = file.file_info.total_lines;
+    
+    // クラス別統計
+    nlohmann::json classes_json = nlohmann::json::array();
+    for (const auto& cls : file.classes) {
+        nlohmann::json class_json;
+        class_json["name"] = cls.name;
+        class_json["lines"] = cls.end_line - cls.start_line;
+        
+        // 基本メトリクス計算
+        ClassMetrics metrics;
+        metrics.member_variable_count = cls.member_variables.size();
+        metrics.method_count = cls.methods.size();
+        metrics.total_lines = cls.end_line - cls.start_line;
+        metrics.calculate_responsibility();
+        
+        class_json["metrics"] = {
+            {"member_variables", metrics.member_variable_count},
+            {"methods", metrics.method_count},
+            {"responsibility_score", metrics.responsibility_score},
+            {"lines", metrics.total_lines}
+        };
+        
+        // 変数リスト（基本情報のみ）
+        nlohmann::json vars_json = nlohmann::json::array();
+        for (const auto& var : cls.member_variables) {
+            vars_json.push_back({
+                {"name", var.name},
+                {"type", var.type},
+                {"line", var.declaration_line},
+                {"access", var.access_modifier}
+            });
+        }
+        class_json["member_variables"] = vars_json;
+        
+        // 判定
+        if (metrics.responsibility_score > 500) {
+            class_json["warning"] = "責務が大きすぎる可能性があります";
+        }
+        
+        classes_json.push_back(class_json);
+    }
+    
+    result["classes"] = classes_json;
+    
+    // ファイル全体のサマリー
+    int total_classes = 0;
+    int total_member_vars = 0;
+    int total_methods = 0;
+    int max_responsibility = 0;
+    std::string most_complex_class;
+    
+    for (const auto& cls : file.classes) {
+        total_classes++;
+        total_member_vars += cls.member_variables.size();
+        total_methods += cls.methods.size();
+        
+        int responsibility = cls.member_variables.size() * cls.methods.size();
+        if (responsibility > max_responsibility) {
+            max_responsibility = responsibility;
+            most_complex_class = cls.name;
+        }
+    }
+    
+    result["summary"] = {
+        {"total_classes", total_classes},
+        {"total_member_variables", total_member_vars},
+        {"total_methods", total_methods},
+        {"highest_responsibility", max_responsibility},
+        {"most_complex_class", most_complex_class}
+    };
+    
+    if (deep) {
+        // Phase 2の詳細解析を追加（将来実装）
+        result["deep_analysis"] = {
+            {"message", "詳細解析機能は後日実装予定です"}
+        };
+    }
+    
+    return result;
+}
+
+nlohmann::json SessionManager::analyze_directory(const DirectoryAnalysis& dir_result, bool deep) const {
+    nlohmann::json result;
+    result["command"] = "analyze";
+    result["mode"] = deep ? "deep" : "basic"; 
+    result["type"] = "directory";
+    result["total_files"] = dir_result.summary.total_files;
+    
+    // 各ファイルの統計を集計
+    nlohmann::json files_json = nlohmann::json::array();
+    int total_classes = 0;
+    int total_member_vars = 0;
+    int total_methods = 0;
+    int max_responsibility = 0;
+    std::string most_complex_file;
+    std::string most_complex_class;
+    
+    for (const auto& file : dir_result.files) {
+        nlohmann::json file_summary;
+        file_summary["name"] = file.file_info.name;
+        file_summary["classes"] = file.classes.size();
+        
+        int file_member_vars = 0;
+        int file_methods = 0;
+        int file_max_responsibility = 0;
+        std::string file_complex_class;
+        
+        for (const auto& cls : file.classes) {
+            total_classes++;
+            file_member_vars += cls.member_variables.size();
+            file_methods += cls.methods.size();
+            total_member_vars += cls.member_variables.size();
+            total_methods += cls.methods.size();
+            
+            int responsibility = cls.member_variables.size() * cls.methods.size();
+            if (responsibility > file_max_responsibility) {
+                file_max_responsibility = responsibility;
+                file_complex_class = cls.name;
+            }
+            if (responsibility > max_responsibility) {
+                max_responsibility = responsibility;
+                most_complex_file = file.file_info.name;
+                most_complex_class = cls.name;
+            }
+        }
+        
+        file_summary["member_variables"] = file_member_vars;
+        file_summary["methods"] = file_methods;
+        file_summary["max_responsibility"] = file_max_responsibility;
+        
+        if (file_max_responsibility > 500) {
+            file_summary["warning"] = "高責務クラスが含まれています: " + file_complex_class;
+        }
+        
+        files_json.push_back(file_summary);
+    }
+    
+    result["files"] = files_json;
+    result["summary"] = {
+        {"total_classes", total_classes},
+        {"total_member_variables", total_member_vars},
+        {"total_methods", total_methods},
+        {"highest_responsibility", max_responsibility},
+        {"most_complex_file", most_complex_file},
+        {"most_complex_class", most_complex_class}
+    };
+    
+    // 警告メッセージ
+    if (max_responsibility > 1000) {
+        result["warning"] = "⚠️ 非常に高い責務を持つクラスが検出されました";
+    } else if (max_responsibility > 500) {
+        result["info"] = "責務が大きいクラスが検出されました";
+    }
+    
+    return result;
+}
+
 nlohmann::json SessionManager::cmd_help() const {
     return {
         {"command", "help"},
@@ -665,6 +1167,9 @@ nlohmann::json SessionManager::cmd_help() const {
             {"large-files --threshold 1000", "Show files over 1000 lines"},
             {"todo", "Find TODO/FIXME/XXX comments in code"},
             {"complexity-ranking", "Show functions ranked by complexity"},
+            {"analyze", "Analyze class responsibility (member vars × methods)"},
+            {"analyze <file>", "Analyze specific file's class responsibility"},
+            {"analyze <file> --deep", "Deep analysis with usage patterns (Phase 2)"},
             {"help", "Show this help"}
         }}
     };
@@ -973,6 +1478,503 @@ nlohmann::json SessionManager::cmd_duplicates(const SessionData& session) const 
     }
     
     return duplicates_json;
+}
+
+//=============================================================================
+// 🔍 詳細構造解析コマンド - Claude Code君向け
+//=============================================================================
+
+nlohmann::json SessionManager::cmd_structure_detailed(const SessionData& session, const std::string& filename) const {
+    nlohmann::json result_json;
+    result_json["command"] = "structure-detailed";
+    
+    if (!session.is_directory) {
+        // 単一ファイルの場合
+        const auto& analysis = session.single_file_result;
+        result_json["file"] = analysis.file_info.name;
+        result_json["classes"] = nlohmann::json::array();
+        
+        // クラス詳細情報
+        for (const auto& cls : analysis.classes) {
+            nlohmann::json class_json;
+            class_json["name"] = cls.name;
+            class_json["line_start"] = cls.start_line;
+            class_json["line_end"] = cls.end_line;
+            class_json["parent_class"] = cls.parent_class;
+            
+            // クラス全体の複雑度（メソッドの合計）
+            uint32_t total_complexity = 0;
+            nlohmann::json methods_json = nlohmann::json::array();
+            
+            for (const auto& method : cls.methods) {
+                nlohmann::json method_json;
+                method_json["name"] = method.name;
+                method_json["line"] = method.start_line;  
+                method_json["line_end"] = method.end_line;
+                method_json["complexity"] = method.complexity.cyclomatic_complexity;
+                method_json["parameters"] = method.parameters;
+                
+                // 関数呼び出し情報を追加（calls）
+                nlohmann::json calls_json = nlohmann::json::array();
+                for (const auto& call : analysis.function_calls) {
+                    if (call.line_number >= method.start_line && call.line_number <= method.end_line) {
+                        calls_json.push_back({
+                            {"function", call.function_name},
+                            {"line", call.line_number}
+                        });
+                    }
+                }
+                method_json["calls"] = calls_json;
+                
+                // called_from は計算が複雑なので将来実装
+                method_json["called_from"] = nlohmann::json::array();
+                
+                methods_json.push_back(method_json);
+                total_complexity += method.complexity.cyclomatic_complexity;
+            }
+            
+            class_json["complexity"] = total_complexity;
+            class_json["methods"] = methods_json;
+            result_json["classes"].push_back(class_json);
+        }
+        
+        // 自由関数（クラス外の関数）
+        nlohmann::json functions_json = nlohmann::json::array();
+        for (const auto& func : analysis.functions) {
+            nlohmann::json func_json;
+            func_json["name"] = func.name;
+            func_json["line"] = func.start_line;
+            func_json["line_end"] = func.end_line;
+            func_json["complexity"] = func.complexity.cyclomatic_complexity;
+            func_json["parameters"] = func.parameters;
+            
+            // 関数呼び出し情報
+            nlohmann::json calls_json = nlohmann::json::array();
+            for (const auto& call : analysis.function_calls) {
+                if (call.line_number >= func.start_line && call.line_number <= func.end_line) {
+                    calls_json.push_back({
+                        {"function", call.function_name},
+                        {"line", call.line_number}
+                    });
+                }
+            }
+            func_json["calls"] = calls_json;
+            func_json["called_from"] = nlohmann::json::array();
+            
+            functions_json.push_back(func_json);
+        }
+        result_json["functions"] = functions_json;
+        
+    } else {
+        // ディレクトリの場合：指定されたファイルを検索
+        if (filename.empty()) {
+            result_json["error"] = "ディレクトリ解析では --detailed にファイル名を指定してください";
+            return result_json;
+        }
+        
+        // 指定されたファイルを検索
+        bool found = false;
+        for (const auto& file_result : session.directory_result.files) {
+            if (file_result.file_info.name == filename || 
+                file_result.file_info.path.filename() == filename) {
+                // 見つかったファイルの詳細情報を出力
+                result_json["file"] = file_result.file_info.name;
+                result_json["classes"] = nlohmann::json::array();
+                
+                // クラス詳細情報
+                for (const auto& cls : file_result.classes) {
+                    nlohmann::json class_json;
+                    class_json["name"] = cls.name;
+                    class_json["line_start"] = cls.start_line;
+                    class_json["line_end"] = cls.end_line;
+                    class_json["parent_class"] = cls.parent_class;
+                    
+                    // クラス全体の複雑度（メソッドの合計）
+                    uint32_t total_complexity = 0;
+                    nlohmann::json methods_json = nlohmann::json::array();
+                    
+                    for (const auto& method : cls.methods) {
+                        nlohmann::json method_json;
+                        method_json["name"] = method.name;
+                        method_json["line"] = method.start_line;  
+                        method_json["line_end"] = method.end_line;
+                        method_json["complexity"] = method.complexity.cyclomatic_complexity;
+                        method_json["parameters"] = method.parameters;
+                        
+                        // 関数呼び出し情報を追加（calls）
+                        nlohmann::json calls_json = nlohmann::json::array();
+                        for (const auto& call : file_result.function_calls) {
+                            if (call.line_number >= method.start_line && call.line_number <= method.end_line) {
+                                calls_json.push_back({
+                                    {"function", call.function_name},
+                                    {"line", call.line_number}
+                                });
+                            }
+                        }
+                        method_json["calls"] = calls_json;
+                        
+                        // called_from は計算が複雑なので将来実装
+                        method_json["called_from"] = nlohmann::json::array();
+                        
+                        methods_json.push_back(method_json);
+                        total_complexity += method.complexity.cyclomatic_complexity;
+                    }
+                    
+                    class_json["complexity"] = total_complexity;
+                    class_json["methods"] = methods_json;
+                    result_json["classes"].push_back(class_json);
+                }
+                
+                // 自由関数（クラス外の関数）
+                nlohmann::json functions_json = nlohmann::json::array();
+                for (const auto& func : file_result.functions) {
+                    nlohmann::json func_json;
+                    func_json["name"] = func.name;
+                    func_json["line"] = func.start_line;
+                    func_json["line_end"] = func.end_line;
+                    func_json["complexity"] = func.complexity.cyclomatic_complexity;
+                    func_json["parameters"] = func.parameters;
+                    
+                    // 関数呼び出し情報
+                    nlohmann::json calls_json = nlohmann::json::array();
+                    for (const auto& call : file_result.function_calls) {
+                        if (call.line_number >= func.start_line && call.line_number <= func.end_line) {
+                            calls_json.push_back({
+                                {"function", call.function_name},
+                                {"line", call.line_number}
+                            });
+                        }
+                    }
+                    func_json["calls"] = calls_json;
+                    func_json["called_from"] = nlohmann::json::array();
+                    
+                    functions_json.push_back(func_json);
+                }
+                result_json["functions"] = functions_json;
+                
+                found = true;
+                break;
+            }
+        }
+        
+        if (!found) {
+            result_json["error"] = "指定されたファイル '" + filename + "' が見つかりません";
+            return result_json;
+        }
+    }
+    
+    result_json["timestamp"] = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+        
+    return result_json;
+}
+
+//=============================================================================
+// 📊 ファイル別メソッド複雑度ランキング - Claude Code君向け
+//=============================================================================
+
+nlohmann::json SessionManager::cmd_complexity_methods(const SessionData& session, const std::string& filename) const {
+    nlohmann::json result_json;
+    result_json["command"] = "complexity-methods";
+    result_json["file"] = filename.empty() ? "all" : filename;
+    result_json["method_complexity"] = nlohmann::json::array();
+    
+    // メソッドの複雑度情報を集める
+    std::vector<std::tuple<std::string, std::string, uint32_t, uint32_t, std::string>> method_complexities;
+    
+    if (!session.is_directory) {
+        // 単一ファイルの場合
+        const auto& analysis = session.single_file_result;
+        std::string file_name = analysis.file_info.name;
+        
+        // ファイル名フィルタ
+        if (!filename.empty() && file_name != filename && 
+            analysis.file_info.path.filename() != filename) {
+            result_json["error"] = "指定されたファイル '" + filename + "' が見つかりません";
+            return result_json;
+        }
+        
+        // クラスメソッドを収集
+        for (const auto& cls : analysis.classes) {
+            for (const auto& method : cls.methods) {
+                std::string reason = "Method in class " + cls.name;
+                if (method.complexity.cyclomatic_complexity > 20) {
+                    reason += " (High complexity - consider refactoring)";
+                } else if (method.complexity.cyclomatic_complexity > 10) {
+                    reason += " (Moderate complexity)";
+                } else {
+                    reason += " (Low complexity)";
+                }
+                
+                method_complexities.emplace_back(
+                    cls.name + "::" + method.name,
+                    file_name,
+                    method.complexity.cyclomatic_complexity,
+                    method.start_line,
+                    reason
+                );
+            }
+        }
+        
+        // 自由関数を収集
+        for (const auto& func : analysis.functions) {
+            std::string reason = "Free function";
+            if (func.complexity.cyclomatic_complexity > 20) {
+                reason += " (High complexity - consider refactoring)";
+            } else if (func.complexity.cyclomatic_complexity > 10) {
+                reason += " (Moderate complexity)";
+            } else {
+                reason += " (Low complexity)";
+            }
+            
+            method_complexities.emplace_back(
+                func.name,
+                file_name,
+                func.complexity.cyclomatic_complexity,
+                func.start_line,
+                reason
+            );
+        }
+        
+    } else {
+        // ディレクトリの場合
+        for (const auto& file_result : session.directory_result.files) {
+            std::string file_name = file_result.file_info.name;
+            
+            // ファイル名フィルタ
+            if (!filename.empty() && file_name != filename && 
+                file_result.file_info.path.filename() != filename) {
+                continue;
+            }
+            
+            // クラスメソッドを収集
+            for (const auto& cls : file_result.classes) {
+                for (const auto& method : cls.methods) {
+                    std::string reason = "Method in class " + cls.name;
+                    if (method.complexity.cyclomatic_complexity > 20) {
+                        reason += " (High complexity - consider refactoring)";
+                    } else if (method.complexity.cyclomatic_complexity > 10) {
+                        reason += " (Moderate complexity)";
+                    } else {
+                        reason += " (Low complexity)";
+                    }
+                    
+                    method_complexities.emplace_back(
+                        cls.name + "::" + method.name,
+                        file_name,
+                        method.complexity.cyclomatic_complexity,
+                        method.start_line,
+                        reason
+                    );
+                }
+            }
+            
+            // 自由関数を収集
+            for (const auto& func : file_result.functions) {
+                std::string reason = "Free function";
+                if (func.complexity.cyclomatic_complexity > 20) {
+                    reason += " (High complexity - consider refactoring)";
+                } else if (func.complexity.cyclomatic_complexity > 10) {
+                    reason += " (Moderate complexity)";
+                } else {
+                    reason += " (Low complexity)";
+                }
+                
+                method_complexities.emplace_back(
+                    func.name,
+                    file_name,
+                    func.complexity.cyclomatic_complexity,
+                    func.start_line,
+                    reason
+                );
+            }
+        }
+    }
+    
+    // 複雑度でソート（降順）
+    std::sort(method_complexities.begin(), method_complexities.end(),
+              [](const auto& a, const auto& b) {
+                  return std::get<2>(a) > std::get<2>(b);
+              });
+    
+    // JSON出力
+    for (const auto& method : method_complexities) {
+        result_json["method_complexity"].push_back({
+            {"method", std::get<0>(method)},
+            {"file", std::get<1>(method)},
+            {"complexity", std::get<2>(method)},
+            {"line", std::get<3>(method)},
+            {"reason", std::get<4>(method)}
+        });
+    }
+    
+    // 統計情報
+    result_json["summary"] = {
+        {"total_methods", method_complexities.size()},
+        {"high_complexity", std::count_if(method_complexities.begin(), method_complexities.end(),
+                                         [](const auto& m) { return std::get<2>(m) > 20; })},
+        {"moderate_complexity", std::count_if(method_complexities.begin(), method_complexities.end(),
+                                            [](const auto& m) { return std::get<2>(m) > 10 && std::get<2>(m) <= 20; })},
+        {"low_complexity", std::count_if(method_complexities.begin(), method_complexities.end(),
+                                       [](const auto& m) { return std::get<2>(m) <= 10; })}
+    };
+    
+    result_json["timestamp"] = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    
+    return result_json;
+}
+
+//=============================================================================
+// 📞 関数呼び出し詳細解析 - Claude Code君向け
+//=============================================================================
+
+nlohmann::json SessionManager::cmd_calls_detailed(const SessionData& session, const std::string& function_name) const {
+    nlohmann::json result_json;
+    result_json["command"] = "calls-detailed";
+    result_json["function"] = function_name;
+    result_json["calls"] = nlohmann::json::array();
+    result_json["called_by"] = nlohmann::json::array();
+    
+    // 関数の基本情報を検索
+    bool function_found = false;
+    nlohmann::json function_info;
+    
+    auto analyze_calls_for_file = [&](const AnalysisResult& analysis, const std::string& file_name) {
+        // クラスメソッドを検索
+        for (const auto& cls : analysis.classes) {
+            for (const auto& method : cls.methods) {
+                std::string full_method_name = cls.name + "::" + method.name;
+                
+                if (method.name == function_name || full_method_name == function_name) {
+                    function_found = true;
+                    function_info = {
+                        {"name", full_method_name},
+                        {"file", file_name},
+                        {"line", method.start_line},
+                        {"line_end", method.end_line},
+                        {"complexity", method.complexity.cyclomatic_complexity},
+                        {"class", cls.name},
+                        {"type", "method"},
+                        {"parameters", method.parameters}
+                    };
+                    
+                    // この関数が呼び出している関数を収集
+                    for (const auto& call : analysis.function_calls) {
+                        if (call.line_number >= method.start_line && call.line_number <= method.end_line) {
+                            result_json["calls"].push_back({
+                                {"function", call.function_name},
+                                {"file", file_name},
+                                {"line", call.line_number}
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 自由関数を検索
+        for (const auto& func : analysis.functions) {
+            if (func.name == function_name) {
+                function_found = true;
+                function_info = {
+                    {"name", func.name},
+                    {"file", file_name},
+                    {"line", func.start_line},
+                    {"line_end", func.end_line},
+                    {"complexity", func.complexity.cyclomatic_complexity},
+                    {"type", "function"},
+                    {"parameters", func.parameters}
+                };
+                
+                // この関数が呼び出している関数を収集
+                for (const auto& call : analysis.function_calls) {
+                    if (call.line_number >= func.start_line && call.line_number <= func.end_line) {
+                        result_json["calls"].push_back({
+                            {"function", call.function_name},
+                            {"file", file_name},
+                            {"line", call.line_number}
+                        });
+                    }
+                }
+            }
+        }
+        
+        // called_by の解析（この関数を呼び出している箇所を検索）
+        for (const auto& call : analysis.function_calls) {
+            if (call.function_name == function_name || 
+                call.function_name.find("::" + function_name) != std::string::npos) {
+                
+                // 呼び出し元の関数を特定（簡易実装）
+                std::string caller_function = "unknown";
+                
+                // クラスメソッド内かチェック
+                for (const auto& cls : analysis.classes) {
+                    for (const auto& method : cls.methods) {
+                        if (call.line_number >= method.start_line && call.line_number <= method.end_line) {
+                            caller_function = cls.name + "::" + method.name;
+                            break;
+                        }
+                    }
+                    if (caller_function != "unknown") break;
+                }
+                
+                // 自由関数内かチェック
+                if (caller_function == "unknown") {
+                    for (const auto& func : analysis.functions) {
+                        if (call.line_number >= func.start_line && call.line_number <= func.end_line) {
+                            caller_function = func.name;
+                            break;
+                        }
+                    }
+                }
+                
+                result_json["called_by"].push_back({
+                    {"function", caller_function},
+                    {"file", file_name},
+                    {"line", call.line_number}
+                });
+            }
+        }
+    };
+    
+    if (!session.is_directory) {
+        // 単一ファイルの場合
+        analyze_calls_for_file(session.single_file_result, session.single_file_result.file_info.name);
+    } else {
+        // ディレクトリの場合：全ファイルを検索
+        for (const auto& file_result : session.directory_result.files) {
+            analyze_calls_for_file(file_result, file_result.file_info.name);
+        }
+    }
+    
+    if (!function_found) {
+        result_json["error"] = "指定された関数 '" + function_name + "' が見つかりません";
+        return result_json;
+    }
+    
+    result_json["function_info"] = function_info;
+    
+    // 統計情報
+    result_json["summary"] = {
+        {"total_calls", result_json["calls"].size()},
+        {"called_by_count", result_json["called_by"].size()},
+        {"complexity", function_info.value("complexity", 0)}
+    };
+    
+    // 分割提案（基本的な情報のみ）
+    result_json["refactoring_suggestion"] = {
+        {"complexity_level", function_info.value("complexity", 0) > 20 ? "high" : 
+                           (function_info.value("complexity", 0) > 10 ? "moderate" : "low")},
+        {"suggestion", function_info.value("complexity", 0) > 20 ? 
+                      "High complexity - consider breaking into smaller functions" :
+                      "Complexity is acceptable"}
+    };
+    
+    result_json["timestamp"] = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    
+    return result_json;
 }
 
 nlohmann::json SessionManager::cmd_large_files(const SessionData& session, int threshold) const {

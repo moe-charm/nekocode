@@ -1,0 +1,276 @@
+# 🐛 NekoCode新機能バグ修正計画書
+作成日: 2025-07-30
+対象: structure --detailed, complexity --methods, calls --detailed コマンド
+
+## 📊 発見されたバグ詳細
+
+### 1. **structure --detailed バグ**
+**症状**: `{"classes": [], "command": "structure-detailed", "file": "xxx.cpp"}`
+**期待値**: クラス情報を含む詳細な構造解析結果
+**影響度**: 🔴 High - Claude Codeから強く要求された機能
+
+### 2. **complexity --methods バグ**  
+**症状**: `{"method_complexity": [], "total_methods": 0}`
+**期待値**: ファイル内のメソッド別複雑度ランキング
+**影響度**: 🔴 High - リファクタリング判断に必要
+
+### 3. **calls --detailed バグ**
+**症状**: `{"error": "指定された関数 'xxx' が見つかりません"}`
+**期待値**: 関数の呼び出し・被呼び出し関係の詳細情報
+**影響度**: 🟡 Medium - 関数依存関係分析に使用
+
+## 🔍 根本原因分析
+
+### **原因1: セッションデータアクセス問題**
+```cpp
+// 推測される問題箇所 (session_manager.cpp)
+nlohmann::json SessionManager::cmd_structure_detailed(const SessionData& session, const std::string& filename) const {
+    // ❌ 問題: DirectoryAnalysisから特定ファイルの詳細情報を取得する方法が不適切
+    // session.directory_result.files[?].classes にアクセスできていない
+}
+```
+
+### **原因2: データ構造理解不足**
+- `SessionData` 構造体の `directory_result.files` 配列内の `AnalysisResult` アクセス方法
+- ファイル名からの対応する `AnalysisResult` 検索ロジック不備
+- クラス・メソッド情報の階層構造への不適切なアクセス
+
+### **原因3: 関数検索ロジック問題**
+- 全ファイルからの関数名検索が実装されていない
+- `FunctionInfo` 構造体への適切なアクセス方法不備
+
+## 🛠️ 修正計画（Phase別）
+
+### **Phase 1: データ構造調査** 🔍
+**目標**: セッション内のデータ保存状況を正確に把握
+
+```bash
+# 実行手順
+1. セッションJSONファイル直接確認
+   cat sessions/ai_session_20250730_223414.json | python3 -m json.tool | head -100
+
+2. SessionData構造体のメンバー確認
+   - directory_result.files[i].classes の内容
+   - directory_result.files[i].functions の内容
+   - ファイル名とAnalysisResultの対応関係
+
+3. types.hppの構造体定義再確認
+   - ClassInfo, FunctionInfo, AnalysisResult の実際の構造
+```
+
+### **Phase 2: structure --detailed 修正** 🏗️
+**ターゲット**: `cmd_structure_detailed()` 関数修正
+
+```cpp
+// 修正予定コード構造
+nlohmann::json SessionManager::cmd_structure_detailed(const SessionData& session, const std::string& filename) const {
+    // 1. ファイル名からAnalysisResult検索
+    for (const auto& file_result : session.directory_result.files) {
+        if (file_result.file_info.name == filename) {
+            // 2. クラス情報抽出
+            json result;
+            result["classes"] = json::array();
+            
+            for (const auto& class_info : file_result.classes) {
+                json class_obj;
+                class_obj["name"] = class_info.name;
+                class_obj["start_line"] = class_info.start_line;
+                class_obj["end_line"] = class_info.end_line;
+                class_obj["methods"] = json::array();
+                
+                // 3. メソッド情報追加
+                for (const auto& method : class_info.methods) {
+                    json method_obj;
+                    method_obj["name"] = method.name;
+                    method_obj["complexity"] = method.complexity.cyclomatic_complexity;
+                    method_obj["parameters"] = method.parameters;
+                    class_obj["methods"].push_back(method_obj);
+                }
+                
+                result["classes"].push_back(class_obj);
+            }
+            return result;
+        }
+    }
+    // 4. ファイル未発見エラー処理
+}
+```
+
+### **Phase 3: complexity --methods 修正** 📊
+**ターゲット**: `cmd_complexity_methods()` 関数修正
+
+```cpp
+// 修正戦略
+nlohmann::json SessionManager::cmd_complexity_methods(const SessionData& session, const std::string& filename) const {
+    // 1. 指定ファイルの全メソッド抽出（クラスメソッド＋単独関数）
+    // 2. 複雑度でソート（降順）
+    // 3. JSON形式で出力
+    
+    json result;
+    result["method_complexity"] = json::array();
+    
+    // 複雑度情報を配列に集約
+    std::vector<std::pair<std::string, int>> method_complexities;
+    
+    // クラスメソッドから抽出
+    for (const auto& class_info : file_result.classes) {
+        for (const auto& method : class_info.methods) {
+            method_complexities.push_back({
+                class_info.name + "::" + method.name,
+                method.complexity.cyclomatic_complexity
+            });
+        }
+    }
+    
+    // 単独関数から抽出
+    for (const auto& function : file_result.functions) {
+        method_complexities.push_back({
+            function.name,
+            function.complexity.cyclomatic_complexity
+        });
+    }
+    
+    // ソート・出力
+}
+```
+
+### **Phase 4: calls --detailed 修正** 📞
+**ターゲット**: `cmd_calls_detailed()` 関数修正
+
+```cpp
+// 修正戦略
+nlohmann::json SessionManager::cmd_calls_detailed(const SessionData& session, const std::string& function_name) const {
+    json result;
+    result["function"] = function_name;
+    result["calls"] = json::array();        // この関数が呼び出す関数一覧
+    result["called_by"] = json::array();    // この関数を呼び出す関数一覧
+    
+    // 1. 全ファイルから指定関数を検索
+    bool function_found = false;
+    
+    for (const auto& file_result : session.directory_result.files) {
+        // 2. クラスメソッドから検索
+        for (const auto& class_info : file_result.classes) {
+            for (const auto& method : class_info.methods) {
+                if (method.name == function_name || (class_info.name + "::" + method.name) == function_name) {
+                    function_found = true;
+                    // メソッドが呼び出す関数を function_calls から抽出
+                }
+            }
+        }
+        
+        // 3. 単独関数から検索
+        for (const auto& function : file_result.functions) {
+            if (function.name == function_name) {
+                function_found = true;
+                // 関数呼び出し情報を解析
+            }
+        }
+        
+        // 4. function_calls配列から呼び出し関係を分析
+        for (const auto& call : file_result.function_calls) {
+            if (call.function_name == function_name) {
+                // called_by に追加
+            }
+            // calls に追加する場合の処理
+        }
+    }
+    
+    if (!function_found) {
+        result["error"] = "指定された関数 '" + function_name + "' が見つかりません";
+    }
+    
+    return result;
+}
+```
+
+## 🧪 テスト計画
+
+### **テストケース設計**
+```bash
+# 1. 基本動作テスト
+./nekocode_ai session-cmd ai_session_20250730_223414 "structure --detailed CoreMessages.h"
+# 期待: classes配列に23個のクラス情報
+
+./nekocode_ai session-cmd ai_session_20250730_223414 "complexity --methods IEditorCore.h" 
+# 期待: method_complexity配列に38個のメソッド情報
+
+./nekocode_ai session-cmd ai_session_20250730_223414 "calls --detailed some_function_name"
+# 期待: calls/called_by配列に呼び出し関係情報
+
+# 2. エラーケーステスト  
+./nekocode_ai session-cmd ai_session_20250730_223414 "structure --detailed nonexistent.cpp"
+# 期待: 適切なエラーメッセージ
+
+# 3. エッジケーステスト
+# - 空ファイル
+# - クラスなしファイル  
+# - 関数なしファイル
+```
+
+### **検証ポイント**
+1. **データ整合性**: セッション統計と詳細情報の一致
+2. **パフォーマンス**: 大型ファイル（nlohmann_json.hpp）での応答時間
+3. **JSON形式**: すべての出力が有効なJSON構造
+4. **エラーハンドリング**: 異常ケース時の適切なメッセージ
+
+## ⚠️ 想定される課題と対策
+
+### **課題1: ファイル名の曖昧性**
+- **問題**: ファイル名のみ指定時の一意性
+- **対策**: フルパスでの検索も可能にする
+
+### **課題2: 大量データの処理**
+- **問題**: nlohmann_json.hpp（123クラス、248関数）での性能
+- **対策**: ページネーション機能追加を検討
+
+### **課題3: 関数名の重複**
+- **問題**: 同名関数が複数ファイルに存在
+- **対策**: ファイル名付きでの検索オプション追加
+
+## 🎯 成功指標
+
+### **定量的指標**
+- structure --detailed: classes配列が空でない（>0要素）
+- complexity --methods: total_methods > 0、method_complexity配列に要素
+- calls --detailed: 既存関数で error フィールドなし
+
+### **定性的指標**  
+- Claude Codeが期待する詳細情報の提供
+- リファクタリング判断に役立つ情報の出力
+- エラーメッセージの明確性
+
+## 📝 実装スケジュール
+
+```
+Phase 1 (調査): 30分
+├─ セッションデータ構造確認
+└─ 既存実装コード確認
+
+Phase 2-4 (修正): 60分  
+├─ structure --detailed 修正 (20分)
+├─ complexity --methods 修正 (20分)
+└─ calls --detailed 修正 (20分)
+
+Phase 5 (テスト): 30分
+├─ 基本動作確認 (15分)
+└─ エラーケース確認 (15分)
+
+総所要時間: 約2時間
+```
+
+## 🚀 修正開始準備
+
+**次の実行コマンド**:
+```bash
+# 1. セッションデータ構造調査
+cat sessions/ai_session_20250730_223414.json | python3 -m json.tool | head -200
+
+# 2. 実装ファイル確認
+grep -n "cmd_structure_detailed\|cmd_complexity_methods\|cmd_calls_detailed" src/core/session_manager.cpp
+
+# 3. types.hpp構造体定義確認
+grep -A 20 "struct ClassInfo\|struct FunctionInfo" include/nekocode/types.hpp
+```
+
+修正作業の準備完了！🔥

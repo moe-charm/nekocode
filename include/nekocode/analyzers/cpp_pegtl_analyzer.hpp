@@ -312,6 +312,16 @@ public:
             NEKOCODE_LOG_DEBUG("CppAnalyzer", "Hybrid strategy not needed");
         }
         
+        // メンバ変数検出（analyze機能用）
+        NEKOCODE_PERF_CHECKPOINT("member_variables");
+        detect_member_variables(result, content);
+        NEKOCODE_LOG_DEBUG("CppAnalyzer", "Member variables detected");
+        
+        // メソッド検出（analyze機能用）
+        NEKOCODE_PERF_CHECKPOINT("method_detection");
+        detect_class_methods(result, content);
+        NEKOCODE_LOG_DEBUG("CppAnalyzer", "Class methods detected");
+        
         // 統計更新
         NEKOCODE_PERF_CHECKPOINT("statistics");
         std::cerr << "🔍 Before update_statistics: classes=" << result.classes.size() 
@@ -372,6 +382,311 @@ private:
         
         complexity.update_rating();
         return complexity;
+    }
+    
+    // 🔍 メンバ変数検出（analyze機能用）
+    void detect_member_variables(AnalysisResult& result, const std::string& content) {
+        std::istringstream stream(content);
+        std::string line;
+        size_t line_number = 0;
+        
+        // 各クラスに対してメンバ変数を検出
+        for (auto& cls : result.classes) {
+            // namespace:やstruct:プレフィックスを除去
+            std::string clean_class_name = cls.name;
+            if (clean_class_name.find("namespace:") == 0) continue; // namespaceはスキップ
+            if (clean_class_name.find("struct:") == 0) {
+                clean_class_name = clean_class_name.substr(7);
+            }
+            
+            // クラス/構造体の終了行を推定（次のクラスの開始行または最終行）
+            size_t end_line = result.file_info.total_lines;
+            for (const auto& other_cls : result.classes) {
+                if (other_cls.start_line > cls.start_line && other_cls.start_line < end_line) {
+                    end_line = other_cls.start_line - 1;
+                }
+            }
+            cls.end_line = end_line;
+            
+            // クラス内のメンバ変数を検出
+            stream.clear();
+            stream.seekg(0);
+            line_number = 0;
+            bool in_class = false;
+            int brace_depth = 0;
+            std::string access_modifier = "private"; // デフォルトはprivate（classの場合）
+            if (cls.name.find("struct:") == 0) {
+                access_modifier = "public"; // structのデフォルトはpublic
+            }
+            
+            while (std::getline(stream, line)) {
+                line_number++;
+                
+                // クラス定義の開始を検出
+                if (line_number == cls.start_line) {
+                    in_class = true;
+                    if (line.find("{") != std::string::npos) {
+                        brace_depth = 1;
+                    }
+                    continue;
+                }
+                
+                if (!in_class) continue;
+                if (line_number > end_line) break;
+                
+                // ブレース深度を追跡
+                for (char c : line) {
+                    if (c == '{') brace_depth++;
+                    else if (c == '}') {
+                        brace_depth--;
+                        if (brace_depth == 0) {
+                            in_class = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!in_class || brace_depth <= 0) break;
+                
+                // アクセス修飾子を検出
+                std::regex access_pattern(R"(^\s*(public|private|protected)\s*:)");
+                std::smatch access_match;
+                if (std::regex_search(line, access_match, access_pattern)) {
+                    access_modifier = access_match[1].str();
+                    continue;
+                }
+                
+                // メンバ変数パターン
+                // 例: int m_count;  std::string name;  static const bool flag = true;
+                std::regex member_var_pattern(
+                    R"(^\s*(?:static\s+)?(?:const\s+)?(?:mutable\s+)?)"  // 修飾子
+                    R"((?:[\w:]+(?:\s*<[^>]+>)?(?:\s*::\s*\w+)*\s*[&*]*)\s+)"  // 型
+                    R"((\w+))"  // 変数名
+                    R"(\s*(?:\[[^\]]*\])?\s*(?:=\s*[^;]+)?\s*;)"  // 配列・初期化子
+                );
+                
+                std::smatch var_match;
+                if (std::regex_search(line, var_match, member_var_pattern)) {
+                    std::string var_name = var_match[1].str();
+                    
+                    // 関数宣言を除外（括弧がある場合）
+                    if (line.find("(") != std::string::npos && line.find(")") != std::string::npos) {
+                        continue;
+                    }
+                    
+                    // typedef/usingを除外
+                    if (line.find("typedef") != std::string::npos || line.find("using") != std::string::npos) {
+                        continue;
+                    }
+                    
+                    // メンバ変数情報を作成
+                    MemberVariable member_var;
+                    member_var.name = var_name;
+                    member_var.declaration_line = line_number;
+                    member_var.access_modifier = access_modifier;
+                    
+                    // 型を推定（簡易版）
+                    size_t type_end = line.find(var_name);
+                    if (type_end != std::string::npos) {
+                        std::string type_part = line.substr(0, type_end);
+                        // 修飾子を除去
+                        type_part = std::regex_replace(type_part, std::regex(R"(^\s*static\s+)"), "");
+                        type_part = std::regex_replace(type_part, std::regex(R"(^\s*const\s+)"), "");
+                        type_part = std::regex_replace(type_part, std::regex(R"(^\s*mutable\s+)"), "");
+                        // 前後の空白を除去
+                        type_part = std::regex_replace(type_part, std::regex(R"(^\s+|\s+$)"), "");
+                        member_var.type = type_part;
+                    }
+                    
+                    // static/constフラグを設定
+                    member_var.is_static = (line.find("static") != std::string::npos);
+                    member_var.is_const = (line.find("const") != std::string::npos);
+                    
+                    cls.member_variables.push_back(member_var);
+                }
+            }
+        }
+    }
+    
+    // 🔍 クラスメソッド検出（analyze機能用）
+    void detect_class_methods(AnalysisResult& result, const std::string& content) {
+        std::istringstream stream(content);
+        std::string line;
+        size_t line_number = 0;
+        
+        // 各クラスに対してメソッドを検出
+        for (auto& cls : result.classes) {
+            // namespace:やデバッグクラスはスキップ
+            if (cls.name.find("namespace:") == 0 || 
+                cls.name == "CPP_PEGTL_ANALYZER_CALLED") continue;
+            
+            // クラス内のメソッドを検出
+            stream.clear();
+            stream.seekg(0);
+            line_number = 0;
+            bool in_class = false;
+            int brace_depth = 0;
+            
+            while (std::getline(stream, line)) {
+                line_number++;
+                
+                // クラス定義の開始を検出
+                if (line_number == cls.start_line) {
+                    in_class = true;
+                    if (line.find("{") != std::string::npos) {
+                        brace_depth = 1;
+                    }
+                    continue;
+                }
+                
+                if (!in_class) continue;
+                if (line_number > cls.end_line) break;
+                
+                // ブレース深度を追跡
+                for (char c : line) {
+                    if (c == '{') brace_depth++;
+                    else if (c == '}') {
+                        brace_depth--;
+                        if (brace_depth == 0) {
+                            in_class = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!in_class || brace_depth <= 0) break;
+                
+                // メソッド宣言パターン（ヘッダーファイル用）
+                // 条件: '(' と ')' があり、';' で終わり、'{' がない
+                if (line.find('(') != std::string::npos && 
+                    line.find(')') != std::string::npos &&
+                    line.find(';') != std::string::npos &&
+                    line.find('{') == std::string::npos) {
+                    
+                    // コメントや文字列リテラルを除外
+                    size_t comment_pos = line.find("//");
+                    if (comment_pos != std::string::npos) {
+                        line = line.substr(0, comment_pos);
+                    }
+                    
+                    // メソッド名を抽出
+                    size_t paren_pos = line.find('(');
+                    if (paren_pos != std::string::npos && paren_pos > 0) {
+                        // '(' の前の識別子を探す
+                        size_t name_end = paren_pos;
+                        while (name_end > 0 && std::isspace(line[name_end - 1])) {
+                            name_end--;
+                        }
+                        
+                        size_t name_start = name_end;
+                        while (name_start > 0 && 
+                               (std::isalnum(line[name_start - 1]) || 
+                                line[name_start - 1] == '_' ||
+                                line[name_start - 1] == '~')) { // デストラクタ用
+                            name_start--;
+                        }
+                        
+                        if (name_end > name_start) {
+                            std::string method_name = line.substr(name_start, name_end - name_start);
+                            
+                            // 予約語や型名を除外
+                            static const std::set<std::string> cpp_keywords = {
+                                "if", "else", "for", "while", "return", "switch",
+                                "case", "break", "continue", "typedef", "using",
+                                "sizeof", "static_cast", "dynamic_cast", "const_cast",
+                                "reinterpret_cast", "new", "delete", "throw"
+                            };
+                            
+                            if (cpp_keywords.find(method_name) == cpp_keywords.end() &&
+                                !method_name.empty()) {
+                                
+                                // クラス名と同じ場合はコンストラクタ
+                                std::string clean_class_name = cls.name;
+                                if (clean_class_name.find("struct:") == 0) {
+                                    clean_class_name = clean_class_name.substr(7);
+                                }
+                                
+                                // パラメータを抽出（簡易版）
+                                std::vector<std::string> parameters;
+                                size_t param_start = paren_pos + 1;
+                                size_t param_end = line.find(')', param_start);
+                                if (param_end != std::string::npos && param_end > param_start) {
+                                    std::string params = line.substr(param_start, param_end - param_start);
+                                    // 簡易的にカンマで分割（ネストした括弧は考慮しない）
+                                    if (!params.empty() && params != "void") {
+                                        parameters.push_back(params); // 簡易実装
+                                    }
+                                }
+                                
+                                FunctionInfo method;
+                                method.name = method_name;
+                                method.start_line = line_number;
+                                method.end_line = line_number;
+                                method.parameters = parameters;
+                                
+                                // 仮想関数チェック
+                                if (line.find("virtual") != std::string::npos) {
+                                    method.metadata["virtual"] = "true";
+                                }
+                                if (line.find("= 0") != std::string::npos) {
+                                    method.metadata["pure_virtual"] = "true";
+                                }
+                                if (line.find("override") != std::string::npos) {
+                                    method.metadata["override"] = "true";
+                                }
+                                
+                                cls.methods.push_back(method);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // クラス外のメソッド実装も検出（ClassName::methodName パターン）
+        stream.clear();
+        stream.seekg(0);
+        line_number = 0;
+        
+        std::regex class_method_pattern(R"(^\s*(?:[\w:]+(?:\s*<[^>]+>)?(?:\s*[&*]+)?\s+)?(\w+)::(\w+)\s*\([^)]*\)\s*(?:const\s*)?\s*\{)");
+        
+        while (std::getline(stream, line)) {
+            line_number++;
+            std::smatch match;
+            
+            if (std::regex_search(line, match, class_method_pattern)) {
+                std::string class_name = match[1].str();
+                std::string method_name = match[2].str();
+                
+                // 対応するクラスを探す
+                for (auto& cls : result.classes) {
+                    std::string clean_class_name = cls.name;
+                    if (clean_class_name.find("struct:") == 0) {
+                        clean_class_name = clean_class_name.substr(7);
+                    }
+                    
+                    if (clean_class_name == class_name) {
+                        // 既に検出されているか確認
+                        bool already_exists = false;
+                        for (const auto& existing_method : cls.methods) {
+                            if (existing_method.name == method_name) {
+                                already_exists = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!already_exists) {
+                            FunctionInfo method;
+                            method.name = method_name;
+                            method.start_line = line_number;
+                            method.metadata["implementation"] = "true";
+                            cls.methods.push_back(method);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
     }
     
     // 🚀 C++ハイブリッド戦略: 統計整合性チェック（JavaScript成功パターン移植）
