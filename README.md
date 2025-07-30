@@ -1,13 +1,15 @@
 # 🐱 NekoCode C++ - Lightning-Fast Code Analysis Engine
 
+> 🤖 **Claude Code Users: [PROJECT_OVERVIEW.txt](PROJECT_OVERVIEW.txt) ← START HERE!**  
+> 📚 **Quick Guide: [CLAUDE_QUICKSTART.md](CLAUDE_QUICKSTART.md) ← 3-step setup**  
+> 📖 **Full Docs: [docs/claude-code/](docs/claude-code/) ← All Claude Code documentation**
+
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/moe-charm/nekocode)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/moe-charm/nekocode/blob/main/LICENSE)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)](https://github.com/moe-charm/nekocode)
 
 [🇯🇵 日本語版](README_jp.md) | English
-
-> 📌 **Claude Code Users:** See [Claude Code Documentation](docs/claude-code/INDEX.md) for quick access to all Claude Code documentation!
 
 Revolutionary code analysis engine delivering **10-100x faster** performance than Python-based alternatives!
 
