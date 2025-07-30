@@ -368,6 +368,10 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                 }
             }
             result = cmd_large_files(session, threshold);
+        } else if (command == "todo") {
+            result = cmd_todo(session);
+        } else if (command == "complexity-ranking") {
+            result = cmd_complexity_ranking(session);
         } else if (command == "help") {
             result = cmd_help();
         } else {
@@ -377,7 +381,7 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                                         "structure", "calls", "find <term>", 
                                         "include-graph", "include-cycles", "include-impact",
                                         "include-unused", "include-optimize", "duplicates", 
-                                        "large-files", "help"}}
+                                        "large-files", "todo", "complexity-ranking", "help"}}
             };
         }
         
@@ -659,6 +663,8 @@ nlohmann::json SessionManager::cmd_help() const {
             {"duplicates", "Find duplicate or backup files"},
             {"large-files", "Show files over threshold lines (default 500)"},
             {"large-files --threshold 1000", "Show files over 1000 lines"},
+            {"todo", "Find TODO/FIXME/XXX comments in code"},
+            {"complexity-ranking", "Show functions ranked by complexity"},
             {"help", "Show this help"}
         }}
     };
@@ -1072,6 +1078,293 @@ nlohmann::json SessionManager::cmd_large_files(const SessionData& session, int t
     }
     
     return large_files_json;
+}
+
+nlohmann::json SessionManager::cmd_todo(const SessionData& session) const {
+    nlohmann::json todo_json;
+    todo_json["command"] = "todo";
+    todo_json["todos"] = nlohmann::json::array();
+    
+    // TODOパターン
+    const std::vector<std::string> todo_patterns = {
+        "TODO", "FIXME", "XXX", "HACK", "BUG", "OPTIMIZE",
+        "REFACTOR", "NOTE", "REVIEW", "QUESTION"
+    };
+    
+    // ファイルを処理
+    std::vector<FileInfo> files;
+    if (session.is_directory) {
+        for (const auto& file : session.directory_result.files) {
+            files.push_back(file.file_info);
+        }
+    } else {
+        files.push_back(session.single_file_result.file_info);
+    }
+    
+    size_t total_todos = 0;
+    std::map<std::string, size_t> type_count;
+    
+    // 各ファイルを検索
+    for (const auto& file_info : files) {
+        std::ifstream file(file_info.path);
+        if (!file.is_open()) continue;
+        
+        std::string line;
+        int line_number = 0;
+        
+        while (std::getline(file, line)) {
+            line_number++;
+            
+            // 各パターンを検索
+            for (const auto& pattern : todo_patterns) {
+                size_t pos = line.find(pattern);
+                if (pos != std::string::npos) {
+                    // パターンの後に:またはスペースがあることを確認（誤検出防止）
+                    if (pos + pattern.length() < line.length()) {
+                        char next_char = line[pos + pattern.length()];
+                        if (next_char != ':' && next_char != ' ' && next_char != '(' && next_char != '\t') {
+                            continue;
+                        }
+                    }
+                    
+                    // TODOの内容を抽出
+                    size_t content_start = pos + pattern.length();
+                    while (content_start < line.length() && 
+                           (line[content_start] == ':' || line[content_start] == ' ' || line[content_start] == '\t')) {
+                        content_start++;
+                    }
+                    
+                    std::string content = line.substr(content_start);
+                    
+                    // 行の前後の空白を削除
+                    size_t first = content.find_first_not_of(" \t");
+                    size_t last = content.find_last_not_of(" \t");
+                    if (first != std::string::npos && last != std::string::npos) {
+                        content = content.substr(first, last - first + 1);
+                    }
+                    
+                    // 緊急度を判定
+                    std::string priority = "normal";
+                    if (pattern == "FIXME" || pattern == "BUG") {
+                        priority = "high";
+                    } else if (pattern == "HACK" || pattern == "XXX") {
+                        priority = "medium";
+                    }
+                    
+                    todo_json["todos"].push_back({
+                        {"file", file_info.name},
+                        {"line", line_number},
+                        {"type", pattern},
+                        {"content", content},
+                        {"priority", priority},
+                        {"full_line", line}
+                    });
+                    
+                    total_todos++;
+                    type_count[pattern]++;
+                    
+                    break; // 1行に複数のパターンがある場合は最初のものだけ
+                }
+            }
+        }
+    }
+    
+    // 統計情報
+    todo_json["summary"] = {
+        {"total_todos", total_todos},
+        {"files_with_todos", files.size()}
+    };
+    
+    // タイプ別カウント
+    todo_json["by_type"] = nlohmann::json::object();
+    for (const auto& [type, count] : type_count) {
+        todo_json["by_type"][type] = count;
+    }
+    
+    // 優先度別にグループ化
+    nlohmann::json high_priority = nlohmann::json::array();
+    nlohmann::json medium_priority = nlohmann::json::array();
+    nlohmann::json normal_priority = nlohmann::json::array();
+    
+    for (const auto& todo : todo_json["todos"]) {
+        if (todo["priority"] == "high") {
+            high_priority.push_back(todo);
+        } else if (todo["priority"] == "medium") {
+            medium_priority.push_back(todo);
+        } else {
+            normal_priority.push_back(todo);
+        }
+    }
+    
+    todo_json["grouped"] = {
+        {"high", high_priority},
+        {"medium", medium_priority},
+        {"normal", normal_priority}
+    };
+    
+    // メッセージ
+    if (total_todos == 0) {
+        todo_json["message"] = "No TODO comments found! 🎉";
+    } else {
+        todo_json["message"] = "Found " + std::to_string(total_todos) + " TODO comments";
+        if (high_priority.size() > 0) {
+            todo_json["warning"] = "⚠️  " + std::to_string(high_priority.size()) + 
+                                  " high priority items need attention (FIXME/BUG)";
+        }
+    }
+    
+    return todo_json;
+}
+
+nlohmann::json SessionManager::cmd_complexity_ranking(const SessionData& session) const {
+    nlohmann::json ranking_json;
+    ranking_json["command"] = "complexity-ranking";
+    ranking_json["functions"] = nlohmann::json::array();
+    
+    // すべての関数を収集
+    struct FunctionComplexity {
+        std::string file_name;
+        std::string function_name;
+        int line_number;
+        int complexity;
+        std::string language;
+    };
+    
+    std::vector<FunctionComplexity> all_functions;
+    
+    if (session.is_directory) {
+        for (const auto& file : session.directory_result.files) {
+            // 各ファイルの関数情報がない場合はスキップ
+            // 注：現在の実装では関数レベルの複雑度は保存されていないため、
+            // ファイル全体の複雑度を関数数で割った推定値を使用
+            if (file.stats.function_count > 0) {
+                // 推定値：ファイル全体の複雑度を関数数で割る
+                int estimated_complexity_per_function = 
+                    file.complexity.cyclomatic_complexity / file.stats.function_count;
+                
+                // 仮の関数エントリを作成（将来的には実際の関数データを使用）
+                for (uint32_t i = 0; i < file.stats.function_count && i < 10; i++) {
+                    FunctionComplexity func;
+                    func.file_name = file.file_info.name;
+                    func.function_name = "function_" + std::to_string(i + 1);
+                    func.line_number = 0;  // 不明
+                    func.complexity = estimated_complexity_per_function;
+                    
+                    // 言語の判定（C++17互換）
+                    std::string name = file.file_info.name;
+                    size_t pos = name.find_last_of('.');
+                    std::string ext = (pos != std::string::npos) ? name.substr(pos) : "";
+                    
+                    if (ext == ".cpp" || ext == ".hpp" || ext == ".cc" || ext == ".h") {
+                        func.language = "C++";
+                    } else if (ext == ".js") {
+                        func.language = "JavaScript";
+                    } else if (ext == ".ts") {
+                        func.language = "TypeScript";
+                    } else if (ext == ".py") {
+                        func.language = "Python";
+                    } else if (ext == ".cs") {
+                        func.language = "C#";
+                    } else if (ext == ".go") {
+                        func.language = "Go";
+                    } else if (ext == ".rs") {
+                        func.language = "Rust";
+                    } else {
+                        func.language = "Unknown";
+                    }
+                    
+                    all_functions.push_back(func);
+                }
+            }
+        }
+    } else {
+        // 単一ファイルの場合
+        if (session.single_file_result.stats.function_count > 0) {
+            int estimated_complexity = 
+                session.single_file_result.complexity.cyclomatic_complexity / 
+                session.single_file_result.stats.function_count;
+            
+            for (uint32_t i = 0; i < session.single_file_result.stats.function_count && i < 10; i++) {
+                FunctionComplexity func;
+                func.file_name = session.single_file_result.file_info.name;
+                func.function_name = "function_" + std::to_string(i + 1);
+                func.line_number = 0;
+                func.complexity = estimated_complexity;
+                func.language = "Unknown";
+                all_functions.push_back(func);
+            }
+        }
+    }
+    
+    // 複雑度でソート（降順）
+    std::sort(all_functions.begin(), all_functions.end(),
+              [](const FunctionComplexity& a, const FunctionComplexity& b) {
+                  return a.complexity > b.complexity;
+              });
+    
+    // 上位50個（または全部）を結果に追加
+    size_t limit = std::min(all_functions.size(), size_t(50));
+    for (size_t i = 0; i < limit; i++) {
+        const auto& func = all_functions[i];
+        
+        // 複雑度レベルの判定
+        std::string level;
+        std::string emoji;
+        if (func.complexity > 50) {
+            level = "Very High";
+            emoji = "🔴";
+        } else if (func.complexity > 20) {
+            level = "High";
+            emoji = "🟠";
+        } else if (func.complexity > 10) {
+            level = "Medium";
+            emoji = "🟡";
+        } else {
+            level = "Low";
+            emoji = "🟢";
+        }
+        
+        ranking_json["functions"].push_back({
+            {"rank", i + 1},
+            {"file", func.file_name},
+            {"function", func.function_name},
+            {"complexity", func.complexity},
+            {"level", level},
+            {"emoji", emoji},
+            {"language", func.language}
+        });
+    }
+    
+    // 統計情報
+    if (all_functions.empty()) {
+        ranking_json["summary"] = "No functions found for complexity analysis";
+    } else {
+        int total_complexity = 0;
+        int high_complexity_count = 0;
+        
+        for (const auto& func : all_functions) {
+            total_complexity += func.complexity;
+            if (func.complexity > 20) {
+                high_complexity_count++;
+            }
+        }
+        
+        ranking_json["summary"] = {
+            {"total_functions", all_functions.size()},
+            {"displayed", limit},
+            {"average_complexity", all_functions.empty() ? 0 : total_complexity / all_functions.size()},
+            {"high_complexity_functions", high_complexity_count}
+        };
+        
+        if (high_complexity_count > 0) {
+            ranking_json["warning"] = "⚠️  " + std::to_string(high_complexity_count) + 
+                                     " functions have high complexity and should be refactored";
+        }
+        
+        ranking_json["note"] = "Note: Function-level complexity is estimated from file complexity / function count";
+    }
+    
+    return ranking_json;
 }
 
 std::string SessionManager::generate_session_id() const {

@@ -106,6 +106,8 @@ private:
     nlohmann::json cmd_include_optimize(const SessionData& session) const;
     nlohmann::json cmd_duplicates(const SessionData& session) const;
     nlohmann::json cmd_large_files(const SessionData& session, int threshold) const;
+    nlohmann::json cmd_todo(const SessionData& session) const;
+    nlohmann::json cmd_complexity_ranking(const SessionData& session) const;
     
     // ユーティリティ
     std::string generate_session_id() const;
