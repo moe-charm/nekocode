@@ -17,6 +17,14 @@
 #include <set>
 #include <sstream>
 #include <iostream>
+#include <chrono>
+#include <execution>  // 並列処理用
+#include <algorithm>  // std::for_each
+#include <mutex>      // スレッドセーフ用
+#include <atomic>     // 原子操作用
+
+// 🔧 グローバルデバッグフラグ（analyzer_factory.cppで定義済み）
+extern bool g_debug_mode;
 
 namespace nekocode {
 
@@ -416,14 +424,35 @@ private:
         return false;
     }
     
-    // 🚀 C++ハイブリッド戦略: 行ベース補完解析（JavaScript成功パターン移植）
-    void apply_cpp_line_based_analysis(AnalysisResult& result, const std::string& content, const std::string& filename) {
+    // 🚀 C++最強戦略: 自動最適化ハイブリッド解析（JavaScript/TypeScript成功パターン完全移植）
+    void apply_cpp_line_based_analysis(AnalysisResult& result, const std::string& content, const std::string& /* filename */) {
         // プリプロセッサ除去（C++特化）
         std::string preprocessed = preprocess_cpp_content(content);
         
+        // 🎯 ファイルサイズ検出と戦略決定（JavaScript戦略移植）
+        std::vector<std::string> all_lines;
         std::istringstream stream(preprocessed);
         std::string line;
-        size_t line_number = 1;
+        while (std::getline(stream, line)) {
+            all_lines.push_back(line);
+        }
+        
+        const size_t total_lines = all_lines.size();
+        // 🚀 並列処理実験モード！
+        const bool use_parallel_mode = false;  // 並列処理を無効にして比較
+        const bool use_full_analysis = !use_parallel_mode;  // total_lines < 15000;     // JavaScript戦略: 15K行未満で全機能
+        const bool use_sampling_mode = false; // total_lines >= 15000 && total_lines < 40000;  // サンプリングモード
+        const bool use_high_speed_mode = false; // total_lines >= 40000;  // 高速モード（基本検出のみ）
+        
+        std::cerr << "📊 C++解析開始: " << total_lines << "行検出" << std::endl;
+        
+        // 🔧 デバッグモードでのみ詳細情報表示
+        if (g_debug_mode) {
+            std::cerr << "🔧 デバッグ: total_lines=" << total_lines << std::endl;
+            std::cerr << "🔧 デバッグ: use_full_analysis=" << use_full_analysis << std::endl;
+            std::cerr << "🔧 デバッグ: use_sampling_mode=" << use_sampling_mode << std::endl;
+            std::cerr << "🔧 デバッグ: use_high_speed_mode=" << use_high_speed_mode << std::endl;
+        }
         
         // 既存の要素名を記録（重複検出を防ぐ - JavaScript成功パターン）
         std::set<std::string> existing_classes;
@@ -438,10 +467,111 @@ private:
             existing_functions.insert(func.name);
         }
         
-        // C++特化の行ベース解析
-        while (std::getline(stream, line)) {
-            extract_cpp_elements_from_line(line, line_number, result, existing_classes, existing_functions);
-            line_number++;
+        // 🕐 処理時間測定開始
+        auto analysis_start = std::chrono::high_resolution_clock::now();
+        size_t processed_lines = 0;
+        
+        if (use_parallel_mode) {
+            std::cerr << "⚡ 並列処理モード: std::execution::par_unseq で高速化！" << std::endl;
+            
+            // 並列処理用のmutex
+            std::mutex result_mutex;
+            std::atomic<size_t> processed_count{0};
+            
+            // インデックス付きベクトルを作成（行番号を保持するため）
+            std::vector<std::pair<size_t, std::string>> indexed_lines;
+            indexed_lines.reserve(all_lines.size());
+            for (size_t i = 0; i < all_lines.size(); ++i) {
+                indexed_lines.emplace_back(i, all_lines[i]);
+            }
+            
+            // 並列処理でC++要素を抽出
+            std::for_each(std::execution::par_unseq,
+                         indexed_lines.begin(),
+                         indexed_lines.end(),
+                         [&](const std::pair<size_t, std::string>& indexed_line) {
+                // ローカル結果を保存
+                std::vector<ClassInfo> local_classes;
+                std::vector<FunctionInfo> local_functions;
+                
+                const size_t line_number = indexed_line.first + 1;
+                const std::string& line = indexed_line.second;
+                
+                // C++要素を検出（ローカル処理）
+                extract_cpp_elements_parallel(line, line_number, 
+                                            local_classes, local_functions);
+                
+                // 結果がある場合のみロックして追加
+                if (!local_classes.empty() || !local_functions.empty()) {
+                    std::lock_guard<std::mutex> lock(result_mutex);
+                    
+                    // 重複チェックして追加
+                    for (const auto& cls : local_classes) {
+                        if (existing_classes.find(cls.name) == existing_classes.end()) {
+                            result.classes.push_back(cls);
+                            existing_classes.insert(cls.name);
+                        }
+                    }
+                    
+                    for (const auto& func : local_functions) {
+                        if (existing_functions.find(func.name) == existing_functions.end()) {
+                            result.functions.push_back(func);
+                            existing_functions.insert(func.name);
+                        }
+                    }
+                }
+                
+                processed_count.fetch_add(1, std::memory_order_relaxed);
+            });
+            
+            processed_lines = processed_count.load();
+            
+        } else if (use_full_analysis) {
+            std::cerr << "🚀 通常モード: 全機能有効（C++最高精度）" << std::endl;
+            // 通常モード：全行処理
+            for (size_t i = 0; i < all_lines.size(); i++) {
+                const std::string& current_line = all_lines[i];
+                size_t current_line_number = i + 1;
+                
+                extract_cpp_elements_from_line(current_line, current_line_number, result, existing_classes, existing_functions);
+                processed_lines++;
+            }
+        } else if (use_sampling_mode) {
+            std::cerr << "🎲 サンプリングモード: 10行に1行処理（効率重視）" << std::endl;
+            // サンプリングモード：10行に1行だけ処理
+            for (size_t i = 0; i < all_lines.size(); i += 10) {
+                const std::string& current_line = all_lines[i];
+                size_t current_line_number = i + 1;
+                
+                extract_cpp_elements_from_line(current_line, current_line_number, result, existing_classes, existing_functions);
+                processed_lines++;
+            }
+        } else {
+            std::cerr << "⚡ 高速モード: 基本検出のみ（大規模C++対応）" << std::endl;
+            // 高速モード：基本検出のみ
+            for (size_t i = 0; i < all_lines.size(); i++) {
+                const std::string& current_line = all_lines[i];
+                size_t current_line_number = i + 1;
+                
+                // 基本的なC++パターンのみ検出
+                extract_basic_cpp_elements_from_line(current_line, current_line_number, result, existing_classes, existing_functions);
+                processed_lines++;
+            }
+        }
+        
+        auto analysis_end = std::chrono::high_resolution_clock::now();
+        auto analysis_time = std::chrono::duration_cast<std::chrono::milliseconds>(analysis_end - analysis_start);
+        
+        std::cerr << "✅ C++ハイブリッド戦略完了: " << processed_lines << "行処理 (" 
+                  << analysis_time.count() << "ms)" << std::endl;
+        
+        // 🏁 処理戦略のサマリー
+        if (use_high_speed_mode) {
+            std::cerr << "\n📊 処理戦略: 大規模C++ファイルモード（基本検出のみ）" << std::endl;
+        } else if (use_sampling_mode) {
+            std::cerr << "\n📊 処理戦略: サンプリングモード（10%処理）" << std::endl;
+        } else {
+            std::cerr << "\n📊 処理戦略: 通常モード（全機能有効）" << std::endl;
         }
     }
     
@@ -528,6 +658,128 @@ private:
                     result.functions.push_back(func_info);
                     existing_functions.insert(func_name);
                 }
+            }
+        }
+    }
+    
+    // 🚀 高速モード専用：基本的なC++パターンのみ検出（大規模ファイル対応）
+    void extract_basic_cpp_elements_from_line(const std::string& line, size_t line_number,
+                                             AnalysisResult& result, 
+                                             std::set<std::string>& existing_classes,
+                                             std::set<std::string>& existing_functions) {
+        
+        // C++キーワードフィルタリング
+        static const std::set<std::string> cpp_keywords = {
+            "if", "else", "for", "while", "do", "switch", "case", "catch", 
+            "try", "finally", "return", "break", "continue", "throw", 
+            "typeof", "sizeof", "new", "delete", "const", "static", "virtual",
+            "override", "final", "explicit", "inline", "template", "typename"
+        };
+        
+        auto is_cpp_keyword = [&](const std::string& name) {
+            return cpp_keywords.find(name) != cpp_keywords.end();
+        };
+        
+        // 🎯 高速モード：最も一般的なパターンのみ検出
+        std::smatch match;
+        
+        // パターン1: class Name - 最も基本的
+        std::regex basic_class_pattern(R"(^\s*class\s+(\w+))");
+        if (std::regex_search(line, match, basic_class_pattern)) {
+            std::string class_name = match[1].str();
+            if (!is_cpp_keyword(class_name) && existing_classes.find(class_name) == existing_classes.end()) {
+                ClassInfo class_info;
+                class_info.name = class_name;
+                class_info.start_line = line_number;
+                class_info.metadata["detection_mode"] = "basic";
+                result.classes.push_back(class_info);
+                existing_classes.insert(class_name);
+            }
+        }
+        
+        // パターン2: ReturnType functionName( - C++関数の基本形
+        std::regex basic_function_pattern(R"(^\s*(?:[\w:]+\s+)*(\w+)\s*\()");
+        if (std::regex_search(line, match, basic_function_pattern)) {
+            std::string func_name = match[1].str();
+            if (!is_cpp_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {
+                // コンストラクタ/デストラクタチェック（簡易版）
+                bool is_constructor_destructor = false;
+                for (const auto& cls : existing_classes) {
+                    std::string cls_name = cls;
+                    if (cls_name.find("struct:") == 0) {
+                        cls_name = cls_name.substr(7);
+                    }
+                    if (func_name == cls_name || func_name == "~" + cls_name) {
+                        is_constructor_destructor = true;
+                        break;
+                    }
+                }
+                
+                if (!is_constructor_destructor) {
+                    FunctionInfo func_info;
+                    func_info.name = func_name;
+                    func_info.start_line = line_number;
+                    func_info.metadata["detection_mode"] = "basic";
+                    result.functions.push_back(func_info);
+                    existing_functions.insert(func_name);
+                }
+            }
+        }
+    }
+    
+    // 🚀 並列処理専用：C++要素抽出（スレッドセーフ版）
+    void extract_cpp_elements_parallel(const std::string& line, size_t line_number,
+                                      std::vector<ClassInfo>& local_classes,
+                                      std::vector<FunctionInfo>& local_functions) {
+        
+        // パターン1: class ClassName
+        std::regex class_pattern(R"(^\s*class\s+(\w+)(?:\s*:\s*(?:public|private|protected)\s+\w+)?\s*\{?)");
+        std::smatch match;
+        
+        if (std::regex_search(line, match, class_pattern)) {
+            std::string class_name = match[1].str();
+            ClassInfo class_info;
+            class_info.name = class_name;
+            class_info.start_line = line_number;
+            local_classes.push_back(class_info);
+        }
+        
+        // パターン2: struct StructName
+        std::regex struct_pattern(R"(^\s*struct\s+(\w+)(?:\s*:\s*(?:public|private|protected)\s+\w+)?\s*\{?)");
+        if (std::regex_search(line, match, struct_pattern)) {
+            std::string struct_name = match[1].str();
+            ClassInfo struct_info;
+            struct_info.name = "struct:" + struct_name;
+            struct_info.start_line = line_number;
+            local_classes.push_back(struct_info);
+        }
+        
+        // パターン3: namespace NamespaceName
+        std::regex namespace_pattern(R"(^\s*namespace\s+(\w+)\s*\{?)");
+        if (std::regex_search(line, match, namespace_pattern)) {
+            std::string ns_name = match[1].str();
+            ClassInfo ns_info;
+            ns_info.name = "namespace:" + ns_name;
+            ns_info.start_line = line_number;
+            local_classes.push_back(ns_info);
+        }
+        
+        // パターン4: 関数定義（戻り値型付き）
+        std::regex function_pattern(R"(^\s*(?:inline\s+|static\s+|virtual\s+|explicit\s+)*(?:\w+(?:\s*::\s*\w+)*\s*[&*]*)\s+(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:noexcept\s*)?(?:override\s*)?\s*\{?)");
+        if (std::regex_search(line, match, function_pattern)) {
+            std::string func_name = match[1].str();
+            
+            // C++キーワードを除外
+            static const std::set<std::string> cpp_keywords = {
+                "if", "for", "while", "switch", "return", "sizeof",
+                "template", "typename", "class", "struct", "namespace", "using"
+            };
+            
+            if (cpp_keywords.find(func_name) == cpp_keywords.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                local_functions.push_back(func_info);
             }
         }
     }

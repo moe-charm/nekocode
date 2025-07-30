@@ -39,6 +39,8 @@ public:
     ProgressCallback progress_callback_;
     std::atomic<bool> parallel_enabled_{true};
     std::atomic<uint32_t> thread_count_{0};
+    std::atomic<uint32_t> io_threads_{4};     // 🆕 同時ファイル読み込み数
+    std::atomic<uint32_t> cpu_threads_{0};    // 🆕 解析スレッド数
     mutable std::mutex metrics_mutex_;
 
     explicit Impl(const AnalysisConfig& config) 
@@ -50,6 +52,8 @@ public:
         , file_scanner_(std::make_unique<FileScanner>(config)) 
     {
         thread_count_ = config.max_threads;
+        io_threads_ = config.io_threads;
+        cpu_threads_ = config.cpu_threads;
     }
 };
 
@@ -389,8 +393,10 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
 
 Result<DirectoryAnalysis> NekoCodeCore::analyze_directory(const FilePath& directory_path) {
     if (impl_->parallel_enabled_) {
+        std::cerr << "🔄 Using parallel processing path" << std::endl;
         return analyze_directory_parallel(directory_path);
     }
+    std::cerr << "🐌 Using sequential processing path" << std::endl;
     
     auto [result, duration] = utils::measure_time([&]() -> Result<DirectoryAnalysis> {
         try {
@@ -441,12 +447,22 @@ Result<DirectoryAnalysis> NekoCodeCore::analyze_directory_parallel(const FilePat
             analysis.directory_path = directory_path;
             
             // ファイル検索
-            auto files = impl_->file_scanner_->scan_directory_parallel(directory_path);
+            auto files = impl_->file_scanner_->scan_directory(directory_path);
             auto js_files = impl_->file_scanner_->filter_files(files);
             
-            // 並列解析
+            // 🚀 新しい並列化戦略: I/O並列度とCPU並列度を分離
             std::vector<AnalysisResult> results(js_files.size());
             std::vector<bool> success_flags(js_files.size(), false);
+            
+            // I/O並列度を制限するための簡易実装（C++17互換）
+            std::atomic<size_t> active_io_count{0};
+            const size_t max_io_threads = impl_->io_threads_;
+            
+            // デバッグ用: 開始時刻を記録
+            auto start_time = std::chrono::high_resolution_clock::now();
+            
+            // CPU並列度の制御（execution policyで自動調整）
+            // TODO: 将来的にはthread poolでより細かく制御
             
             // 並列処理用のインデックスベクトル作成
             std::vector<size_t> indices(js_files.size());
@@ -455,7 +471,18 @@ Result<DirectoryAnalysis> NekoCodeCore::analyze_directory_parallel(const FilePat
             std::for_each(std::execution::par_unseq, 
                 indices.begin(), indices.end(),
                 [&](size_t i) {
+                    // I/O並列度制限（簡易実装）
+                    while (active_io_count.load() >= max_io_threads) {
+                        std::this_thread::yield();  // 待機
+                    }
+                    active_io_count.fetch_add(1);
+                    
+                    // ファイル解析実行
                     auto file_result = analyze_file(js_files[i]);
+                    
+                    // I/Oカウント減少
+                    active_io_count.fetch_sub(1);
+                    
                     if (file_result.is_success()) {
                         results[i] = file_result.value();
                         success_flags[i] = true;
@@ -470,6 +497,15 @@ Result<DirectoryAnalysis> NekoCodeCore::analyze_directory_parallel(const FilePat
             }
             
             analysis.update_summary();
+            
+            // デバッグ用: 処理時間を記録
+            auto end_time = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
+            std::cerr << "🚀 Parallel analysis completed: " 
+                      << js_files.size() << " files in " 
+                      << duration.count() << "ms with --io-threads=" 
+                      << max_io_threads << std::endl;
+            
             return Result<DirectoryAnalysis>(std::move(analysis));
             
         } catch (const std::exception& e) {
