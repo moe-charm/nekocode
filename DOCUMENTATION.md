@@ -18,6 +18,12 @@
   - [PEGTL Migration Plan](docs/dev/PEGTL_MIGRATION_PLAN.md)
   - [Regex Removal Notes](docs/dev/NEVER_USE_REGEX.md)
   - [Emergency Handover](docs/dev/HANDOVER_EMERGENCY.txt)
+  - [JavaScript Handover](docs/dev/JAVASCRIPT_HANDOVER.txt)
+  - [TypeScript Handover](docs/dev/TYPESCRIPT_HANDOVER.txt)
+  - [Development Updates (English)](docs/dev/DEV_UPDATE.md)
+  - [開発更新 (日本語)](docs/dev/DEV_UPDATE_JP.md)
+  - [C++ Parallel Processing Update](docs/dev/CPP_PARALLEL_UPDATE.txt)
+  - [Go Analysis Plan](docs/dev/go_analysis_plan.md)
 
 ### 📝 Examples
 - [Examples Directory](examples/)

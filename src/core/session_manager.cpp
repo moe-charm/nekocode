@@ -197,7 +197,7 @@ std::string SessionManager::create_session(const std::filesystem::path& target_p
     SessionData session;
     session.session_id = generate_session_id();
     session.created_at = std::chrono::system_clock::now();
-    session.target_path = target_path;
+    session.target_path = std::filesystem::absolute(target_path);  // 🔧 絶対パスに変換
     session.is_directory = false;
     session.single_file_result = result;
     session.quick_stats = extract_quick_stats(result);
@@ -212,7 +212,7 @@ std::string SessionManager::create_session(const std::filesystem::path& target_p
     SessionData session;
     session.session_id = generate_session_id();
     session.created_at = std::chrono::system_clock::now();
-    session.target_path = target_path;
+    session.target_path = std::filesystem::absolute(target_path);  // 🔧 絶対パスに変換
     session.is_directory = true;
     session.directory_result = result;
     session.quick_stats = extract_quick_stats(result);
@@ -351,6 +351,23 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
             result = cmd_include_unused(session);
         } else if (command == "include-optimize") {
             result = cmd_include_optimize(session);
+        } else if (command == "duplicates") {
+            result = cmd_duplicates(session);
+        } else if (command.substr(0, 11) == "large-files") {
+            // large-files コマンドのパース
+            int threshold = 500;  // デフォルト500行
+            size_t pos = command.find("--threshold");
+            if (pos != std::string::npos) {
+                size_t val_pos = command.find_first_not_of(" ", pos + 11);
+                if (val_pos != std::string::npos) {
+                    try {
+                        threshold = std::stoi(command.substr(val_pos));
+                    } catch (...) {
+                        // パースエラーの場合はデフォルト値を使用
+                    }
+                }
+            }
+            result = cmd_large_files(session, threshold);
         } else if (command == "help") {
             result = cmd_help();
         } else {
@@ -359,7 +376,8 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                 {"available_commands", {"stats", "files", "complexity", 
                                         "structure", "calls", "find <term>", 
                                         "include-graph", "include-cycles", "include-impact",
-                                        "include-unused", "include-optimize", "help"}}
+                                        "include-unused", "include-optimize", "duplicates", 
+                                        "large-files", "help"}}
             };
         }
         
@@ -638,6 +656,9 @@ nlohmann::json SessionManager::cmd_help() const {
             {"include-impact", "Analyze file change impact"},
             {"include-unused", "Detect unused includes"},
             {"include-optimize", "Get optimization suggestions"},
+            {"duplicates", "Find duplicate or backup files"},
+            {"large-files", "Show files over threshold lines (default 500)"},
+            {"large-files --threshold 1000", "Show files over 1000 lines"},
             {"help", "Show this help"}
         }}
     };
@@ -819,6 +840,238 @@ nlohmann::json SessionManager::cmd_include_optimize(const SessionData& session) 
                               "Found " + std::to_string(suggestions.size()) + " optimization opportunities";
     
     return optimize_json;
+}
+
+nlohmann::json SessionManager::cmd_duplicates(const SessionData& session) const {
+    if (!session.is_directory) {
+        return {
+            {"command", "duplicates"},
+            {"error", "Duplicates analysis is only available for directory sessions"},
+            {"hint", "Create a session with a directory path to use this feature"}
+        };
+    }
+    
+    // 重複候補パターン
+    const std::vector<std::string> duplicate_patterns = {
+        "_backup", "_Backup", "_BACKUP",
+        "_Fixed", "_fixed", "_FIXED",
+        "_Original", "_original", "_ORIGINAL",
+        "_old", "_Old", "_OLD",
+        "_copy", "_Copy", "_COPY",
+        "_v2", "_v3", "_v4", "_v5", "_v6", "_v7", "_v8", "_v9",
+        "_v10", "_v11", "_v12", "_v13", "_v14", "_v15", "_v16", "_v17", "_v18", "_v19",
+        "_v20", "_v21", "_v22", "_v23", "_v24", "_v25",
+        "_tmp", "_temp", "_test",
+        ".bak", ".backup", ".old", ".orig"
+    };
+    
+    nlohmann::json duplicates_json;
+    duplicates_json["command"] = "duplicates";
+    duplicates_json["duplicates"] = nlohmann::json::array();
+    
+    std::map<std::string, std::vector<const AnalysisResult*>> base_name_to_files;
+    
+    // ファイルをベース名でグループ化
+    for (const auto& file : session.directory_result.files) {
+        std::string filename = file.file_info.name;
+        std::string base_name = filename;
+        
+        // パターンを削除してベース名を取得
+        for (const auto& pattern : duplicate_patterns) {
+            size_t pos = base_name.rfind(pattern);
+            if (pos != std::string::npos) {
+                // 拡張子を保持
+                size_t ext_pos = filename.rfind('.');
+                if (ext_pos != std::string::npos && ext_pos > pos) {
+                    base_name = filename.substr(0, pos) + filename.substr(ext_pos);
+                } else {
+                    base_name = filename.substr(0, pos);
+                }
+                break;
+            }
+        }
+        
+        base_name_to_files[base_name].push_back(&file);
+    }
+    
+    // 重複候補を検出
+    for (const auto& [base_name, files] : base_name_to_files) {
+        if (files.size() > 1) {
+            // 最大の行数を持つファイルを見つける
+            const AnalysisResult* primary_file = files[0];
+            for (const auto* file : files) {
+                if (file->file_info.total_lines > primary_file->file_info.total_lines) {
+                    primary_file = file;
+                }
+            }
+            
+            nlohmann::json duplicate_group;
+            duplicate_group["primary_file"] = {
+                {"name", primary_file->file_info.name},
+                {"lines", primary_file->file_info.total_lines},
+                {"size", primary_file->file_info.size_bytes}
+            };
+            
+            duplicate_group["duplicates"] = nlohmann::json::array();
+            
+            for (const auto* file : files) {
+                if (file != primary_file) {
+                    // 類似度を計算（簡易版：行数の比率）
+                    double similarity = 0.0;
+                    if (primary_file->file_info.total_lines > 0) {
+                        similarity = static_cast<double>(file->file_info.total_lines) / 
+                                   static_cast<double>(primary_file->file_info.total_lines) * 100.0;
+                    }
+                    
+                    duplicate_group["duplicates"].push_back({
+                        {"name", file->file_info.name},
+                        {"lines", file->file_info.total_lines},
+                        {"size", file->file_info.size_bytes},
+                        {"similarity", std::round(similarity)}
+                    });
+                }
+            }
+            
+            if (!duplicate_group["duplicates"].empty()) {
+                duplicates_json["duplicates"].push_back(duplicate_group);
+            }
+        }
+    }
+    
+    // サマリー
+    size_t total_duplicate_files = 0;
+    size_t total_duplicate_size = 0;
+    
+    for (const auto& group : duplicates_json["duplicates"]) {
+        for (const auto& dup : group["duplicates"]) {
+            total_duplicate_files++;
+            total_duplicate_size += dup["size"].get<size_t>();
+        }
+    }
+    
+    duplicates_json["summary"] = {
+        {"duplicate_groups", duplicates_json["duplicates"].size()},
+        {"total_duplicate_files", total_duplicate_files},
+        {"total_duplicate_size", total_duplicate_size},
+        {"size_human", total_duplicate_size > 1024*1024 ? 
+            std::to_string(total_duplicate_size / (1024*1024)) + " MB" :
+            std::to_string(total_duplicate_size / 1024) + " KB"}
+    };
+    
+    if (duplicates_json["duplicates"].empty()) {
+        duplicates_json["message"] = "No duplicate files found! 🎉";
+    } else {
+        duplicates_json["message"] = "Found " + std::to_string(total_duplicate_files) + 
+                                    " potential duplicate files (" + 
+                                    duplicates_json["summary"]["size_human"].get<std::string>() + ")";
+    }
+    
+    return duplicates_json;
+}
+
+nlohmann::json SessionManager::cmd_large_files(const SessionData& session, int threshold) const {
+    if (!session.is_directory) {
+        // 単一ファイルの場合も対応
+        if (session.single_file_result.file_info.total_lines >= threshold) {
+            return {
+                {"command", "large-files"},
+                {"threshold", threshold},
+                {"files", {{
+                    {"name", session.single_file_result.file_info.name},
+                    {"lines", session.single_file_result.file_info.total_lines},
+                    {"size", session.single_file_result.file_info.size_bytes},
+                    {"complexity", session.single_file_result.complexity.cyclomatic_complexity},
+                    {"rating", session.single_file_result.complexity.to_string()}
+                }}},
+                {"summary", "1 file over " + std::to_string(threshold) + " lines"}
+            };
+        } else {
+            return {
+                {"command", "large-files"},
+                {"threshold", threshold},
+                {"files", nlohmann::json::array()},
+                {"summary", "No files over " + std::to_string(threshold) + " lines"}
+            };
+        }
+    }
+    
+    nlohmann::json large_files_json;
+    large_files_json["command"] = "large-files";
+    large_files_json["threshold"] = threshold;
+    large_files_json["files"] = nlohmann::json::array();
+    
+    // 大きいファイルを複雑度順にソート
+    std::vector<const AnalysisResult*> large_files;
+    for (const auto& file : session.directory_result.files) {
+        if (file.file_info.total_lines >= threshold) {
+            large_files.push_back(&file);
+        }
+    }
+    
+    // 複雑度順にソート（高い順）
+    std::sort(large_files.begin(), large_files.end(),
+              [](const AnalysisResult* a, const AnalysisResult* b) {
+                  return a->complexity.cyclomatic_complexity > b->complexity.cyclomatic_complexity;
+              });
+    
+    // 結果を構築
+    for (const auto* file : large_files) {
+        // 複雑度に基づく絵文字を選択
+        std::string emoji;
+        if (file->complexity.cyclomatic_complexity > 100) {
+            emoji = "🔴";  // 非常に高い複雑度
+        } else if (file->complexity.cyclomatic_complexity > 50) {
+            emoji = "🟠";  // 高い複雑度
+        } else if (file->complexity.cyclomatic_complexity > 20) {
+            emoji = "🟡";  // 中程度の複雑度
+        } else {
+            emoji = "🟢";  // 低い複雑度
+        }
+        
+        large_files_json["files"].push_back({
+            {"name", file->file_info.name},
+            {"lines", file->file_info.total_lines},
+            {"size", file->file_info.size_bytes},
+            {"complexity", file->complexity.cyclomatic_complexity},
+            {"rating", file->complexity.to_string()},
+            {"emoji", emoji},
+            {"functions", file->stats.function_count},
+            {"classes", file->stats.class_count}
+        });
+    }
+    
+    // サマリー統計
+    if (large_files.empty()) {
+        large_files_json["summary"] = "No files over " + std::to_string(threshold) + " lines";
+    } else {
+        size_t total_lines = 0;
+        size_t total_complexity = 0;
+        size_t high_complexity_count = 0;
+        
+        for (const auto* file : large_files) {
+            total_lines += file->file_info.total_lines;
+            total_complexity += file->complexity.cyclomatic_complexity;
+            if (file->complexity.cyclomatic_complexity > 50) {
+                high_complexity_count++;
+            }
+        }
+        
+        large_files_json["summary"] = "Found " + std::to_string(large_files.size()) + 
+                                     " files over " + std::to_string(threshold) + " lines";
+        large_files_json["statistics"] = {
+            {"total_large_files", large_files.size()},
+            {"total_lines", total_lines},
+            {"average_complexity", large_files.empty() ? 0 : total_complexity / large_files.size()},
+            {"high_complexity_files", high_complexity_count}
+        };
+        
+        if (high_complexity_count > 0) {
+            large_files_json["warning"] = "⚠️  " + std::to_string(high_complexity_count) + 
+                                         " files have high complexity and should be refactored";
+        }
+    }
+    
+    return large_files_json;
 }
 
 std::string SessionManager::generate_session_id() const {
