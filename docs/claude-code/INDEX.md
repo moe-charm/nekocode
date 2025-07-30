@@ -2,6 +2,9 @@
 
 Claude Codeユーザー向けドキュメントのクイックアクセスガイド
 
+## 📌 重要なお知らせ
+**NekoCodeはClaude Code専用に設計されています** - [設計哲学](DESIGN_PHILOSOPHY.md)
+
 ## 📚 主要ドキュメント
 
 ### 1. 🏗️ **大規模プロジェクト対応ガイド** ⭐️ NEW!
@@ -78,5 +81,5 @@ nekocode_ai session-cmd [session_id] stats
 - `CHANGELOG_PEGTL.md` - 技術的な変更履歴
 
 ---
-**最終更新:** 2025-01-29
-**対応バージョン:** NekoCode AI v2.0 (session-create-async対応)
+**最終更新:** 2025-07-30
+**対応バージョン:** NekoCode AI v2.0 (Claude Code専用設計)
