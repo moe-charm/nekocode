@@ -40,12 +40,14 @@ struct CommandLineArgs {
     bool compact_mode = false;
     bool stats_only = false;
     bool enable_parallel = true;
-    uint32_t thread_count = 0;
+    uint32_t thread_count = 0;              // 廃止予定（後方互換性のため残す）
+    uint32_t io_threads = 4;                // 🆕 同時ファイル読み込み数（デフォルト: 4）
+    uint32_t cpu_threads = 0;               // 🆕 解析スレッド数（0 = 自動）
     bool show_performance = false;
     bool list_languages = false;           // サポート言語一覧
     bool enable_progress = false;           // プログレス表示
-    bool ssd_mode = false;                  // SSD最適化モード
-    bool hdd_mode = false;                  // HDD最適化モード
+    bool ssd_mode = false;                  // SSD最適化モード（廃止予定）
+    bool hdd_mode = false;                  // HDD最適化モード（廃止予定）
     bool debug_mode = false;                // --debug: デバッグログ表示モード
     
     // 事前チェック関連
@@ -69,6 +71,12 @@ struct CommandLineArgs {
                 args.enable_parallel = false;
             } else if (arg == "--threads" && i + 1 < argc) {
                 args.thread_count = std::stoul(argv[++i]);
+                // 後方互換性: --threads は --cpu-threads にマップ
+                args.cpu_threads = args.thread_count;
+            } else if (arg == "--io-threads" && i + 1 < argc) {
+                args.io_threads = std::stoul(argv[++i]);
+            } else if (arg == "--cpu-threads" && i + 1 < argc) {
+                args.cpu_threads = std::stoul(argv[++i]);
             } else if (arg == "--performance") {
                 args.show_performance = true;
             } else if (arg == "--format" && i + 1 < argc) {
@@ -128,14 +136,16 @@ OPTIONS:
     --compact           コンパクトJSON出力（改行なし）
     --stats-only        統計情報のみ出力（高速）
     --no-parallel       並列処理無効化
-    --threads <N>       スレッド数指定（デフォルト: auto）
+    --threads <N>       スレッド数指定（廃止予定、--cpu-threadsを推奨）
+    --io-threads <N>    🆕 同時ファイル読み込み数（デフォルト: 4、SSD向け: 8-16、HDD向け: 1-2）
+    --cpu-threads <N>   🆕 解析スレッド数（デフォルト: CPUコア数）
     --performance       パフォーマンス統計表示
     --format <type>     出力フォーマット (json|compact|stats)
     --lang <language>   言語指定 (auto|js|ts|cpp|c|python|csharp)
     --list-languages    サポート言語一覧表示
     --progress          進捗表示有効化（30,000ファイル対応）
-    --ssd               SSD最適化（CPUコア数スレッド、並列I/O重視）
-    --hdd               HDD最適化（1スレッド、シーケンシャル重視）
+    --ssd               SSD最適化（廃止予定、--io-threads 8を推奨）
+    --hdd               HDD最適化（廃止予定、--io-threads 1を推奨）
     --debug             デバッグログ表示モード（詳細情報を表示）
     --no-check          事前チェックをスキップ（上級者向け）
     --force             確認なしで強制実行
@@ -272,6 +282,11 @@ int main(int argc, char* argv[]) {
                     args.hdd_mode = true;
                 } else if (arg == "--threads" && i + 1 < argc) {
                     args.thread_count = std::stoul(argv[++i]);
+                    args.cpu_threads = args.thread_count;  // 後方互換性
+                } else if (arg == "--io-threads" && i + 1 < argc) {
+                    args.io_threads = std::stoul(argv[++i]);
+                } else if (arg == "--cpu-threads" && i + 1 < argc) {
+                    args.cpu_threads = std::stoul(argv[++i]);
                 } else if (arg == "--no-check") {
                     args.skip_precheck = true;
                 } else if (arg == "--force") {
@@ -299,6 +314,11 @@ int main(int argc, char* argv[]) {
                     args.hdd_mode = true;
                 } else if (arg == "--threads" && i + 1 < argc) {
                     args.thread_count = std::stoul(argv[++i]);
+                    args.cpu_threads = args.thread_count;  // 後方互換性
+                } else if (arg == "--io-threads" && i + 1 < argc) {
+                    args.io_threads = std::stoul(argv[++i]);
+                } else if (arg == "--cpu-threads" && i + 1 < argc) {
+                    args.cpu_threads = std::stoul(argv[++i]);
                 } else if (arg == "--no-check") {
                     args.skip_precheck = true;
                 } else if (arg == "--force") {
@@ -387,16 +407,28 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
         config.analyze_function_calls = true;
         config.enable_parallel_processing = args.enable_parallel;
         
-        // ストレージモード設定
+        // 新しい並列化設定
+        config.io_threads = args.io_threads;
+        config.cpu_threads = args.cpu_threads;
+        
+        // 後方互換性: 旧オプションのサポート
         if (args.ssd_mode) {
             config.storage_mode = StorageMode::SSD;
+            // SSDモードのデフォルト値を適用
+            if (args.io_threads == 4) {  // デフォルト値のまま
+                config.io_threads = 8;   // SSD向けに増やす
+            }
         } else if (args.hdd_mode) {
             config.storage_mode = StorageMode::HDD;
+            // HDDモードのデフォルト値を適用
+            if (args.io_threads == 4) {  // デフォルト値のまま
+                config.io_threads = 1;   // HDD向けに減らす
+            }
         } else {
             config.storage_mode = StorageMode::AUTO;
         }
         
-        // 手動スレッド数指定
+        // 手動スレッド数指定（後方互換性）
         if (args.thread_count > 0) {
             config.max_threads = args.thread_count;
             config.storage_mode = StorageMode::MANUAL;
@@ -681,16 +713,28 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
         config.analyze_function_calls = true;
         config.enable_parallel_processing = args.enable_parallel;
         
-        // ストレージモード設定
+        // 新しい並列化設定
+        config.io_threads = args.io_threads;
+        config.cpu_threads = args.cpu_threads;
+        
+        // 後方互換性: 旧オプションのサポート
         if (args.ssd_mode) {
             config.storage_mode = StorageMode::SSD;
+            // SSDモードのデフォルト値を適用
+            if (args.io_threads == 4) {  // デフォルト値のまま
+                config.io_threads = 8;   // SSD向けに増やす
+            }
         } else if (args.hdd_mode) {
             config.storage_mode = StorageMode::HDD;
+            // HDDモードのデフォルト値を適用
+            if (args.io_threads == 4) {  // デフォルト値のまま
+                config.io_threads = 1;   // HDD向けに減らす
+            }
         } else {
             config.storage_mode = StorageMode::AUTO;
         }
         
-        // 手動スレッド数指定
+        // 手動スレッド数指定（後方互換性）
         if (args.thread_count > 0) {
             config.max_threads = args.thread_count;
             config.storage_mode = StorageMode::MANUAL;
