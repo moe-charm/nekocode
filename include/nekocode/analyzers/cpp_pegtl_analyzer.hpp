@@ -29,6 +29,9 @@
 // 🔧 グローバルデバッグフラグ（analyzer_factory.cppで定義済み）
 extern bool g_debug_mode;
 
+// 🐛 デバッグ出力マクロ（--debugフラグがある時のみ出力）
+#define DEBUG_LOG(msg) do { if (g_debug_mode) { std::cerr << msg << std::endl; } } while(0)
+
 namespace nekocode {
 
 //=============================================================================
@@ -409,12 +412,14 @@ private:
     
     // 🔍 メンバ変数検出（analyze機能用）
     void detect_member_variables(AnalysisResult& result, const std::string& content) {
-        std::cerr << "🔥 C++ detect_member_variables called with " << result.classes.size() << " classes" << std::endl;
+        DEBUG_LOG("🔥 C++ detect_member_variables called with " + std::to_string(result.classes.size()) + " classes");
         
         // クラス一覧をデバッグ出力
-        for (size_t i = 0; i < result.classes.size(); ++i) {
-            std::cerr << "🏷️  Class[" << i << "]: '" << result.classes[i].name << "' (lines " 
-                      << result.classes[i].start_line << "-" << result.classes[i].end_line << ")" << std::endl;
+        if (g_debug_mode) {
+            for (size_t i = 0; i < result.classes.size(); ++i) {
+                std::cerr << "🏷️  Class[" << i << "]: '" << result.classes[i].name << "' (lines " 
+                          << result.classes[i].start_line << "-" << result.classes[i].end_line << ")" << std::endl;
+            }
         }
         
         std::istringstream stream(content);
