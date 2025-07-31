@@ -30,17 +30,35 @@ Claude: "🔥 Found NekoCode C++! Building with PEGTL engine..."
 [Auto-build completes]
 Claude: "Ready! What would you like me to analyze?"
 You: "Analyze src/ directory and find complexity hotspots"
-Claude: "Analyzing... Found 1280 lines, complexity 181 in core.cpp! Here's your optimization plan..."
+Claude: "Analyzing with parallel processing... 
+./nekocode_ai analyze src/ --stats-only --io-threads 16
+Found 1280 lines, complexity 181 in core.cpp! Here's your optimization plan..."
 
 You: "Analyze my Python project too"
-Claude: "🐍 Python support detected! Analyzing classes, functions, imports..."
+Claude: "🐍 Python support detected! 
+./nekocode_ai analyze python_project/ --stats-only --io-threads 16
+Analyzing classes, functions, imports..."
+```
+
+**🚀 CRITICAL: Always use `--io-threads 16` for folder analysis!**
+
+**Claude Code MUST use these commands:**
+```bash
+# 📁 Folder analysis (ALWAYS use --io-threads 16)
+./nekocode_ai analyze <folder>/ --stats-only --io-threads 16
+
+# 📄 Single file analysis (use --io-threads 8)  
+./nekocode_ai analyze <file> --io-threads 8
+
+# 🔍 Large projects (add --progress)
+./nekocode_ai analyze <large_folder>/ --stats-only --io-threads 16 --progress
 ```
 
 **That's literally it!** Claude Code will:
 - ✅ Auto-detect and build NekoCode C++
-- ✅ Use PEGTL engine for lightning-fast analysis  
+- ✅ Use PEGTL engine with parallel processing (`--io-threads 16`)
 - ✅ Provide detailed results with line numbers
-- ✅ Give scientific refactoring insights
+- ✅ Give scientific refactoring insights  
 - ✅ Handle C++, JavaScript, TypeScript, Python, C# automatically
 
 No manual setup, no configuration files, no learning curve!
@@ -84,18 +102,18 @@ make -j$(nproc)
 # Test installation
 ./nekocode_ai --help
 
-# ⚡ Quick performance test with new features
-./nekocode_ai analyze src/ --ssd --progress
+# ⚡ Quick performance test with parallel processing
+./nekocode_ai analyze src/ --stats-only --io-threads 16
 ```
 
 ### Performance-Optimized Usage (**NEW!**)
 
 ```bash
-# 🔥 Maximum speed (SSD/NVMe)
-./nekocode_ai analyze large-project/ --ssd --progress
+# 🔥 Maximum speed parallel processing
+./nekocode_ai analyze large-project/ --stats-only --io-threads 16 --progress
 
-# 🛡️ Safe mode (HDD/mechanical drives)
-./nekocode_ai analyze large-project/ --hdd --progress
+# 📄 Single file detailed analysis
+./nekocode_ai analyze important-file.cpp --io-threads 8
 
 # 📊 Monitor large projects in real-time
 tail -f sessions/ai_session_*/progress.txt

@@ -17,8 +17,8 @@
 🚀 3秒でスタート（Claude Codeなら自動実行）
 ------------------------------------------
 1. cd build && cmake .. && make -j8
-2. ./nekocode_ai session-create src/
-3. ./nekocode_ai session-cmd <session_id> stats
+2. ./nekocode_ai analyze src/ --stats-only --io-threads 16   ← 🚀 フォルダ解析は必須！
+3. ./nekocode_ai session-cmd <session_id> stats              ← 詳細解析が必要な場合
 
 💡 主要機能（即使用可能）
 -------------------------
@@ -54,25 +54,25 @@
 
 🔧 Claude Code向け最適化機能
 -----------------------------
-• 並列処理 - 最大8倍高速化（--ssd/--hddモード）
-• リアルタイムプログレス - 大型プロジェクト監視
+• 並列処理 - 最大16スレッド高速化（--io-threads 16）
+• リアルタイムプログレス - 大型プロジェクト監視（--progress）
 • セッション管理 - 180倍高速連続コマンド実行
-• コンパクトJSON - AI処理効率化
+• コンパクトJSON - AI処理効率化（--stats-only）
 
 ⚡ よく使うコマンド例
 ---------------------
-# 基本分析
+# 🚀 基本分析（Claude Code推奨 - 必ず --io-threads 16 使用）
+./nekocode_ai analyze /path/to/project/ --stats-only --io-threads 16
+./nekocode_ai analyze /path/to/large_project/ --stats-only --io-threads 16 --progress
+
+# 📄 単一ファイル解析
+./nekocode_ai analyze important_file.cpp --io-threads 8
+
+# 🔍 セッション作成（詳細解析が必要な場合のみ）
 ./nekocode_ai session-create /path/to/project
 ./nekocode_ai session-cmd <session_id> stats
-
-# リファクタリング準備
 ./nekocode_ai session-cmd <session_id> complexity
 ./nekocode_ai session-cmd <session_id> large-files --threshold 500
-./nekocode_ai session-cmd <session_id> duplicates
-
-# 開発支援
-./nekocode_ai session-cmd <session_id> todo
-./nekocode_ai session-cmd <session_id> "find main"
 
 # 詳細解析（NEW! 2025-07-31）
 ./nekocode_ai session-cmd <session_id> "structure --detailed UICore.cpp"

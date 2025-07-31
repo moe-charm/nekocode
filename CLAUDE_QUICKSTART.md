@@ -11,7 +11,10 @@ cd build && cmake .. && make -j8
 
 ### 2. セッション作成
 ```bash
-# プロジェクト全体を解析
+# プロジェクト全体を解析（フォルダ解析は必ず --io-threads 16 を使用）
+./build/nekocode_ai analyze src/ --stats-only --io-threads 16
+
+# セッション作成（詳細解析が必要な場合）
 ./build/nekocode_ai session-create src/
 
 # 出力例：
@@ -97,8 +100,8 @@ ls sessions/  # セッション一覧確認
 # ビルドエラーの場合
 rm -rf build/ && mkdir build && cd build && cmake .. && make -j8
 
-# 大きなプロジェクトでタイムアウトする場合
-./build/nekocode_ai session-create-async large_project/ --progress
+# 大きなプロジェクトの場合（統計のみで高速化）
+./build/nekocode_ai analyze large_project/ --stats-only --io-threads 16
 ```
 
 ---
