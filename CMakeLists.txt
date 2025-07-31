@@ -117,6 +117,7 @@ set(NEKOCODE_SOURCES
     ${SRC_DIR}/core/core.cpp
     ${SRC_DIR}/core/language_detection.cpp
     ${SRC_DIR}/core/session_manager.cpp
+    ${SRC_DIR}/core/session_data.cpp
     
     # フォーマッター
     ${SRC_DIR}/formatters/formatters.cpp
