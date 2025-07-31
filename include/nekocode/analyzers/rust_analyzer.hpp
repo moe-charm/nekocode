@@ -114,6 +114,9 @@ private:
     void analyze_modules(const std::string& content, AnalysisResult& result);
     void analyze_use_statements(const std::string& content, AnalysisResult& result);
     
+    // 🎯 メンバ変数検出（新機能）
+    void detect_member_variables(AnalysisResult& result, const std::string& content);
+    
     // 複雑度計算
     ComplexityInfo calculate_rust_complexity(const std::string& content);
     
