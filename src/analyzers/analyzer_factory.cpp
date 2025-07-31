@@ -14,7 +14,7 @@
 #include "nekocode/analyzers/cpp_pegtl_analyzer.hpp"
 // #include "nekocode/analyzers/csharp_analyzer.hpp" // regex版は削除済み
 #include "nekocode/analyzers/csharp_pegtl_analyzer.hpp"
-// #include "nekocode/analyzers/unity_analyzer.hpp" // 一時的にコメントアウト
+#include "nekocode/analyzers/unity_analyzer.hpp"
 #include "nekocode/analyzers/go_analyzer.hpp"
 #include "nekocode/analyzers/rust_analyzer.hpp"
 #include <algorithm>
@@ -134,16 +134,26 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
 //=============================================================================
 
 std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_unity_analyzer() {
-    std::cerr << "🎮 Unity Analyzer temporarily disabled" << std::endl;
-    return nullptr;
+    std::cerr << "🎮 Creating Unity Analyzer" << std::endl;
+    return std::make_unique<UnityAnalyzer>();
 }
 
 std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_unity_analyzer_from_file(
     const std::string& filename, 
     const std::string& content_preview
 ) {
-    std::cerr << "🎮 Unity Analyzer temporarily disabled" << std::endl;
-    return nullptr;
+    // Unity プロジェクトの判定
+    if (content_preview.find("using UnityEngine") != std::string::npos ||
+        content_preview.find(": MonoBehaviour") != std::string::npos ||
+        content_preview.find(": ScriptableObject") != std::string::npos ||
+        content_preview.find("[SerializeField]") != std::string::npos) {
+        std::cerr << "🎮 Unity project detected, creating Unity Analyzer for: " << filename << std::endl;
+        return std::make_unique<UnityAnalyzer>();
+    }
+    
+    // Unity プロジェクトでない場合は通常のC#アナライザーを返す
+    std::cerr << "⚙️ Standard C# file detected, using C# PEGTL Analyzer for: " << filename << std::endl;
+    return std::make_unique<CSharpPEGTLAnalyzer>();
 }
 
 //=============================================================================
