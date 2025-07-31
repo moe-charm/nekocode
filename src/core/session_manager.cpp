@@ -147,15 +147,93 @@ nlohmann::json SessionData::to_json() const {
         }
         j["directory_files"] = files_json;
     } else {
-        j["single_file_result"] = {
-            {"file_name", single_file_result.file_info.name},
-            {"lines", single_file_result.file_info.total_lines},
-            {"size", single_file_result.file_info.size_bytes},
-            {"complexity", single_file_result.complexity.cyclomatic_complexity},
-            {"rating", single_file_result.complexity.to_string()},
-            {"classes", single_file_result.stats.class_count},
-            {"functions", single_file_result.stats.function_count}
+        // 単一ファイル：完全な詳細情報も保存（analyze機能対応）
+        nlohmann::json single_file_json;
+        single_file_json["file_info"] = {
+            {"name", single_file_result.file_info.name},
+            {"path", single_file_result.file_info.path.string()},
+            {"size_bytes", single_file_result.file_info.size_bytes},
+            {"total_lines", single_file_result.file_info.total_lines},
+            {"code_lines", single_file_result.file_info.code_lines},
+            {"comment_lines", single_file_result.file_info.comment_lines},
+            {"empty_lines", single_file_result.file_info.empty_lines}
         };
+        single_file_json["stats"] = {
+            {"class_count", single_file_result.stats.class_count},
+            {"function_count", single_file_result.stats.function_count},
+            {"import_count", single_file_result.stats.import_count},
+            {"export_count", single_file_result.stats.export_count},
+            {"unique_calls", single_file_result.stats.unique_calls},
+            {"total_calls", single_file_result.stats.total_calls}
+        };
+        single_file_json["complexity"] = {
+            {"cyclomatic_complexity", single_file_result.complexity.cyclomatic_complexity},
+            {"max_nesting_depth", single_file_result.complexity.max_nesting_depth},
+            {"rating", single_file_result.complexity.to_string()}
+        };
+        
+        // クラス詳細情報を保存
+        nlohmann::json classes_json = nlohmann::json::array();
+        for (const auto& cls : single_file_result.classes) {
+            nlohmann::json class_json;
+            class_json["name"] = cls.name;
+            class_json["parent_class"] = cls.parent_class;
+            class_json["start_line"] = cls.start_line;
+            class_json["end_line"] = cls.end_line;
+            
+            nlohmann::json methods_json = nlohmann::json::array();
+            for (const auto& method : cls.methods) {
+                nlohmann::json method_json;
+                method_json["name"] = method.name;
+                method_json["start_line"] = method.start_line;
+                method_json["end_line"] = method.end_line;
+                method_json["complexity"] = method.complexity.cyclomatic_complexity;
+                method_json["parameters"] = method.parameters;
+                methods_json.push_back(method_json);
+            }
+            class_json["methods"] = methods_json;
+            
+            // メンバ変数情報を保存
+            nlohmann::json member_vars_json = nlohmann::json::array();
+            for (const auto& var : cls.member_variables) {
+                nlohmann::json var_json;
+                var_json["name"] = var.name;
+                var_json["type"] = var.type;
+                var_json["declaration_line"] = var.declaration_line;
+                var_json["is_static"] = var.is_static;
+                var_json["is_const"] = var.is_const;
+                var_json["access_modifier"] = var.access_modifier;
+                // Phase2の情報は必要に応じて追加
+                if (!var.used_by_methods.empty()) {
+                    var_json["used_by_methods"] = var.used_by_methods;
+                }
+                if (!var.modified_by_methods.empty()) {
+                    var_json["modified_by_methods"] = var.modified_by_methods;
+                }
+                member_vars_json.push_back(var_json);
+            }
+            class_json["member_variables"] = member_vars_json;
+            
+            classes_json.push_back(class_json);
+        }
+        single_file_json["classes"] = classes_json;
+        
+        // 関数詳細情報を保存
+        nlohmann::json functions_json = nlohmann::json::array();
+        for (const auto& func : single_file_result.functions) {
+            nlohmann::json func_json;
+            func_json["name"] = func.name;
+            func_json["start_line"] = func.start_line;
+            func_json["end_line"] = func.end_line;
+            func_json["complexity"] = func.complexity.cyclomatic_complexity;
+            func_json["parameters"] = func.parameters;
+            func_json["is_async"] = func.is_async;
+            func_json["is_arrow_function"] = func.is_arrow_function;
+            functions_json.push_back(func_json);
+        }
+        single_file_json["functions"] = functions_json;
+        
+        j["single_file_result"] = single_file_json;
     }
     
     j["quick_stats"] = quick_stats;

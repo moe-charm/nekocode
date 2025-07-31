@@ -243,6 +243,9 @@ public:
         // 複雑度計算（Python特化版）
         result.complexity = calculate_python_complexity(content);
         
+        // 🔍 Python メンバ変数検出（JavaScript成功パターン移植）
+        detect_member_variables(result, content);
+        
         // 統計更新
         result.update_statistics();
         
@@ -407,6 +410,213 @@ private:
         }
         
         return imports;
+    }
+    
+    // 🔍 Python メンバ変数検出（JavaScript成功パターン + Python特化）
+    void detect_member_variables(AnalysisResult& result, const std::string& content) {
+        std::istringstream stream(content);
+        std::string line;
+        size_t line_number = 0;
+        
+        // 現在解析中のクラス情報
+        std::string current_class;
+        size_t current_class_index = 0;
+        bool in_init_method = false;
+        size_t current_indent_level = 0;
+        size_t class_indent_level = 0;
+        
+        while (std::getline(stream, line)) {
+            line_number++;
+            
+            // インデント計算
+            size_t line_indent = 0;
+            for (char c : line) {
+                if (c == ' ') line_indent++;
+                else if (c == '\t') line_indent += 4; // タブは4スペース相当
+                else break;
+            }
+            
+            // クラス終了チェック（インデントベース）
+            if (!current_class.empty() && line_indent <= class_indent_level && 
+                !line.empty() && line.find_first_not_of(" \t") != std::string::npos) {
+                current_class.clear();
+                in_init_method = false;
+                class_indent_level = 0;
+            }
+            
+            // クラス開始検出
+            std::regex class_pattern(R"(^\s*class\s+(\w+))");
+            std::smatch class_match;
+            if (std::regex_search(line, class_match, class_pattern)) {
+                current_class = class_match[1].str();
+                class_indent_level = line_indent;
+                
+                // 既存のクラス情報を見つける
+                for (size_t i = 0; i < result.classes.size(); i++) {
+                    if (result.classes[i].name == current_class) {
+                        current_class_index = i;
+                        break;
+                    }
+                }
+            }
+            
+            // __init__ メソッド検出
+            if (!current_class.empty()) {
+                std::regex init_pattern(R"(^\s*def\s+__init__\s*\()");
+                if (std::regex_search(line, init_pattern)) {
+                    in_init_method = true;
+                }
+                
+                // メソッド終了チェック（次のdefまたはクラス終了）
+                std::regex method_pattern(R"(^\s*def\s+\w+)");
+                if (in_init_method && std::regex_search(line, method_pattern) && 
+                    line.find("__init__") == std::string::npos) {
+                    in_init_method = false;
+                }
+            }
+            
+            // Python メンバ変数パターン検出
+            if (!current_class.empty() && current_class_index < result.classes.size()) {
+                detect_python_member_patterns(line, line_number, result.classes[current_class_index], in_init_method, line_indent);
+            }
+        }
+    }
+    
+    // Python メンバ変数パターン検出（Python特化版）
+    void detect_python_member_patterns(const std::string& line, size_t line_number, 
+                                      ClassInfo& class_info, bool in_init_method, size_t line_indent) {
+        std::smatch match;
+        
+        // パターン1: self.property = value (__init__やメソッド内)
+        std::regex self_property_pattern(R"(self\.(\w+)\s*=)");
+        auto self_begin = std::sregex_iterator(line.begin(), line.end(), self_property_pattern);
+        auto self_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = self_begin; i != self_end; ++i) {
+            std::smatch match = *i;
+            std::string property_name = match[1].str();
+            
+            // 重複チェック
+            if (!member_already_exists(class_info, property_name)) {
+                MemberVariable member;
+                member.name = property_name;
+                member.type = infer_python_type_from_assignment(line);
+                member.declaration_line = line_number;
+                member.access_modifier = determine_python_access_modifier(property_name);
+                
+                class_info.member_variables.push_back(member);
+            }
+        }
+        
+        // パターン2: クラス変数（クラス直下のインデント）
+        std::regex class_variable_pattern(R"(^\s*(\w+)\s*=)");
+        if (std::regex_search(line, match, class_variable_pattern)) {
+            std::string var_name = match[1].str();
+            
+            // __init__ 内やメソッド内でない場合のみ（クラス変数）
+            if (!in_init_method && !member_already_exists(class_info, var_name)) {
+                // 簡易的なメソッド検出を除外
+                if (line.find("def ") == std::string::npos && line.find("(") == std::string::npos) {
+                    MemberVariable member;
+                    member.name = var_name;
+                    member.type = infer_python_type_from_assignment(line);
+                    member.declaration_line = line_number;
+                    member.access_modifier = determine_python_access_modifier(var_name);
+                    member.is_static = true; // Pythonクラス変数は静的
+                    
+                    class_info.member_variables.push_back(member);
+                }
+            }
+        }
+        
+        // パターン3: Type hints (Python 3.6+) property: Type = value
+        std::regex type_hint_pattern(R"(^\s*(\w+)\s*:\s*([^=]+)\s*=)");
+        if (std::regex_search(line, match, type_hint_pattern)) {
+            std::string property_name = match[1].str();
+            std::string type_annotation = match[2].str();
+            
+            if (!in_init_method && !member_already_exists(class_info, property_name)) {
+                MemberVariable member;
+                member.name = property_name;
+                member.type = trim_python_type(type_annotation);
+                member.declaration_line = line_number;
+                member.access_modifier = determine_python_access_modifier(property_name);
+                member.is_static = true;
+                
+                class_info.member_variables.push_back(member);
+            }
+        }
+        
+        // パターン4: @property デコレータ
+        std::regex property_decorator_pattern(R"(^\s*@property)");
+        if (std::regex_search(line, property_decorator_pattern)) {
+            // 次の行でdef name(self): を探す必要があるが、簡易版では省略
+            // 将来的にデコレータ対応を強化
+        }
+    }
+    
+    // ヘルパー関数：Python型推論
+    std::string infer_python_type_from_assignment(const std::string& line) {
+        if (line.find("= []") != std::string::npos) {
+            return "list";
+        } else if (line.find("= {}") != std::string::npos) {
+            return "dict";
+        } else if (line.find("= set()") != std::string::npos) {
+            return "set";
+        } else if (line.find("= True") != std::string::npos || line.find("= False") != std::string::npos) {
+            return "bool";
+        } else if (line.find("= \"") != std::string::npos || line.find("= '") != std::string::npos) {
+            return "str";
+        } else if (line.find("= f\"") != std::string::npos || line.find("= f'") != std::string::npos) {
+            return "str";
+        } else if (std::regex_search(line, std::regex(R"(= \d+\.\d+)"))) {
+            return "float";
+        } else if (std::regex_search(line, std::regex(R"(= \d+)"))) {
+            return "int";
+        } else if (line.find("= None") != std::string::npos) {
+            return "None";
+        }
+        return "Any";
+    }
+    
+    // ヘルパー関数：Pythonアクセス修飾子判定
+    std::string determine_python_access_modifier(const std::string& name) {
+        if (name.size() >= 4 && name.substr(0, 2) == "__" && 
+            name.substr(name.size() - 2) != "__") {
+            return "private"; // name mangling
+        } else if (name.size() >= 1 && name[0] == '_') {
+            return "protected"; // conventionally protected
+        }
+        return "public";
+    }
+    
+    // ヘルパー関数：Python型注釈のトリミング
+    std::string trim_python_type(const std::string& type_str) {
+        std::string result = type_str;
+        // 前後の空白を除去
+        size_t start = result.find_first_not_of(" \t");
+        if (start == std::string::npos) return "Any";
+        
+        size_t end = result.find_last_not_of(" \t");
+        result = result.substr(start, end - start + 1);
+        
+        // よくあるパターンの正規化
+        if (result == "List" || result == "list") return "list";
+        if (result == "Dict" || result == "dict") return "dict";
+        if (result == "Set" || result == "set") return "set";
+        if (result == "Tuple" || result == "tuple") return "tuple";
+        
+        return result;
+    }
+    
+    // ヘルパー関数：メンバ変数の重複チェック
+    bool member_already_exists(const ClassInfo& class_info, const std::string& name) {
+        for (const auto& member : class_info.member_variables) {
+            if (member.name == name) {
+                return true;
+            }
+        }
+        return false;
     }
 };
 

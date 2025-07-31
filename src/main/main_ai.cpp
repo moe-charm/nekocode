@@ -444,15 +444,40 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
             } else if (multilang_result.js_result) {
                 analysis_result = multilang_result.js_result.value();
             } else if (multilang_result.cpp_result) {
-                // C++結果をAnalysisResultに変換（簡易版）
-                analysis_result.file_info = multilang_result.cpp_result->file_info;
-                analysis_result.complexity = multilang_result.cpp_result->complexity;
+                // 🔥 C++結果をAnalysisResultに手動変換（構造体が異なるため）
+                auto cpp_result = multilang_result.cpp_result.value();
+                analysis_result.file_info = cpp_result.file_info;
+                analysis_result.complexity = cpp_result.complexity;
+                analysis_result.stats = cpp_result.stats;
                 analysis_result.language = Language::CPP;
                 
-                // 🔥 CRITICAL FIX: 統計情報をコピー（バグ修正）
-                analysis_result.stats = multilang_result.cpp_result->stats;
+                // C++クラス情報を変換
+                for (const auto& cpp_class : cpp_result.cpp_classes) {
+                    ClassInfo class_info;
+                    class_info.name = cpp_class.name;
+                    class_info.start_line = cpp_class.start_line;
+                    class_info.end_line = cpp_class.end_line;
+                    
+                    // 🔥 メンバ変数情報を変換
+                    for (const auto& member_name : cpp_class.member_variables) {
+                        MemberVariable member;
+                        member.name = member_name;
+                        member.type = "auto"; // C++では型推定困難なのでデフォルト
+                        member.access_modifier = "private"; // デフォルト
+                        class_info.member_variables.push_back(member);
+                    }
+                    
+                    analysis_result.classes.push_back(class_info);
+                }
                 
-                // 他のフィールドは必要に応じて変換
+                // C++関数情報を変換
+                for (const auto& cpp_func : cpp_result.cpp_functions) {
+                    FunctionInfo func_info;
+                    func_info.name = cpp_func.name;
+                    func_info.start_line = cpp_func.start_line;
+                    func_info.end_line = cpp_func.end_line;
+                    analysis_result.functions.push_back(func_info);
+                }
             } else {
                 // フォールバック
                 analysis_result.file_info = multilang_result.file_info;
@@ -722,10 +747,40 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
             } else if (multilang_result.js_result) {
                 analysis_result = multilang_result.js_result.value();
             } else if (multilang_result.cpp_result) {
-                // C++結果をAnalysisResultに変換（簡易版）
-                analysis_result.file_info = multilang_result.cpp_result->file_info;
-                analysis_result.complexity = multilang_result.cpp_result->complexity;
+                // 🔥 C++結果をAnalysisResultに手動変換（構造体が異なるため）
+                auto cpp_result = multilang_result.cpp_result.value();
+                analysis_result.file_info = cpp_result.file_info;
+                analysis_result.complexity = cpp_result.complexity;
+                analysis_result.stats = cpp_result.stats;
                 analysis_result.language = Language::CPP;
+                
+                // C++クラス情報を変換
+                for (const auto& cpp_class : cpp_result.cpp_classes) {
+                    ClassInfo class_info;
+                    class_info.name = cpp_class.name;
+                    class_info.start_line = cpp_class.start_line;
+                    class_info.end_line = cpp_class.end_line;
+                    
+                    // 🔥 メンバ変数情報を変換
+                    for (const auto& member_name : cpp_class.member_variables) {
+                        MemberVariable member;
+                        member.name = member_name;
+                        member.type = "auto"; // C++では型推定困難なのでデフォルト
+                        member.access_modifier = "private"; // デフォルト
+                        class_info.member_variables.push_back(member);
+                    }
+                    
+                    analysis_result.classes.push_back(class_info);
+                }
+                
+                // C++関数情報を変換
+                for (const auto& cpp_func : cpp_result.cpp_functions) {
+                    FunctionInfo func_info;
+                    func_info.name = cpp_func.name;
+                    func_info.start_line = cpp_func.start_line;
+                    func_info.end_line = cpp_func.end_line;
+                    analysis_result.functions.push_back(func_info);
+                }
             } else {
                 // フォールバック
                 analysis_result.file_info = multilang_result.file_info;

@@ -13,8 +13,8 @@
 #include "nekocode/analyzers/cpp_language_analyzer.hpp"
 #include "nekocode/analyzers/cpp_pegtl_analyzer.hpp"
 // #include "nekocode/analyzers/csharp_analyzer.hpp" // regex版は削除済み
-#include "nekocode/analyzers/csharp_pegtl_analyzer.hpp"
-#include "nekocode/analyzers/unity_analyzer.hpp"
+// #include "nekocode/analyzers/csharp_pegtl_analyzer.hpp" // 一時的にコメントアウト
+// #include "nekocode/analyzers/unity_analyzer.hpp" // 一時的にコメントアウト
 #include "nekocode/analyzers/go_analyzer.hpp"
 #include "nekocode/analyzers/rust_analyzer.hpp"
 #include <algorithm>
@@ -51,8 +51,8 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer(Language language
             return std::make_unique<PythonAnalyzer>();
             
         case Language::CSHARP:
-            // PEGTL版を使用（std::regex版から移行）
-            return std::make_unique<CSharpPEGTLAnalyzer>();
+            // 一時的にnullptrを返す（コンパイルエラー回避）
+            return nullptr;
             
         case Language::GO:
             // Go言語解析エンジン（Goroutine & Channel detection）
@@ -104,9 +104,8 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
     
     // C#
     if (ext == ".cs" || ext == ".csx") {
-        // TODO: Unity プロジェクト自動検出を実装
-        // 現在は基本的な C# アナライザーを使用
-        return std::make_unique<CSharpPEGTLAnalyzer>();
+        // 一時的にnullptrを返す（コンパイルエラー回避）
+        return nullptr;
     }
     
     // Go
@@ -135,28 +134,16 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
 //=============================================================================
 
 std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_unity_analyzer() {
-    std::cerr << "🎮 Creating Unity Analyzer (Composition Design)" << std::endl;
-    return std::make_unique<UnityAnalyzer>();
+    std::cerr << "🎮 Unity Analyzer temporarily disabled" << std::endl;
+    return nullptr;
 }
 
 std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_unity_analyzer_from_file(
     const std::string& filename, 
     const std::string& content_preview
 ) {
-    std::string ext = get_extension(filename);
-    
-    // C# ファイルの場合、Unity コンテンツを検査
-    if (ext == ".cs") {
-        if (content_preview.find("using UnityEngine") != std::string::npos ||
-            content_preview.find(": MonoBehaviour") != std::string::npos ||
-            content_preview.find(": ScriptableObject") != std::string::npos) {
-            std::cerr << "🎮 Unity content detected! Using Unity Analyzer" << std::endl;
-            return create_unity_analyzer();
-        }
-    }
-    
-    // 通常の C# アナライザーを返す
-    return create_analyzer_from_extension(ext);
+    std::cerr << "🎮 Unity Analyzer temporarily disabled" << std::endl;
+    return nullptr;
 }
 
 //=============================================================================
