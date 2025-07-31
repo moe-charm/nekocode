@@ -147,6 +147,48 @@ SESSION_ID=ai_session_20250727_180532
 ./nekocode_ai session-cmd $SESSION_ID metaprogramming
 ```
 
+#### 🎯 メンバ変数検出機能（新機能！）
+
+NekoCodeの革新的なメンバ変数検出機能により、全ての言語でクラスの内部構造を詳細に解析できます。
+
+```bash
+# 基本的なメンバ変数解析
+./nekocode_ai analyze src/MyClass.cpp
+# 出力: 型、アクセス修飾子、行番号付きでメンバ変数を表示
+
+# 言語別メンバ変数検出
+./nekocode_ai analyze src/Component.js    # JavaScript: this.property, static変数
+./nekocode_ai analyze src/Service.ts      # TypeScript: 型付きメンバ, interface
+./nekocode_ai analyze src/Manager.cpp     # C++: private/public/protected
+./nekocode_ai analyze src/Model.py        # Python: self.vars, クラス変数, 型ヒント
+./nekocode_ai analyze src/Entity.cs       # C#: フィールド, プロパティ, static
+```
+
+**検出される情報:**
+- 📝 **変数名**: 正確な変数名
+- 🏷️ **型情報**: `std::vector<T>`, `List<string>`, `Optional[int]` など
+- 🔒 **アクセス修飾子**: public, private, protected, internal
+- ⚡ **修飾子**: static, const, readonly, mutable
+- 📍 **行番号**: ソースコード内の正確な位置
+
+**対応言語別の特徴:**
+
+| 言語 | 検出内容例 |
+|------|------------|
+| **C++** | `private: std::map<string, int> data;` |
+| **C#** | `public static List<User> Users { get; set; }` |
+| **JavaScript** | `this.config = {}`, `static count = 0` |
+| **TypeScript** | `private name?: string`, `readonly id: number` |
+| **Python** | `self._private: Optional[str]`, `class_var: int = 0` |
+
+```bash
+# 詳細なクラス構造解析
+./nekocode_ai session-cmd $SESSION_ID "analyze --detailed MyClass.cpp"
+
+# メンバ変数統計
+./nekocode_ai session-cmd $SESSION_ID "stats --member-variables"
+```
+
 ## AI開発者向けガイド
 
 ### Claude Codeでの使い方
