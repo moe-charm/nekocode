@@ -17,6 +17,9 @@
 #include <sstream>
 #include <fstream>
 
+// 🔧 グローバルデバッグフラグ（analyzer_factory.cppで定義済み）
+extern bool g_debug_mode;
+
 namespace nekocode {
 
 //=============================================================================
@@ -225,9 +228,11 @@ struct action<csharp::minimal_grammar::property_getset> {
 template<>
 struct action<csharp::minimal_grammar::method_decl> {
     template<typename ParseInput>
-    static void apply(const ParseInput& in, CSharpParseState& state) {
+    static void apply(const ParseInput& /*in*/, CSharpParseState& /*state*/) {
         // 新文法では個別のアクションが処理するため、ここは空でOK
-        std::cerr << "DEBUG: method_decl triggered (handled by specific actions)" << std::endl;
+        if (g_debug_mode) {
+            std::cerr << "DEBUG: method_decl triggered (handled by specific actions)" << std::endl;
+        }
     }
 };
 
@@ -304,6 +309,9 @@ public:
         } else {
             std::cerr << "⚠️  C# Hybrid Strategy NOT triggered" << std::endl;
         }
+        
+        // 🎯 メンバ変数検出（C++/Python/JS/TSと同じパターン）
+        detect_member_variables(state.result, content);
         
         // 統計情報更新
         state.result.update_statistics();
@@ -457,6 +465,19 @@ private:
             }
         }
         
+        // パターン3.5: public struct StructName（structもクラスとして扱う）
+        std::regex struct_pattern(R"(^\s*(?:public|internal|private)?\s*struct\s+(\w+))");
+        if (std::regex_search(line, match, struct_pattern)) {
+            std::string struct_name = match[1].str();
+            if (existing_classes.find(struct_name) == existing_classes.end()) {
+                ClassInfo struct_info;
+                struct_info.name = struct_name;
+                struct_info.start_line = line_number;
+                result.classes.push_back(struct_info);
+                existing_classes.insert(struct_name);
+            }
+        }
+        
         // パターン4: public enum EnumName
         std::regex enum_pattern(R"(^\s*(?:public|internal)?\s*enum\s+(\w+))");
         if (std::regex_search(line, match, enum_pattern)) {
@@ -581,6 +602,197 @@ private:
         
         // デバッグファイルをflush（即座に書き込み）
         debug_file.flush();
+    }
+    
+    // 🎯 C#メンバ変数検出（C++/Python/JS/TSと同じパターン）
+    void detect_member_variables(AnalysisResult& result, const std::string& content) {
+        if (g_debug_mode) {
+            std::cerr << "🔥 C# detect_member_variables called with " << result.classes.size() << " classes" << std::endl;
+        }
+        
+        std::istringstream stream(content);
+        std::string line;
+        size_t line_number = 0;
+        
+        // 各クラスに対してメンバ変数を検出
+        for (auto& cls : result.classes) {
+            // interface, namespace, enumはスキップ
+            if (cls.name.find("interface:") == 0 || 
+                cls.name.find("namespace:") == 0 || 
+                cls.name.find("enum:") == 0) continue;
+            
+            if (g_debug_mode) {
+                std::cerr << "🔍 Detecting member variables for class: " << cls.name << std::endl;
+            }
+            
+            // クラス内のメンバ変数を検出
+            stream.clear();
+            stream.seekg(0);
+            line_number = 0;
+            bool in_class = false;
+            int brace_depth = 0;
+            std::string access_modifier = "private"; // C#のデフォルトはprivate
+            
+            while (std::getline(stream, line)) {
+                line_number++;
+                
+                // クラス定義の開始を検出
+                if (line_number == cls.start_line) {
+                    in_class = true;
+                    if (line.find("{") != std::string::npos) {
+                        brace_depth = 1;
+                    }
+                    continue;
+                }
+                
+                // デバッグ: GenericClassの53行目を特別に監視
+                if (g_debug_mode && cls.name == "GenericClass" && line_number == 53) {
+                    std::cerr << "🔎 Line 53 in GenericClass: '" << line << "'" << std::endl;
+                    std::cerr << "🔎 in_class: " << in_class << ", brace_depth: " << brace_depth << std::endl;
+                    // この行の処理を詳しく追跡
+                    std::cerr << "🔎 Processing line 53..." << std::endl;
+                }
+                
+                if (!in_class) continue;
+                
+                // クラスの終了を検出（簡易版：ブレース数で判定）
+                for (char c : line) {
+                    if (c == '{') brace_depth++;
+                    else if (c == '}') {
+                        brace_depth--;
+                        if (brace_depth == 0) {
+                            in_class = false;
+                            break;
+                        }
+                    }
+                }
+                
+                if (!in_class) break;
+                
+                // コメント行をスキップ
+                std::string trimmed_line = line;
+                trimmed_line.erase(0, trimmed_line.find_first_not_of(" \t"));
+                if (trimmed_line.empty() || 
+                    trimmed_line.find("//") == 0 || 
+                    trimmed_line.find("/*") == 0) {
+                    if (g_debug_mode && cls.name == "GenericClass" && line_number == 53) {
+                        std::cerr << "🔎 Line 53: Skipped as comment" << std::endl;
+                    }
+                    continue;
+                }
+                
+                // メソッド定義をスキップ（括弧がある行）- ただしメンバ変数の初期化は除外
+                if (line.find("(") != std::string::npos) {
+                    // セミコロンで終わる行は初期化付きメンバ変数の可能性があるのでスキップしない
+                    if (line.find(";") == std::string::npos) {
+                        if (g_debug_mode && cls.name == "GenericClass" && line_number == 53) {
+                            std::cerr << "🔎 Line 53: Skipped as method (contains parentheses, no semicolon)" << std::endl;
+                        }
+                        continue;
+                    } else {
+                        if (g_debug_mode && cls.name == "GenericClass" && line_number == 53) {
+                            std::cerr << "🔎 Line 53: Parentheses found but has semicolon, continuing as potential member variable" << std::endl;
+                        }
+                    }
+                }
+                
+                // プロパティ定義をスキップ（{ get; set; }形式）
+                if (line.find("get") != std::string::npos && 
+                    (line.find("set") != std::string::npos || line.find("}") != std::string::npos)) {
+                    if (g_debug_mode && cls.name == "GenericClass" && line_number == 53) {
+                        std::cerr << "🔎 Line 53: Skipped as property (get/set)" << std::endl;
+                    }
+                    continue;
+                }
+                
+                // =>形式のプロパティをスキップ
+                if (line.find("=>") != std::string::npos) {
+                    if (g_debug_mode && cls.name == "GenericClass" && line_number == 53) {
+                        std::cerr << "🔎 Line 53: Skipped as arrow property" << std::endl;
+                    }
+                    continue;
+                }
+                
+                // returnステートメントをスキップ
+                if (line.find("return") != std::string::npos) {
+                    if (g_debug_mode && cls.name == "GenericClass" && line_number == 53) {
+                        std::cerr << "🔎 Line 53: Skipped as return statement" << std::endl;
+                    }
+                    continue;
+                }
+                
+                // C#のメンバ変数パターン - より厳密に
+                // 例: private string name;  public static int count = 0;  readonly DateTime date;
+                // 例: private List<T> items = new List<T>();
+                
+                // まず代入文（name = value;）を除外チェック
+                std::regex assignment_pattern(R"(^\s*\w+\s*=\s*)");
+                if (std::regex_search(line, assignment_pattern) && 
+                    line.find("static") == std::string::npos &&
+                    line.find("private") == std::string::npos &&
+                    line.find("public") == std::string::npos &&
+                    line.find("protected") == std::string::npos &&
+                    line.find("internal") == std::string::npos) {
+                    continue; // 単純な代入文はスキップ
+                }
+                
+                std::regex member_var_pattern(
+                    R"(^\s*(?:(public|private|protected|internal)\s+)?)"       // アクセス修飾子
+                    R"((?:static\s+)?(?:readonly\s+)?(?:const\s+)?)"          // 修飾子
+                    R"((?:[\w\.\<\>,\s]+(?:\s*\[\s*\])?)\s+)"                // 型（ジェネリック・配列・複雑な型対応）
+                    R"((\w+))"                                                 // 変数名
+                    R"(\s*(?:=\s*[^;]+)?\s*;)"                               // 初期化子
+                );
+                
+                // デバッグ: List<T>型の行を特別にチェック
+                if (g_debug_mode && line.find("List<") != std::string::npos) {
+                    std::cerr << "🔎 Checking List<T> line: '" << line << "'" << std::endl;
+                }
+                
+                std::smatch var_match;
+                if (std::regex_search(line, var_match, member_var_pattern)) {
+                    std::string var_name = var_match[2].str();
+                    std::string var_access = var_match[1].str();
+                    if (!var_access.empty()) {
+                        access_modifier = var_access;
+                    }
+                    
+                    if (g_debug_mode) {
+                        std::cerr << "🎯 Found member variable: " << var_name 
+                                  << " in class " << cls.name 
+                                  << " at line " << line_number << std::endl;
+                        std::cerr << "    📝 Line content: '" << line << "'" << std::endl;
+                    }
+                    
+                    // メンバ変数情報を作成
+                    MemberVariable member_var;
+                    member_var.name = var_name;
+                    member_var.declaration_line = line_number;
+                    member_var.access_modifier = access_modifier;
+                    
+                    // 型を推定
+                    size_t type_end = line.find(var_name);
+                    if (type_end != std::string::npos) {
+                        std::string type_part = line.substr(0, type_end);
+                        // アクセス修飾子と変数修飾子を除去
+                        type_part = std::regex_replace(type_part, std::regex(R"(^\s*(public|private|protected|internal)\s+)"), "");
+                        type_part = std::regex_replace(type_part, std::regex(R"(^\s*static\s+)"), "");
+                        type_part = std::regex_replace(type_part, std::regex(R"(^\s*readonly\s+)"), "");
+                        type_part = std::regex_replace(type_part, std::regex(R"(^\s*const\s+)"), "");
+                        // 前後の空白を除去
+                        type_part = std::regex_replace(type_part, std::regex(R"(^\s+|\s+$)"), "");
+                        member_var.type = type_part;
+                    }
+                    
+                    // static/const/readonlyフラグを設定
+                    member_var.is_static = (line.find("static") != std::string::npos);
+                    member_var.is_const = (line.find("const") != std::string::npos || 
+                                          line.find("readonly") != std::string::npos);
+                    
+                    cls.member_variables.push_back(member_var);
+                }
+            }
+        }
     }
 };
 

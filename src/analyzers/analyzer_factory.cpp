@@ -13,7 +13,7 @@
 #include "nekocode/analyzers/cpp_language_analyzer.hpp"
 #include "nekocode/analyzers/cpp_pegtl_analyzer.hpp"
 // #include "nekocode/analyzers/csharp_analyzer.hpp" // regex版は削除済み
-// #include "nekocode/analyzers/csharp_pegtl_analyzer.hpp" // 一時的にコメントアウト
+#include "nekocode/analyzers/csharp_pegtl_analyzer.hpp"
 // #include "nekocode/analyzers/unity_analyzer.hpp" // 一時的にコメントアウト
 #include "nekocode/analyzers/go_analyzer.hpp"
 #include "nekocode/analyzers/rust_analyzer.hpp"
@@ -51,8 +51,8 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer(Language language
             return std::make_unique<PythonPEGTLAnalyzer>();
             
         case Language::CSHARP:
-            // 一時的にnullptrを返す（コンパイルエラー回避）
-            return nullptr;
+            // PEGTL版を使用（std::regex版から移行）
+            return std::make_unique<CSharpPEGTLAnalyzer>();
             
         case Language::GO:
             // Go言語解析エンジン（Goroutine & Channel detection）
@@ -104,8 +104,8 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
     
     // C#
     if (ext == ".cs" || ext == ".csx") {
-        // 一時的にnullptrを返す（コンパイルエラー回避）
-        return nullptr;
+        // PEGTL版を使用（メンバ変数検出対応）
+        return std::make_unique<CSharpPEGTLAnalyzer>();
     }
     
     // Go
