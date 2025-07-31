@@ -40,8 +40,6 @@ private:
     /// session-create コマンド処理
     int dispatch_session_create(const std::string& target_path, int argc, char* argv[]);
     
-    /// session-create-async コマンド処理
-    int dispatch_session_create_async(const std::string& target_path, int argc, char* argv[]);
     
     /// session-status コマンド処理
     int dispatch_session_status(const std::string& session_id, int argc, char* argv[]);

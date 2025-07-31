@@ -57,14 +57,23 @@ void show_supported_languages() {
 void show_help() {
     std::cout << R"(🤖 NekoCode AI Tool - 多言語対応Claude Code最適化版
 
+🤖 CLAUDE CODE QUICK START:
+    # フォルダ全体の高速統計（推奨）
+    nekocode_ai <folder> --stats-only --io-threads 16
+    
+    # 単一ファイル詳細解析
+    nekocode_ai <file> --io-threads 8
+    
+    # 大規模プロジェクト（1000+ファイル）
+    nekocode_ai <folder> --stats-only --io-threads 16 --progress
+
 USAGE:
     nekocode_ai <action> [args] [options]
 
 ACTIONS:
     analyze <path>              単発解析（旧形式互換）
     session-create <path>       対話式セッション作成
-    session-create-async <path> 🚀 非同期セッション作成（大規模プロジェクト用）
-    session-status <id>         📊 セッション状態確認（非同期用）
+    session-status <id>         📊 セッション状態確認
     session-cmd <id> <cmd>      セッションコマンド実行
     <path>                      単発解析（後方互換）
 
@@ -89,7 +98,9 @@ OPTIONS:
     --compact           コンパクトJSON出力（改行なし）
     --stats-only        統計情報のみ出力（高速）
     --no-parallel       並列処理無効化
-    --io-threads <N>    同時ファイル読み込み数（SSD: 8-16, HDD: 1-2, デフォルト: 4）
+    --io-threads <N>    同時ファイル読み込み数
+                        📁 フォルダ解析: 16推奨（SSD環境）
+                        📄 単一ファイル: 8推奨
     --cpu-threads <N>   解析スレッド数（デフォルト: CPUコア数）
     --performance       パフォーマンス統計表示
     --format <type>     出力フォーマット (json|compact|stats)
@@ -110,7 +121,12 @@ SUPPORTED LANGUAGES:
     🟣 C#               (.cs, .csx)
 
 EXAMPLES:
-    # 🎮 対話式セッション作成
+    # 🤖 Claude Code向け（即座に結果）
+    nekocode_ai src/ --stats-only --io-threads 16
+    nekocode_ai MyApp.cpp --io-threads 8
+    nekocode_ai large_project/ --stats-only --io-threads 16 --progress
+
+    # 👨‍💻 Human向け（詳細分析）
     nekocode_ai session-create charmflow_v5/
     nekocode_ai session-cmd ai_session_20250727_123456 stats
     nekocode_ai session-cmd ai_session_20250727_123456 complexity
@@ -122,33 +138,18 @@ EXAMPLES:
     nekocode_ai session-cmd ai_session_20250727_123456 "find nyamesh --debug"
     nekocode_ai session-cmd ai_session_20250727_123456 "find std::cout --limit 10"
     
-    # 🔍 Claude Code君向け詳細解析（NEW!）
+    # 🔍 Claude Code君向け詳細解析
     nekocode_ai session-cmd ai_session_20250727_123456 "structure --detailed UICore.cpp"
     nekocode_ai session-cmd ai_session_20250727_123456 "complexity --methods UICore.cpp"
     nekocode_ai session-cmd ai_session_20250727_123456 "calls --detailed createElement"
-    
-    # 🚀 大規模プロジェクト非同期処理（Claude Code最適化）
-    nekocode_ai session-create-async large_project/ --progress
-    nekocode_ai session-status ai_session_20250729_123456
-    # （解析完了後）
-    nekocode_ai session-cmd ai_session_20250729_123456 stats
     
     # 🔍 事前チェック機能
     nekocode_ai session-create typescript/TypeScript/ --check-only  # サイズ確認のみ
     nekocode_ai session-create huge_project/ --force               # 確認なしで実行
     nekocode_ai session-create auto_script/ --no-check             # チェックスキップ
 
-    # 🔥 地獄のC++プロジェクト解析
-    nekocode_ai analyze nyamesh_v22/ --lang cpp
-
     # 🌍 多言語プロジェクト自動検出
     nekocode_ai src/ --cpu-threads 8
-
-    # 🤖 Claude用最適化出力
-    nekocode_ai EditorCore_v22.cpp --compact
-
-    # ⚡ 大規模プロジェクト高速統計
-    nekocode_ai large_cpp_project/ --stats-only
 
     # 📊 サポート言語確認
     nekocode_ai --list-languages
@@ -721,180 +722,6 @@ int execute_session_command(const std::string& session_id, const std::string& co
         error_json["error"] = {
             {"code", 500},
             {"message", std::string("Command execution failed: ") + e.what()},
-            {"type", "exception"}
-        };
-        std::cout << error_json.dump(2) << std::endl;
-        return 1;
-    }
-}
-
-//=============================================================================
-// 🚀 create_session_async実装 - Claude Code最適化
-//=============================================================================
-
-int create_session_async(const std::string& target_path, const CommandLineArgs& args) {
-    try {
-        std::filesystem::path path(target_path);
-        
-        // セッションID生成
-        std::string session_id = generate_session_id();
-        
-        // 事前チェック（--check-onlyの場合は同期実行）
-        if (std::filesystem::is_directory(path)) {
-            auto scan_result = quick_project_scan(path, args);
-            
-            if (args.check_only) {
-                std::cerr << "🎯 Analysis complete. Use session-create-async without --check-only to proceed." << std::endl;
-                return 0;
-            }
-            
-            if (!scan_result.proceed) {
-                return 1;
-            }
-        }
-        
-        // 初期状態ファイル作成
-        update_session_state(session_id, "STARTING", target_path);
-        
-        std::cerr << "🚀 Starting async session: " << session_id << std::endl;
-        
-        // プロセス分離
-        pid_t pid = fork();
-        
-        if (pid == -1) {
-            // fork失敗
-            update_session_state(session_id, "ERROR");
-            nlohmann::json error_json;
-            error_json["error"] = {
-                {"code", 500},
-                {"message", "Failed to create background process"},
-                {"type", "fork_error"}
-            };
-            std::cout << error_json.dump(2) << std::endl;
-            return 1;
-        }
-        else if (pid == 0) {
-            //=================================================================
-            // 子プロセス: 実際の解析実行
-            //=================================================================
-            
-            // 状態更新
-            update_session_state(session_id, "RUNNING", target_path, getpid());
-            
-            // 通常のセッション作成と同じ処理
-            AnalysisConfig config;
-            config.analyze_complexity = true;
-            config.analyze_dependencies = true;
-            config.analyze_function_calls = true;
-            config.enable_parallel_processing = args.enable_parallel;
-            
-            // ストレージモード設定
-            config.storage_mode = StorageMode::AUTO;
-            
-            config.calculate_optimal_threads();
-            
-            NekoCodeCore analyzer(config);
-            SessionManager session_manager;
-            
-            try {
-                if (std::filesystem::is_regular_file(path)) {
-                    auto result = analyzer.analyze_file_multilang(path);
-                    
-                    if (result.is_error()) {
-                        update_session_state(session_id, "ERROR");
-                        exit(1);
-                    }
-                    
-                    AnalysisResult analysis_result;
-                    auto multilang_result = result.value();
-                    
-                    if (multilang_result.csharp_result) {
-                        analysis_result = multilang_result.csharp_result.value();
-                    } else if (multilang_result.js_result) {
-                        analysis_result = multilang_result.js_result.value();
-                    } else if (multilang_result.cpp_result) {
-                        analysis_result.file_info = multilang_result.cpp_result->file_info;
-                        analysis_result.complexity = multilang_result.cpp_result->complexity;
-                        analysis_result.language = Language::CPP;
-                    } else {
-                        analysis_result.file_info = multilang_result.file_info;
-                        analysis_result.language = multilang_result.detected_language;
-                    }
-                    
-                    session_manager.create_session(path, analysis_result);
-                    
-                } else if (std::filesystem::is_directory(path)) {
-                    // プログレストラッカー設定（バックグラウンド用）
-                    SessionProgressTracker progress_tracker(session_id, args.enable_progress);
-                    
-                    size_t file_count = 0;
-                    for (const auto& entry : std::filesystem::recursive_directory_iterator(path)) {
-                        if (entry.is_regular_file()) {
-                            file_count++;
-                        }
-                    }
-                    
-                    progress_tracker.start_directory_analysis(path, file_count);
-                    
-                    if (args.enable_progress) {
-                        analyzer.set_progress_callback([&progress_tracker](std::uint32_t processed, std::uint32_t total, const std::string& current_file) {
-                            progress_tracker.update_file_analysis(current_file, 0, true);
-                        });
-                    }
-                    
-                    auto result = analyzer.analyze_directory(path);
-                    
-                    progress_tracker.complete_analysis();
-                    
-                    if (result.is_error()) {
-                        update_session_state(session_id, "ERROR");
-                        exit(1);
-                    }
-                    
-                    session_manager.create_session(path, result.value());
-                    
-                } else {
-                    update_session_state(session_id, "ERROR");
-                    exit(1);
-                }
-                
-                // 成功
-                update_session_state(session_id, "COMPLETED");
-                exit(0);
-                
-            } catch (const std::exception& e) {
-                update_session_state(session_id, "ERROR");
-                exit(1);
-            }
-        }
-        else {
-            //=================================================================
-            // 親プロセス: 即座にレスポンス返す
-            //=================================================================
-            
-            // 状態更新
-            update_session_state(session_id, "RUNNING", target_path, pid);
-            
-            // JSON レスポンス
-            nlohmann::json result_json;
-            result_json["session_id"] = session_id;
-            result_json["status"] = "started";
-            result_json["mode"] = "async";
-            result_json["pid"] = pid;
-            result_json["progress_file"] = "sessions/" + session_id + "_progress.txt";
-            result_json["state_file"] = "sessions/" + session_id + "_state.json";
-            result_json["message"] = "✅ Background analysis started. Use session-status to check progress.";
-            
-            std::cout << result_json.dump(2) << std::endl;
-            
-            return 0;
-        }
-        
-    } catch (const std::exception& e) {
-        nlohmann::json error_json;
-        error_json["error"] = {
-            {"code", 500},
-            {"message", std::string("Async session creation failed: ") + e.what()},
             {"type", "exception"}
         };
         std::cout << error_json.dump(2) << std::endl;
