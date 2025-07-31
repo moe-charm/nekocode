@@ -118,6 +118,7 @@ set(NEKOCODE_SOURCES
     ${SRC_DIR}/core/language_detection.cpp
     ${SRC_DIR}/core/session_manager.cpp
     ${SRC_DIR}/core/session_data.cpp
+    ${SRC_DIR}/core/session_commands.cpp
     
     # フォーマッター
     ${SRC_DIR}/formatters/formatters.cpp
@@ -199,7 +200,11 @@ target_compile_features(nekocode_static PUBLIC cxx_std_17)
 # 🤖 AI Tool - Claude Code最適化実行ファイル
 #=============================================================================
 
-add_executable(nekocode_ai ${SRC_DIR}/main/main_ai.cpp)
+add_executable(nekocode_ai 
+    ${SRC_DIR}/main/main_ai.cpp
+    ${SRC_DIR}/main/command_dispatcher.cpp
+    ${SRC_DIR}/main/command_line_args.cpp
+)
 target_link_libraries(nekocode_ai nekocode_static)
 
 # AI用特別最適化
