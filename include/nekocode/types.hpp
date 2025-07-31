@@ -140,6 +140,9 @@ struct MemberVariable {
     std::vector<std::string> used_by_methods;
     std::vector<std::string> modified_by_methods;
     
+    // 🎮 Unity特化・拡張メタデータ
+    std::unordered_map<std::string, std::string> metadata;
+    
     MemberVariable() = default;
     MemberVariable(const std::string& var_name, const std::string& var_type, LineNumber line)
         : name(var_name), type(var_type), declaration_line(line) {}

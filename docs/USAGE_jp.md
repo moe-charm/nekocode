@@ -163,6 +163,7 @@ NekoCodeの革新的なメンバ変数検出機能により、全ての言語で
 ./nekocode_ai analyze src/Model.py        # Python: self.vars, クラス変数, 型ヒント
 ./nekocode_ai analyze src/Entity.cs       # C#: フィールド, プロパティ, static
 ./nekocode_ai analyze src/struct.rs       # Rust: pub/private, ジェネリック, enum
+./nekocode_ai analyze Assets/PlayerController.cs  # Unity: SerializeField, MonoBehaviour
 ```
 
 **検出される情報:**
@@ -182,6 +183,7 @@ NekoCodeの革新的なメンバ変数検出機能により、全ての言語で
 | **TypeScript** | `private name?: string`, `readonly id: number` |
 | **Python** | `self._private: Optional[str]`, `class_var: int = 0` |
 | **Rust** | `pub name: String`, `data: Arc<Mutex<T>>` |
+| **Unity C#** | `[SerializeField] private float speed`, `public GameObject target` |
 
 ```bash
 # 詳細なクラス構造解析

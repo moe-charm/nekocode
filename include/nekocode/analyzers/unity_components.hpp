@@ -30,6 +30,7 @@ public:
         classify_lifecycle_methods(result);
         detect_unity_attributes(result, content);
         detect_coroutines(result, content);
+        detect_unity_member_variables(result, content);  // 🎮 Unity特化メンバ変数検出
         calculate_unity_statistics(result);
     }
     
@@ -177,6 +178,206 @@ private:
         }
     }
     
+    // 🎮 Unity特化メンバ変数検出
+    void detect_unity_member_variables(AnalysisResult& result, const std::string& content) {
+        std::istringstream stream(content);
+        std::string line;
+        size_t line_number = 1;
+        
+        // Unity属性付きフィールドの検出パターン
+        std::vector<std::string> unity_field_attributes = {
+            "[SerializeField]", "[Header", "[Range", "[Tooltip", "[Space", 
+            "[TextArea", "[Multiline", "[RequireComponent"
+        };
+        
+        bool in_class = false;
+        std::string current_class_name;
+        std::vector<std::string> pending_attributes;  // 次のフィールドに適用される属性
+        
+        while (std::getline(stream, line)) {
+            // クラス開始検出
+            if (line.find("class ") != std::string::npos && 
+                (line.find(": MonoBehaviour") != std::string::npos ||
+                 line.find(": ScriptableObject") != std::string::npos ||
+                 line.find(": Editor") != std::string::npos)) {
+                in_class = true;
+                
+                // クラス名抽出
+                size_t class_pos = line.find("class ");
+                if (class_pos != std::string::npos) {
+                    size_t name_start = class_pos + 6;
+                    size_t name_end = line.find_first_of(" \t:", name_start);
+                    if (name_end != std::string::npos) {
+                        current_class_name = line.substr(name_start, name_end - name_start);
+                    }
+                }
+            }
+            
+            // クラス終了検出（簡易版）
+            if (in_class && line.find("}") != std::string::npos && 
+                line.find("class") == std::string::npos) {
+                // メソッド内の}は除外（完全ではないが実用的）
+                size_t brace_pos = line.find("}");
+                if (brace_pos == 0 || line.substr(0, brace_pos).find_first_not_of(" \t") == std::string::npos) {
+                    in_class = false;
+                    current_class_name.clear();
+                    pending_attributes.clear();
+                }
+            }
+            
+            if (in_class) {
+                // Unity属性の検出と蓄積
+                for (const auto& attr : unity_field_attributes) {
+                    if (line.find(attr) != std::string::npos) {
+                        // 属性名を抽出
+                        size_t attr_start = line.find(attr);
+                        size_t attr_end = line.find("]", attr_start);
+                        if (attr_end != std::string::npos) {
+                            std::string full_attribute = line.substr(attr_start, attr_end - attr_start + 1);
+                            pending_attributes.push_back(full_attribute);
+                        }
+                        break;
+                    }
+                }
+                
+                // Unity型フィールドの検出
+                if (detect_unity_field_line(line)) {
+                    MemberVariable member_var = parse_unity_field(line, line_number);
+                    
+                    // Unity属性を適用
+                    if (!pending_attributes.empty()) {
+                        member_var.access_modifier = "serialized";  // Unity特化アクセス修飾子
+                        // Unity属性をメタデータに追加
+                        for (size_t i = 0; i < pending_attributes.size(); ++i) {
+                            member_var.metadata["unity_attribute_" + std::to_string(i)] = pending_attributes[i];
+                        }
+                        pending_attributes.clear();
+                    }
+                    
+                    // Unity型分類
+                    std::string unity_type_category = classify_unity_type(member_var.type);
+                    if (!unity_type_category.empty()) {
+                        member_var.metadata["unity_type_category"] = unity_type_category;
+                    }
+                    
+                    // 対応するクラスに追加
+                    add_member_to_class(result, current_class_name, member_var);
+                }
+            }
+            
+            line_number++;
+        }
+    }
+    
+    // Unity フィールド行の検出
+    bool detect_unity_field_line(const std::string& line) {
+        // Unity特有の型を含むフィールド検出
+        std::vector<std::string> unity_types = {
+            "GameObject", "Transform", "Rigidbody", "Collider", "AudioSource",
+            "Button", "Text", "Image", "Slider", "Canvas",
+            "Vector3", "Vector2", "Quaternion", "Color", 
+            "LayerMask", "AnimationCurve", "Gradient"
+        };
+        
+        // 基本的なC#フィールドパターン + Unity型
+        bool has_access_modifier = (line.find("public ") != std::string::npos ||
+                                   line.find("private ") != std::string::npos ||
+                                   line.find("protected ") != std::string::npos ||
+                                   line.find("internal ") != std::string::npos);
+        
+        bool has_unity_type = false;
+        for (const auto& type : unity_types) {
+            if (line.find(type) != std::string::npos) {
+                has_unity_type = true;
+                break;
+            }
+        }
+        
+        // セミコロンで終わるフィールド宣言
+        bool is_field_declaration = (line.find(";") != std::string::npos &&
+                                    line.find("(") == std::string::npos);  // メソッドではない
+        
+        return is_field_declaration && (has_access_modifier || has_unity_type);
+    }
+    
+    // Unity フィールドのパース
+    MemberVariable parse_unity_field(const std::string& line, size_t line_number) {
+        MemberVariable member_var;
+        member_var.declaration_line = line_number;
+        
+        // アクセス修飾子の検出
+        if (line.find("public ") != std::string::npos) {
+            member_var.access_modifier = "public";
+        } else if (line.find("private ") != std::string::npos) {
+            member_var.access_modifier = "private";
+        } else if (line.find("protected ") != std::string::npos) {
+            member_var.access_modifier = "protected";
+        } else {
+            member_var.access_modifier = "private";  // C# default
+        }
+        
+        // static/const修飾子
+        member_var.is_static = (line.find("static ") != std::string::npos);
+        member_var.is_const = (line.find("const ") != std::string::npos || 
+                              line.find("readonly ") != std::string::npos);
+        
+        // 型と変数名の抽出（簡易版）
+        size_t semicolon_pos = line.find(";");
+        if (semicolon_pos != std::string::npos) {
+            std::string declaration = line.substr(0, semicolon_pos);
+            
+            // 最後の単語が変数名、その前が型
+            size_t last_space = declaration.find_last_of(" \t");
+            if (last_space != std::string::npos) {
+                member_var.name = declaration.substr(last_space + 1);
+                
+                // 型を抽出（アクセス修飾子以降）
+                size_t type_start = 0;
+                if (declaration.find("public ") != std::string::npos) type_start = declaration.find("public ") + 7;
+                else if (declaration.find("private ") != std::string::npos) type_start = declaration.find("private ") + 8;
+                else if (declaration.find("protected ") != std::string::npos) type_start = declaration.find("protected ") + 10;
+                
+                if (declaration.find("static ") != std::string::npos) {
+                    size_t static_pos = declaration.find("static ");
+                    if (static_pos > type_start) type_start = static_pos + 7;
+                }
+                
+                if (last_space > type_start) {
+                    member_var.type = declaration.substr(type_start, last_space - type_start);
+                    // 前後の空白を削除
+                    size_t start = member_var.type.find_first_not_of(" \t");
+                    size_t end = member_var.type.find_last_not_of(" \t");
+                    if (start != std::string::npos && end != std::string::npos) {
+                        member_var.type = member_var.type.substr(start, end - start + 1);
+                    }
+                }
+            }
+        }
+        
+        return member_var;
+    }
+    
+    // Unity型の分類
+    std::string classify_unity_type(const std::string& type) {
+        if (type == "GameObject" || type == "Transform") return "core_component";
+        if (type == "Rigidbody" || type == "Collider") return "physics";
+        if (type == "AudioSource") return "audio";
+        if (type.find("UI.") != std::string::npos || type == "Button" || type == "Text" || type == "Image") return "ui";
+        if (type == "Vector3" || type == "Vector2" || type == "Quaternion") return "math";
+        if (type == "Color" || type == "LayerMask") return "utility";
+        return "";
+    }
+    
+    // クラスにメンバ変数を追加
+    void add_member_to_class(AnalysisResult& result, const std::string& class_name, const MemberVariable& member_var) {
+        for (auto& cls : result.classes) {
+            if (cls.name == class_name) {
+                cls.member_variables.push_back(member_var);
+                return;
+            }
+        }
+    }
+
     // Unity 統計の計算
     void calculate_unity_statistics(AnalysisResult& result) {
         int monobehaviour_count = 0;

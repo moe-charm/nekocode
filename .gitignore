@@ -28,10 +28,13 @@ out/
 *.exe
 *.out
 *.app
-nekocode_ai
-nekocode_human
+build/nekocode_ai
+build/nekocode_human
 test_*
 !test_*.cpp
+# Allow bin directory executables for user convenience
+!bin/nekocode_ai
+!bin/nekocode_human
 
 # Session files
 sessions/
