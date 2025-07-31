@@ -36,10 +36,13 @@ bool needs_line_based_fallback(const AnalysisResult& result, const std::string& 
 }
 ```
 
-## 🏆 成果実績
-- **lodash.js**: 0→489関数検出 (∞倍改善!)
+## 🏆 成果実績 - メンバ変数検出追加完了 ✅
+- **lodash.js**: 0→489関数・**120+メンバ変数**検出 (∞倍改善!)
 - **複雑JavaScriptライブラリ**: 高精度解析実現
-- **他言語移植**: TypeScript・C++・C#への成功パターン提供
+- **他言語移植**: TypeScript・C++・C#・Pythonへの成功パターン提供
+- **メンバ変数検出**: `this.property`, `static vars`, クラスメンバ完全対応
+- **ES6+対応**: `class` 構文メンバ変数、`constructor` 内での `this.` 検出
+- **動的プロパティ**: `obj.method = function(){}` 形式の動的メンバ検出
 
 ## 💡 将来展望
 - ES2024対応
