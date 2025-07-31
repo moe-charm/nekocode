@@ -162,6 +162,7 @@ NekoCodeの革新的なメンバ変数検出機能により、全ての言語で
 ./nekocode_ai analyze src/Manager.cpp     # C++: private/public/protected
 ./nekocode_ai analyze src/Model.py        # Python: self.vars, クラス変数, 型ヒント
 ./nekocode_ai analyze src/Entity.cs       # C#: フィールド, プロパティ, static
+./nekocode_ai analyze src/struct.rs       # Rust: pub/private, ジェネリック, enum
 ```
 
 **検出される情報:**
@@ -180,6 +181,7 @@ NekoCodeの革新的なメンバ変数検出機能により、全ての言語で
 | **JavaScript** | `this.config = {}`, `static count = 0` |
 | **TypeScript** | `private name?: string`, `readonly id: number` |
 | **Python** | `self._private: Optional[str]`, `class_var: int = 0` |
+| **Rust** | `pub name: String`, `data: Arc<Mutex<T>>` |
 
 ```bash
 # 詳細なクラス構造解析

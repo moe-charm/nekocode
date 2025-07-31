@@ -111,6 +111,7 @@ tail -f sessions/ai_session_*/progress.txt
 | **lodash.js** | JavaScript | 544KB | **489** | **120+** | **2,432** | ⚡ Production |
 | **nlohmann/json** | C++ | 959KB | **254** (123 classes) | **450+** | **10,677** | 🎯 Enterprise |
 | **.NET Runtime** | C# | Enterprise | **38** test functions | **65+** | **8** | 🏛️ Certified |
+| **Rust Test Suite** | Rust | 3,438 bytes | **9** functions | **27** | **2** | 🦀 Complete |
 | **Unity lanobeH2** | Unity C# | Game Project | **25** (Unity detection) | **35+** | **64** | 🎮 Specialized |
 | **requests** | Python | Library | **10** functions | **25+** | **55** | 🐍 Intelligent |
 | **NyaMesh-cpp** | C++ | Self-test | **2** functions | **15+** | **329** | 🔍 Self-aware |
@@ -247,6 +248,7 @@ NekoCode now provides comprehensive member variable analysis across all supporte
 | **JavaScript** | Instance vars, static, computed properties | `this.data`, `static counter = 0` |
 | **TypeScript** | Typed members, interfaces, optional properties | `private name?: string` |
 | **Python** | self vars, class vars, type hints, dataclass | `name: str`, `_private: Optional[int]` |
+| **Rust** | pub/private, generics, lifetimes, enum variants | `pub data: Arc<Mutex<T>>`, `name: String` |
 
 #### 🎯 Advanced Analysis Examples
 
