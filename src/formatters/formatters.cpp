@@ -70,6 +70,24 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
                 {"name", cls.name},
                 {"start_line", cls.start_line}
             };
+            
+            // メンバ変数情報を追加
+            if (!cls.member_variables.empty()) {
+                nlohmann::json member_vars_json = nlohmann::json::array();
+                for (const auto& var : cls.member_variables) {
+                    nlohmann::json var_json = {
+                        {"name", var.name},
+                        {"type", var.type},
+                        {"line", var.declaration_line},
+                        {"access", var.access_modifier}
+                    };
+                    if (var.is_static) var_json["static"] = true;
+                    if (var.is_const) var_json["const"] = true;
+                    member_vars_json.push_back(var_json);
+                }
+                class_json["member_variables"] = member_vars_json;
+            }
+            
             classes_json.push_back(class_json);
         }
         json_result["classes"] = classes_json;

@@ -73,6 +73,9 @@ public:
             apply_typescript_line_based_analysis(result, preprocessed_content, filename);
         }
         
+        // 🔍 TypeScript メンバ変数検出（JavaScript成功パターン移植）
+        detect_member_variables(result, content);
+        
         // TypeScript専用の追加解析（将来的に実装）
         // - interface検出
         // - type alias検出  
@@ -628,14 +631,6 @@ private:
         return content.substr(line_start, line_end - line_start);
     }
     
-    // 文字列の前後の空白を除去
-    std::string trim_whitespace(const std::string& str) {
-        size_t start = str.find_first_not_of(" \t\n\r");
-        if (start == std::string::npos) return "";
-        
-        size_t end = str.find_last_not_of(" \t\n\r");
-        return str.substr(start, end - start + 1);
-    }
     
     // 文字列内の位置から行番号を計算
     size_t calculate_line_number(const std::string& content, size_t pos) {
@@ -1249,6 +1244,233 @@ private:
         }
         
         return result;
+    }
+    
+    // 🔍 TypeScript メンバ変数検出（JavaScript成功パターン + TypeScript型注釈対応）
+    void detect_member_variables(AnalysisResult& result, const std::string& content) {
+        std::istringstream stream(content);
+        std::string line;
+        size_t line_number = 0;
+        
+        // 現在解析中のクラス情報
+        std::string current_class;
+        size_t current_class_index = 0;
+        bool in_constructor = false;
+        size_t class_brace_depth = 0;
+        size_t current_brace_depth = 0;
+        
+        while (std::getline(stream, line)) {
+            line_number++;
+            
+            // ブレース深度追跡
+            for (char c : line) {
+                if (c == '{') {
+                    current_brace_depth++;
+                } else if (c == '}') {
+                    if (current_brace_depth > 0) current_brace_depth--;
+                    if (current_brace_depth <= class_brace_depth && !current_class.empty()) {
+                        // クラス終了
+                        current_class.clear();
+                        in_constructor = false;
+                        class_brace_depth = 0;
+                    }
+                }
+            }
+            
+            // クラス開始検出
+            std::regex class_pattern(R"(^\s*(?:export\s+)?class\s+(\w+))");
+            std::smatch class_match;
+            if (std::regex_search(line, class_match, class_pattern)) {
+                current_class = class_match[1].str();
+                class_brace_depth = current_brace_depth;
+                
+                // 既存のクラス情報を見つける
+                for (size_t i = 0; i < result.classes.size(); i++) {
+                    if (result.classes[i].name == current_class) {
+                        current_class_index = i;
+                        break;
+                    }
+                }
+            }
+            
+            // コンストラクタ検出
+            if (!current_class.empty()) {
+                std::regex constructor_pattern(R"(^\s*constructor\s*\()");
+                if (std::regex_search(line, constructor_pattern)) {
+                    in_constructor = true;
+                }
+            }
+            
+            // TypeScript メンバ変数パターン検出
+            if (!current_class.empty() && current_class_index < result.classes.size()) {
+                detect_typescript_member_patterns(line, line_number, result.classes[current_class_index], in_constructor);
+            }
+        }
+    }
+    
+    // TypeScript メンバ変数パターン検出（型注釈対応版）
+    void detect_typescript_member_patterns(const std::string& line, size_t line_number, 
+                                          ClassInfo& class_info, bool in_constructor) {
+        std::smatch match;
+        
+        // パターン1: this.property = value (コンストラクタやメソッド内)
+        std::regex this_property_pattern(R"(this\.(\w+)\s*=)");
+        auto this_begin = std::sregex_iterator(line.begin(), line.end(), this_property_pattern);
+        auto this_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = this_begin; i != this_end; ++i) {
+            std::smatch match = *i;
+            std::string property_name = match[1].str();
+            
+            // 重複チェック
+            if (!member_already_exists(class_info, property_name)) {
+                MemberVariable member;
+                member.name = property_name;
+                member.type = infer_type_from_assignment(line);
+                member.declaration_line = line_number;
+                member.access_modifier = "public";
+                
+                class_info.member_variables.push_back(member);
+            }
+        }
+        
+        // パターン2: ES2022プライベートフィールド #privateField = value または #privateField: Type = value
+        std::regex private_field_pattern(R"(^\s*#(\w+)(?:\s*:\s*([^=]+))?\s*=)");
+        if (std::regex_search(line, match, private_field_pattern)) {
+            std::string field_name = "#" + match[1].str();
+            std::string type_annotation = match[2].matched ? match[2].str() : "";
+            
+            if (!member_already_exists(class_info, field_name)) {
+                MemberVariable member;
+                member.name = field_name;
+                member.type = type_annotation.empty() ? infer_type_from_assignment(line) : trim_whitespace(type_annotation);
+                member.declaration_line = line_number;
+                member.access_modifier = "private";
+                
+                class_info.member_variables.push_back(member);
+            }
+        }
+        
+        // パターン3: ES6クラスフィールド property = value または property: Type = value
+        std::regex class_field_pattern(R"(^\s*(?:public\s+|private\s+|protected\s+)?(\w+)(?:\s*:\s*([^=]+))?\s*=)");
+        if (std::regex_search(line, match, class_field_pattern)) {
+            std::string field_name = match[1].str();
+            std::string type_annotation = match[2].matched ? match[2].str() : "";
+            
+            // コンストラクタ以外で、かつメソッドではない場合
+            if (!in_constructor && line.find("(") == std::string::npos) {
+                if (!member_already_exists(class_info, field_name)) {
+                    MemberVariable member;
+                    member.name = field_name;
+                    member.type = type_annotation.empty() ? infer_type_from_assignment(line) : trim_whitespace(type_annotation);
+                    member.declaration_line = line_number;
+                    
+                    // アクセス修飾子の検出
+                    if (line.find("private ") != std::string::npos) {
+                        member.access_modifier = "private";
+                    } else if (line.find("protected ") != std::string::npos) {
+                        member.access_modifier = "protected";
+                    } else {
+                        member.access_modifier = "public";
+                    }
+                    
+                    class_info.member_variables.push_back(member);
+                }
+            }
+        }
+        
+        // パターン4: 静的プロパティ static property = value または static property: Type = value
+        std::regex static_property_pattern(R"(^\s*static\s+(?:public\s+|private\s+|protected\s+)?(\w+)(?:\s*:\s*([^=]+))?\s*=)");
+        if (std::regex_search(line, match, static_property_pattern)) {
+            std::string property_name = match[1].str();
+            std::string type_annotation = match[2].matched ? match[2].str() : "";
+            
+            if (!member_already_exists(class_info, property_name)) {
+                MemberVariable member;
+                member.name = property_name;
+                member.type = type_annotation.empty() ? infer_type_from_assignment(line) : trim_whitespace(type_annotation);
+                member.declaration_line = line_number;
+                member.is_static = true;
+                
+                // アクセス修飾子の検出
+                if (line.find("private ") != std::string::npos) {
+                    member.access_modifier = "private";
+                } else if (line.find("protected ") != std::string::npos) {
+                    member.access_modifier = "protected";
+                } else {
+                    member.access_modifier = "public";
+                }
+                
+                class_info.member_variables.push_back(member);
+            }
+        }
+        
+        // パターン5: TypeScript専用 プロパティ宣言のみ property: Type;
+        std::regex property_declaration_pattern(R"(^\s*(?:public\s+|private\s+|protected\s+|readonly\s+)*(\w+)\s*:\s*([^;]+);)");
+        if (std::regex_search(line, match, property_declaration_pattern)) {
+            std::string property_name = match[1].str();
+            std::string type_annotation = match[2].str();
+            
+            // コンストラクタパラメータではない場合
+            if (!in_constructor && !member_already_exists(class_info, property_name)) {
+                MemberVariable member;
+                member.name = property_name;
+                member.type = trim_whitespace(type_annotation);
+                member.declaration_line = line_number;
+                
+                // アクセス修飾子とreadonly検出
+                if (line.find("private ") != std::string::npos) {
+                    member.access_modifier = "private";
+                } else if (line.find("protected ") != std::string::npos) {
+                    member.access_modifier = "protected";
+                } else {
+                    member.access_modifier = "public";
+                }
+                
+                if (line.find("readonly ") != std::string::npos) {
+                    member.is_const = true;
+                }
+                
+                class_info.member_variables.push_back(member);
+            }
+        }
+    }
+    
+    // ヘルパー関数：メンバ変数の重複チェック
+    bool member_already_exists(const ClassInfo& class_info, const std::string& name) {
+        for (const auto& member : class_info.member_variables) {
+            if (member.name == name) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // ヘルパー関数：代入文から型を推論
+    std::string infer_type_from_assignment(const std::string& line) {
+        if (line.find("= new ") != std::string::npos) {
+            return "object";
+        } else if (line.find("= []") != std::string::npos) {
+            return "array";
+        } else if (line.find("= {}") != std::string::npos) {
+            return "object";
+        } else if (line.find("= true") != std::string::npos || line.find("= false") != std::string::npos) {
+            return "boolean";
+        } else if (line.find("= \"") != std::string::npos || line.find("= '") != std::string::npos || line.find("= `") != std::string::npos) {
+            return "string";
+        } else if (std::regex_search(line, std::regex(R"(= \d+)"))) {
+            return "number";
+        }
+        return "any";
+    }
+    
+    // ヘルパー関数：文字列の前後の空白を除去
+    std::string trim_whitespace(const std::string& str) {
+        size_t start = str.find_first_not_of(" \t\n\r");
+        if (start == std::string::npos) return "";
+        
+        size_t end = str.find_last_not_of(" \t\n\r");
+        return str.substr(start, end - start + 1);
     }
     
     // 🚀 【JavaScript高速化技術完全移植】TypeScript専用高速モード（わずか2パターンで6.76倍高速化！）

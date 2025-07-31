@@ -5,6 +5,9 @@
 //
 // 完全PEGTL移行：std::regex完全撤廃（JavaScript成功パターン適用）
 // テンプレート地獄・名前空間地獄・継承地獄に立ち向かう
+
+// 🚨 一時的にregex有効化（メンバ変数検出のため）
+#define NEKOCODE_FOUNDATION_CORE_CPP
 //=============================================================================
 
 #include "nekocode/analyzers/base_analyzer.hpp"
@@ -384,19 +387,60 @@ private:
         return complexity;
     }
     
+    // 🔧 元のコンテンツから正しいクラス開始行を検索
+    size_t find_correct_class_start_line(const std::string& content, const std::string& class_name, bool is_struct) {
+        std::istringstream stream(content);
+        std::string line;
+        size_t line_number = 0;
+        
+        std::string search_pattern = is_struct ? ("struct " + class_name) : ("class " + class_name);
+        
+        while (std::getline(stream, line)) {
+            line_number++;
+            if (line.find(search_pattern) != std::string::npos) {
+                std::cerr << "🎯 Found correct " << (is_struct ? "struct" : "class") << " '" << class_name << "' at line " << line_number << std::endl;
+                return line_number;
+            }
+        }
+        
+        std::cerr << "❌ Could not find " << (is_struct ? "struct" : "class") << " '" << class_name << "' in original content" << std::endl;
+        return 0;
+    }
+    
     // 🔍 メンバ変数検出（analyze機能用）
     void detect_member_variables(AnalysisResult& result, const std::string& content) {
+        std::cerr << "🔥 C++ detect_member_variables called with " << result.classes.size() << " classes" << std::endl;
+        
+        // クラス一覧をデバッグ出力
+        for (size_t i = 0; i < result.classes.size(); ++i) {
+            std::cerr << "🏷️  Class[" << i << "]: '" << result.classes[i].name << "' (lines " 
+                      << result.classes[i].start_line << "-" << result.classes[i].end_line << ")" << std::endl;
+        }
+        
         std::istringstream stream(content);
         std::string line;
         size_t line_number = 0;
         
         // 各クラスに対してメンバ変数を検出
         for (auto& cls : result.classes) {
+            std::cerr << "🔍 Processing class: '" << cls.name << "'" << std::endl;
+            
             // namespace:やstruct:プレフィックスを除去
             std::string clean_class_name = cls.name;
-            if (clean_class_name.find("namespace:") == 0) continue; // namespaceはスキップ
+            if (clean_class_name.find("namespace:") == 0) {
+                std::cerr << "⏭️  Skipping namespace: " << clean_class_name << std::endl;
+                continue; // namespaceはスキップ
+            }
             if (clean_class_name.find("struct:") == 0) {
                 clean_class_name = clean_class_name.substr(7);
+                std::cerr << "📦 Struct detected, clean name: '" << clean_class_name << "'" << std::endl;
+            }
+            
+            // 🔧 元のコンテンツから正しいクラス開始行を再検索
+            size_t correct_start_line = find_correct_class_start_line(content, clean_class_name, cls.name.find("struct:") == 0);
+            if (correct_start_line > 0) {
+                cls.start_line = correct_start_line;
+                std::cerr << "✅ Corrected start_line for '" << cls.name << "': " << correct_start_line << std::endl;
             }
             
             // クラス/構造体の終了行を推定（次のクラスの開始行または最終行）
@@ -419,6 +463,8 @@ private:
                 access_modifier = "public"; // structのデフォルトはpublic
             }
             
+            std::cerr << "🔍 Scanning lines " << cls.start_line << "-" << end_line << " for class '" << clean_class_name << "'" << std::endl;
+            
             while (std::getline(stream, line)) {
                 line_number++;
                 
@@ -428,11 +474,108 @@ private:
                     if (line.find("{") != std::string::npos) {
                         brace_depth = 1;
                     }
-                    continue;
+                    std::cerr << "🎯 Class start detected at line " << line_number << ": " << line << std::endl;
+                    
+                    // 🚀 単行クラス定義対応：同じ行にメンバ変数がある場合を検出
+                    if (line.find("{") != std::string::npos && line.find("}") != std::string::npos) {
+                        std::cerr << "🎯 Single-line class detected, processing members inline" << std::endl;
+                        
+                        // { と } の間のコンテンツを抽出
+                        size_t start_brace = line.find("{");
+                        size_t end_brace = line.find("}", start_brace);
+                        if (start_brace != std::string::npos && end_brace != std::string::npos) {
+                            std::string class_body = line.substr(start_brace + 1, end_brace - start_brace - 1);
+                            std::cerr << "📝 Class body: '" << class_body << "'" << std::endl;
+                            
+                            // デバッグ：分割前の内容を出力
+                            std::cerr << "🔍 Processing segments from body: '" << class_body << "'" << std::endl;
+                            
+                            // 複数のセグメントを処理
+                            std::string current_access = "private"; // classのデフォルト
+                            std::istringstream body_stream(class_body);
+                            std::string token;
+                            std::string accumulator;
+                            
+                            // セミコロンまたはアクセス修飾子で分割
+                            size_t pos = 0;
+                            while (pos < class_body.length()) {
+                                size_t next_semi = class_body.find(';', pos);
+                                size_t next_access = std::min({
+                                    class_body.find("public:", pos),
+                                    class_body.find("private:", pos),
+                                    class_body.find("protected:", pos)
+                                });
+                                
+                                size_t next_break = std::min(next_semi, next_access);
+                                if (next_break == std::string::npos) next_break = class_body.length();
+                                
+                                std::string segment = class_body.substr(pos, next_break - pos);
+                                std::cerr << "📋 Segment[" << pos << "-" << next_break << "]: '" << segment << "'" << std::endl;
+                                // trim whitespace
+                                segment.erase(0, segment.find_first_not_of(" \t"));
+                                segment.erase(segment.find_last_not_of(" \t") + 1);
+                                
+                                if (!segment.empty()) {
+                                    // アクセス修飾子チェック
+                                    if (segment.find("public:") != std::string::npos) {
+                                        current_access = "public";
+                                        std::cerr << "🔑 Access changed to: " << current_access << std::endl;
+                                    } else if (segment.find("private:") != std::string::npos) {
+                                        current_access = "private";
+                                        std::cerr << "🔑 Access changed to: " << current_access << std::endl;
+                                    } else if (segment.find("protected:") != std::string::npos) {
+                                        current_access = "protected";
+                                        std::cerr << "🔑 Access changed to: " << current_access << std::endl;
+                                    } else {
+                                        // メンバ変数パターンをチェック（改良版）
+                                        std::regex member_pattern(R"(^\s*(?:static\s+)?(?:const\s+)?(\w+)\s+(\w+)\s*$)");
+                                        std::smatch var_match;
+                                        if (std::regex_search(segment, var_match, member_pattern)) {
+                                            std::string var_name = var_match[2].str();
+                                            
+                                            // 関数宣言を除外
+                                            if (segment.find("(") == std::string::npos) {
+                                                std::cerr << "🎯 Found member variable: " << var_name << " in class " << clean_class_name << " (single-line)" << std::endl;
+                                                std::cerr << "    📝 Segment content: '" << segment << "'" << std::endl;
+                                                std::cerr << "    🔑 Access: " << current_access << std::endl;
+                                                
+                                                MemberVariable member;
+                                                member.name = var_name;
+                                                member.type = "auto";
+                                                member.access_modifier = current_access;
+                                                cls.member_variables.push_back(member);
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // 次の位置に移動
+                                pos = next_break;
+                                if (pos < class_body.length()) {
+                                    if (class_body[pos] == ';') pos++;
+                                    else if (next_break == next_access) {
+                                        // アクセス修飾子をスキップ
+                                        size_t colon_pos = class_body.find(':', pos);
+                                        if (colon_pos != std::string::npos) pos = colon_pos + 1;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        in_class = false; // 単行クラスは処理完了
+                        continue;
+                    } else {
+                        continue; // 通常の複数行クラス処理へ
+                    }
                 }
                 
                 if (!in_class) continue;
-                if (line_number > end_line) break;
+                if (line_number > end_line) {
+                    std::cerr << "📍 Reached end_line " << end_line << " for class " << clean_class_name << std::endl;
+                    break;
+                }
+                
+                std::cerr << "📄 Line " << line_number << " (in_class=" << in_class << ", brace_depth=" << brace_depth << "): " << line << std::endl;
                 
                 // ブレース深度を追跡
                 for (char c : line) {
@@ -468,6 +611,8 @@ private:
                 std::smatch var_match;
                 if (std::regex_search(line, var_match, member_var_pattern)) {
                     std::string var_name = var_match[1].str();
+                    std::cerr << "🎯 Found member variable: " << var_name << " in class " << clean_class_name << " at line " << line_number << std::endl;
+                    std::cerr << "    📝 Line content: '" << line << "'" << std::endl;
                     
                     // 関数宣言を除外（括弧がある場合）
                     if (line.find("(") != std::string::npos && line.find(")") != std::string::npos) {
