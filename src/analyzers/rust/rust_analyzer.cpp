@@ -113,6 +113,11 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
         result.classes.push_back(class_info);
     }
     
+    // 🎯 メンバ変数検出（新機能）
+    NEKOCODE_PERF_CHECKPOINT("member_variables");
+    detect_member_variables(result, content);
+    // メンバ変数検出のログは detect_member_variables 内で出力
+
     // 複雑度計算
     NEKOCODE_PERF_CHECKPOINT("complexity");
     result.complexity = calculate_rust_complexity(content);
@@ -668,6 +673,158 @@ std::vector<std::string> RustAnalyzer::extract_lifetimes(const std::string& gene
     }
     
     return lifetimes;
+}
+
+//=============================================================================
+// 🎯 メンバ変数検出（新機能）
+//=============================================================================
+
+void RustAnalyzer::detect_member_variables(AnalysisResult& result, const std::string& content) {
+    using namespace nekocode::debug;
+    NEKOCODE_PERF_TIMER("RustAnalyzer::detect_member_variables");
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Starting member variable detection");
+    
+    std::istringstream stream(content);
+    std::string line;
+    size_t line_number = 1;
+    
+    // 構造体内のフィールド検出
+    std::regex struct_field_pattern(R"(^\s*(?:(pub)(?:\([^)]*\))?\s+)?([a-zA-Z_]\w*)\s*:\s*([^,{}]+)(?:,|$))");
+    
+    // 列挙型のバリアント内フィールド検出
+    std::regex enum_field_pattern(R"(^\s*([A-Z]\w*)\s*\{\s*([^}]+)\s*\})");
+    
+    // impl内での self.field パターン（参考用）
+    std::regex self_field_pattern(R"(self\.([a-zA-Z_]\w*))");
+    
+    bool in_struct = false;
+    bool in_enum = false;
+    std::string current_struct_name;
+    std::string current_enum_name;
+    int brace_level = 0;
+    
+    while (std::getline(stream, line)) {
+        // 構造体の開始検出
+        std::smatch struct_match;
+        std::regex struct_start_pattern(R"(^\s*(?:pub\s+)?struct\s+([a-zA-Z_]\w*))");
+        if (std::regex_search(line, struct_match, struct_start_pattern)) {
+            in_struct = true;
+            current_struct_name = struct_match[1].str();
+            brace_level = 0;
+            NEKOCODE_LOG_TRACE("RustAnalyzer", "Found struct: " + current_struct_name + " at line " + std::to_string(line_number));
+        }
+        
+        // 列挙型の開始検出
+        std::smatch enum_match;
+        std::regex enum_start_pattern(R"(^\s*(?:pub\s+)?enum\s+([a-zA-Z_]\w*))");
+        if (std::regex_search(line, enum_match, enum_start_pattern)) {
+            in_enum = true;
+            current_enum_name = enum_match[1].str();
+            brace_level = 0;
+            NEKOCODE_LOG_TRACE("RustAnalyzer", "Found enum: " + current_enum_name + " at line " + std::to_string(line_number));
+        }
+        
+        // ブレースレベル追跡
+        for (char c : line) {
+            if (c == '{') brace_level++;
+            else if (c == '}') brace_level--;
+        }
+        
+        // 構造体終了検出
+        if (in_struct && brace_level <= 0 && line.find('}') != std::string::npos) {
+            in_struct = false;
+            current_struct_name.clear();
+        }
+        
+        // 列挙型終了検出
+        if (in_enum && brace_level <= 0 && line.find('}') != std::string::npos) {
+            in_enum = false;
+            current_enum_name.clear();
+        }
+        
+        // 構造体フィールド検出
+        if (in_struct && brace_level > 0) {
+            std::smatch field_match;
+            if (std::regex_search(line, field_match, struct_field_pattern)) {
+                MemberVariable member_var;
+                member_var.name = field_match[2].str();
+                member_var.type = field_match[3].str();
+                // current_struct_name は後で使用
+                member_var.declaration_line = line_number;
+                
+                // アクセス修飾子
+                if (!field_match[1].str().empty()) {
+                    member_var.access_modifier = "pub";
+                } else {
+                    member_var.access_modifier = "private";  // Rustのデフォルト
+                }
+                
+                // 型を整理
+                member_var.type.erase(0, member_var.type.find_first_not_of(" \t"));
+                member_var.type.erase(member_var.type.find_last_not_of(" \t,") + 1);
+                
+                // 対応するClassInfoを検索して追加
+                for (auto& class_info : result.classes) {
+                    if (class_info.name == current_struct_name) {
+                        class_info.member_variables.push_back(member_var);
+                        break;
+                    }
+                }
+                NEKOCODE_LOG_TRACE("RustAnalyzer", "Found struct field: " + 
+                                  member_var.access_modifier + " " + member_var.name + 
+                                  ": " + member_var.type + " in " + current_struct_name);
+            }
+        }
+        
+        // 列挙型バリアント内フィールド検出
+        if (in_enum && brace_level > 0) {
+            std::smatch variant_match;
+            if (std::regex_search(line, variant_match, enum_field_pattern)) {
+                std::string variant_name = variant_match[1].str();
+                std::string fields_str = variant_match[2].str();
+                
+                // フィールドを個別に解析
+                std::istringstream fields_stream(fields_str);
+                std::string field;
+                while (std::getline(fields_stream, field, ',')) {
+                    field.erase(0, field.find_first_not_of(" \t"));
+                    field.erase(field.find_last_not_of(" \t") + 1);
+                    
+                    size_t colon_pos = field.find(':');
+                    if (colon_pos != std::string::npos) {
+                        MemberVariable member_var;
+                        member_var.name = field.substr(0, colon_pos);
+                        member_var.type = field.substr(colon_pos + 1);
+                        // current_enum_name + variant_name は後で使用
+                        member_var.declaration_line = line_number;
+                        member_var.access_modifier = "pub";  // enum variant fields are pub
+                        
+                        // 型を整理
+                        member_var.name.erase(0, member_var.name.find_first_not_of(" \t"));
+                        member_var.name.erase(member_var.name.find_last_not_of(" \t") + 1);
+                        member_var.type.erase(0, member_var.type.find_first_not_of(" \t"));
+                        member_var.type.erase(member_var.type.find_last_not_of(" \t") + 1);
+                        
+                        // 対応するClassInfoを検索して追加
+                        std::string full_enum_name = current_enum_name + "::" + variant_name;
+                        for (auto& class_info : result.classes) {
+                            if (class_info.name == current_enum_name) {
+                                class_info.member_variables.push_back(member_var);
+                                break;
+                            }
+                        }
+                        NEKOCODE_LOG_TRACE("RustAnalyzer", "Found enum field: " + 
+                                          member_var.name + ": " + member_var.type + 
+                                          " in " + current_enum_name + "::" + variant_name);
+                    }
+                }
+            }
+        }
+        
+        line_number++;
+    }
+    
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Member variable detection completed");
 }
 
 } // namespace nekocode
