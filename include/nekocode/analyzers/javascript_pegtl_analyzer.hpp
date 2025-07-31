@@ -604,6 +604,9 @@ public:
         // 複雑度計算（既存ロジック流用）
         result.complexity = calculate_javascript_complexity(content);
         
+        // 🔍 JavaScriptメンバ変数検出（C++成功パターン移植）
+        detect_member_variables(result, content);
+        
         // 🚀 ハイブリッド戦略: 統計整合性チェック + 行ベース補完
         if (needs_line_based_fallback(result, content)) {
             apply_line_based_analysis(result, content, filename);
@@ -616,6 +619,170 @@ public:
     }
 
 private:
+    // 🔍 JavaScriptメンバ変数検出（C++成功パターン移植）
+    void detect_member_variables(AnalysisResult& result, const std::string& content) {
+        std::istringstream stream(content);
+        std::string line;
+        size_t line_number = 0;
+        
+        // 現在解析中のクラス情報
+        std::string current_class;
+        size_t current_class_index = 0;
+        bool in_constructor = false;
+        size_t class_brace_depth = 0;
+        size_t current_brace_depth = 0;
+        
+        while (std::getline(stream, line)) {
+            line_number++;
+            
+            // ブレース深度追跡
+            for (char c : line) {
+                if (c == '{') {
+                    current_brace_depth++;
+                } else if (c == '}') {
+                    if (current_brace_depth > 0) current_brace_depth--;
+                    if (current_brace_depth <= class_brace_depth && !current_class.empty()) {
+                        // クラス終了
+                        current_class.clear();
+                        in_constructor = false;
+                        class_brace_depth = 0;
+                    }
+                }
+            }
+            
+            // クラス開始検出
+            std::regex class_pattern(R"(^\s*(?:export\s+)?class\s+(\w+))");
+            std::smatch class_match;
+            if (std::regex_search(line, class_match, class_pattern)) {
+                current_class = class_match[1].str();
+                class_brace_depth = current_brace_depth;
+                
+                // 既存のクラス情報を見つける
+                for (size_t i = 0; i < result.classes.size(); i++) {
+                    if (result.classes[i].name == current_class) {
+                        current_class_index = i;
+                        break;
+                    }
+                }
+            }
+            
+            // コンストラクタ検出
+            if (!current_class.empty()) {
+                std::regex constructor_pattern(R"(^\s*constructor\s*\()");
+                if (std::regex_search(line, constructor_pattern)) {
+                    in_constructor = true;
+                }
+            }
+            
+            // JavaScriptメンバ変数パターン検出
+            if (!current_class.empty() && current_class_index < result.classes.size()) {
+                detect_javascript_member_patterns(line, line_number, result.classes[current_class_index], in_constructor);
+            }
+        }
+    }
+    
+    // JavaScriptメンバ変数パターン検出
+    void detect_javascript_member_patterns(const std::string& line, size_t line_number, 
+                                          ClassInfo& class_info, bool in_constructor) {
+        std::smatch match;
+        
+        // パターン1: this.property = value (コンストラクタやメソッド内)
+        std::regex this_property_pattern(R"(this\.(\w+)\s*=)");
+        auto this_begin = std::sregex_iterator(line.begin(), line.end(), this_property_pattern);
+        auto this_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = this_begin; i != this_end; ++i) {
+            std::smatch match = *i;
+            std::string property_name = match[1].str();
+            
+            // 重複チェック
+            bool already_exists = false;
+            for (const auto& member : class_info.member_variables) {
+                if (member.name == property_name) {
+                    already_exists = true;
+                    break;
+                }
+            }
+            
+            if (!already_exists) {
+                MemberVariable member;
+                member.name = property_name;
+                member.type = "any"; // JavaScriptは動的型付け
+                member.declaration_line = line_number;
+                member.access_modifier = "public"; // JavaScriptのthis.propertyは基本public
+                
+                // 値から型を推定
+                if (line.find("= new ") != std::string::npos) {
+                    member.type = "object";
+                } else if (line.find("= []") != std::string::npos) {
+                    member.type = "array";
+                } else if (line.find("= {}") != std::string::npos) {
+                    member.type = "object";
+                } else if (line.find("= true") != std::string::npos || line.find("= false") != std::string::npos) {
+                    member.type = "boolean";
+                } else if (std::regex_search(line, std::regex(R"(=\s*\d+)"))) {
+                    member.type = "number";
+                } else if (std::regex_search(line, std::regex(R"(=\s*['""])"))) {
+                    member.type = "string";
+                }
+                
+                class_info.member_variables.push_back(member);
+            }
+        }
+        
+        // パターン2: ES2022プライベートフィールド #privateField = value
+        std::regex private_field_pattern(R"(^\s*#(\w+)\s*=)");
+        if (std::regex_search(line, match, private_field_pattern)) {
+            std::string field_name = match[1].str();
+            
+            MemberVariable member;
+            member.name = "#" + field_name; // プライベートフィールドは#付きで保存
+            member.type = "any";
+            member.declaration_line = line_number;
+            member.access_modifier = "private";
+            member.is_static = false;
+            
+            class_info.member_variables.push_back(member);
+        }
+        
+        // パターン3: ES6クラスフィールド property = value
+        std::regex class_field_pattern(R"(^\s*(\w+)\s*=)");
+        if (std::regex_search(line, match, class_field_pattern) && 
+            !in_constructor && // コンストラクタ内のthis.propertyと区別
+            line.find("this.") == std::string::npos && // this.propertyではない
+            line.find("function") == std::string::npos && // 関数定義ではない
+            line.find("const") == std::string::npos && // const宣言ではない
+            line.find("let") == std::string::npos && // let宣言ではない
+            line.find("var") == std::string::npos) { // var宣言ではない
+            
+            std::string field_name = match[1].str();
+            
+            MemberVariable member;
+            member.name = field_name;
+            member.type = "any";
+            member.declaration_line = line_number;
+            member.access_modifier = "public";
+            member.is_static = false;
+            
+            class_info.member_variables.push_back(member);
+        }
+        
+        // パターン4: 静的プロパティ static property = value
+        std::regex static_property_pattern(R"(^\s*static\s+(\w+)\s*=)");
+        if (std::regex_search(line, match, static_property_pattern)) {
+            std::string property_name = match[1].str();
+            
+            MemberVariable member;
+            member.name = property_name;
+            member.type = "any";
+            member.declaration_line = line_number;
+            member.access_modifier = "public";
+            member.is_static = true;
+            
+            class_info.member_variables.push_back(member);
+        }
+    }
+
     // 複雑度計算（C#成功パターン準拠）
     ComplexityInfo calculate_javascript_complexity(const std::string& content) {
         ComplexityInfo complexity;

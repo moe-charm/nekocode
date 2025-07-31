@@ -271,7 +271,13 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                         cpp_class.start_line = cls.start_line;
                         cpp_class.end_line = cls.end_line;
                         cpp_class.class_type = CppClass::CLASS; // デフォルト
-                        // access_levelフィールドは存在しない
+                        
+                        // 🔥 メンバ変数情報を変換
+                        for (const auto& member : cls.member_variables) {
+                            // MemberVariable -> string 変換（CppClassはstd::vector<std::string>）
+                            cpp_class.member_variables.push_back(member.name);
+                        }
+                        
                         cpp_result.cpp_classes.push_back(cpp_class);
                     }
                     
