@@ -14,6 +14,8 @@
 #include "nekocode/formatters.hpp"
 #include "nekocode/session_manager.hpp"
 #include "nekocode/progress_tracker.hpp"
+#include "nekocode/command_dispatcher.hpp"
+#include "nekocode/command_line_args.hpp"
 #include <iostream>
 #include <filesystem>
 #include <chrono>
@@ -29,73 +31,28 @@ using namespace nekocode;
 extern bool g_debug_mode;
 
 //=============================================================================
-// 📋 Command Line Parser
+// 📋 Command Line Parser - 共通ヘッダーを使用
 //=============================================================================
-
-struct CommandLineArgs {
-    std::string target_path;
-    std::string output_format = "json";
-    std::string language = "auto";          // 言語指定
-    bool show_help = false;
-    bool compact_mode = false;
-    bool stats_only = false;
-    bool enable_parallel = true;
-    uint32_t io_threads = 4;                // 🆕 同時ファイル読み込み数（デフォルト: 4）
-    uint32_t cpu_threads = 0;               // 🆕 解析スレッド数（0 = 自動）
-    bool show_performance = false;
-    bool list_languages = false;           // サポート言語一覧
-    bool enable_progress = false;           // プログレス表示
-    bool debug_mode = false;                // --debug: デバッグログ表示モード
-    
-    // 事前チェック関連
-    bool skip_precheck = false;             // --no-check: 事前チェックスキップ
-    bool force_execution = false;           // --force: 確認なしで強制実行
-    bool check_only = false;                // --check-only: チェックのみ実行
-    
-    static CommandLineArgs parse(int argc, char* argv[]) {
-        CommandLineArgs args;
-        
-        for (int i = 1; i < argc; ++i) {
-            std::string arg = argv[i];
-            
-            if (arg == "-h" || arg == "--help") {
-                args.show_help = true;
-            } else if (arg == "--compact") {
-                args.compact_mode = true;
-            } else if (arg == "--stats-only") {
-                args.stats_only = true;
-            } else if (arg == "--no-parallel") {
-                args.enable_parallel = false;
-            } else if (arg == "--io-threads" && i + 1 < argc) {
-                args.io_threads = std::stoul(argv[++i]);
-            } else if (arg == "--cpu-threads" && i + 1 < argc) {
-                args.cpu_threads = std::stoul(argv[++i]);
-            } else if (arg == "--performance") {
-                args.show_performance = true;
-            } else if (arg == "--format" && i + 1 < argc) {
-                args.output_format = argv[++i];
-            } else if (arg == "--lang" || arg == "--language") {
-                if (i + 1 < argc) {
-                    args.language = argv[++i];
-                }
-            } else if (arg == "--list-languages") {
-                args.list_languages = true;
-            } else if (arg == "--progress") {
-                args.enable_progress = true;
-            } else if (arg == "--debug") {
-                args.debug_mode = true;
-            } else if (args.target_path.empty()) {
-                args.target_path = arg;
-            }
-        }
-        
-        return args;
-    }
-};
 
 //=============================================================================
 // 📖 Help Display
 //=============================================================================
+
+void show_supported_languages() {
+    nlohmann::json langs_json;
+    langs_json["supported_languages"] = {
+        {"javascript", {{"name", "JavaScript"}, {"extensions", {".js", ".mjs", ".jsx"}}}},
+        {"typescript", {{"name", "TypeScript"}, {"extensions", {".ts", ".tsx", ".mts", ".cts"}}}},
+        {"cpp", {{"name", "C++"}, {"extensions", {".cpp", ".cxx", ".cc", ".hpp", ".hxx", ".hh", ".h"}}}},
+        {"c", {{"name", "C"}, {"extensions", {".c", ".h"}}}},
+        {"python", {{"name", "Python"}, {"extensions", {".py", ".pyw", ".pyi"}}}},
+        {"csharp", {{"name", "C#"}, {"extensions", {".cs", ".csx"}}}}
+    };
+    langs_json["auto_detection"] = true;
+    langs_json["utf8_support"] = true;
+    langs_json["unicode_identifiers"] = true;
+    std::cout << langs_json.dump(2) << std::endl;
+}
 
 void show_help() {
     std::cout << R"(🤖 NekoCode AI Tool - 多言語対応Claude Code最適化版
@@ -244,130 +201,8 @@ int execute_session_command(const std::string& session_id, const std::string& co
 
 int main(int argc, char* argv[]) {
     try {
-        // 引数なしの場合はヘルプ表示
-        if (argc < 2) {
-            show_help();
-            return 1;
-        }
-        
-        std::string action = argv[1];
-        
-        // ヘルプ表示
-        if (action == "-h" || action == "--help") {
-            show_help();
-            return 0;
-        }
-        
-        // アクション分岐
-        if (action == "analyze") {
-            if (argc < 3) {
-                std::cerr << "Error: Missing target path for analyze" << std::endl;
-                return 1;
-            }
-            CommandLineArgs args = CommandLineArgs::parse(argc - 2, argv + 2);
-            args.target_path = argv[2];
-            return analyze_target(argv[2], args);
-        }
-        else if (action == "session-create") {
-            if (argc < 3) {
-                std::cerr << "Error: Missing target path for session-create" << std::endl;
-                return 1;
-            }
-            // session-create 専用引数解析
-            CommandLineArgs args;
-            for (int i = 3; i < argc; ++i) {
-                std::string arg = argv[i];
-                if (arg == "--progress") {
-                    args.enable_progress = true;
-                } else if (arg == "--io-threads" && i + 1 < argc) {
-                    args.io_threads = std::stoul(argv[++i]);
-                } else if (arg == "--cpu-threads" && i + 1 < argc) {
-                    args.cpu_threads = std::stoul(argv[++i]);
-                } else if (arg == "--no-check") {
-                    args.skip_precheck = true;
-                } else if (arg == "--force") {
-                    args.force_execution = true;
-                } else if (arg == "--check-only") {
-                    args.check_only = true;
-                }
-            }
-            return create_session(argv[2], args);
-        }
-        else if (action == "session-create-async") {
-            if (argc < 3) {
-                std::cerr << "Error: Missing target path for session-create-async" << std::endl;
-                return 1;
-            }
-            // session-create-async 専用引数解析（session-createと同じ）
-            CommandLineArgs args;
-            for (int i = 3; i < argc; ++i) {
-                std::string arg = argv[i];
-                if (arg == "--progress") {
-                    args.enable_progress = true;
-                } else if (arg == "--io-threads" && i + 1 < argc) {
-                    args.io_threads = std::stoul(argv[++i]);
-                } else if (arg == "--cpu-threads" && i + 1 < argc) {
-                    args.cpu_threads = std::stoul(argv[++i]);
-                } else if (arg == "--no-check") {
-                    args.skip_precheck = true;
-                } else if (arg == "--force") {
-                    args.force_execution = true;
-                } else if (arg == "--check-only") {
-                    args.check_only = true;
-                }
-            }
-            return create_session_async(argv[2], args);
-        }
-        else if (action == "session-status") {
-            if (argc < 3) {
-                std::cerr << "Error: Missing session_id for session-status" << std::endl;
-                return 1;
-            }
-            return check_session_status(argv[2]);
-        }
-        else if (action == "session-cmd") {
-            if (argc < 4) {
-                std::cerr << "Error: Missing session_id or command for session-cmd" << std::endl;
-                return 1;
-            }
-            // コマンドが複数語の場合の処理
-            std::string command = argv[3];
-            for (int i = 4; i < argc; ++i) {
-                command += " " + std::string(argv[i]);
-            }
-            return execute_session_command(argv[2], command);
-        }
-        else {
-            // 旧形式の互換性維持
-            auto args = CommandLineArgs::parse(argc, argv);
-            
-            if (args.show_help || (args.target_path.empty() && !args.list_languages)) {
-                show_help();
-                return args.target_path.empty() ? 1 : 0;
-            }
-                
-            // サポート言語一覧表示
-            if (args.list_languages) {
-                nlohmann::json langs_json;
-                langs_json["supported_languages"] = {
-                    {"javascript", {{"name", "JavaScript"}, {"extensions", {".js", ".mjs", ".jsx"}}}},
-                    {"typescript", {{"name", "TypeScript"}, {"extensions", {".ts", ".tsx", ".mts", ".cts"}}}},
-                    {"cpp", {{"name", "C++"}, {"extensions", {".cpp", ".cxx", ".cc", ".hpp", ".hxx", ".hh", ".h"}}}},
-                    {"c", {{"name", "C"}, {"extensions", {".c", ".h"}}}},
-                    {"python", {{"name", "Python"}, {"extensions", {".py", ".pyw", ".pyi"}}}},
-                    {"csharp", {{"name", "C#"}, {"extensions", {".cs", ".csx"}}}}
-                };
-                langs_json["auto_detection"] = true;
-                langs_json["utf8_support"] = true;
-                langs_json["unicode_identifiers"] = true;
-                std::cout << langs_json.dump(2) << std::endl;
-                return 0;
-            }
-            
-            // 通常の解析実行
-            return analyze_target(args.target_path, args);
-        }
-        
+        nekocode::CommandDispatcher dispatcher;
+        return dispatcher.dispatch(argc, argv);
     } catch (const std::exception& e) {
         nlohmann::json error_json;
         error_json["error"] = {
