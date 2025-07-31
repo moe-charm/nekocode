@@ -13,43 +13,14 @@
 //=============================================================================
 
 #include "types.hpp"
+#include "session_data.hpp"
+#include "session_commands.hpp"
 #include <nlohmann/json.hpp>
 #include <filesystem>
 #include <chrono>
 #include <memory>
 
 namespace nekocode {
-
-//=============================================================================
-// 📱 Session Data - セッション情報
-//=============================================================================
-
-struct SessionData {
-    std::string session_id;
-    std::string session_type = "ai_optimized";
-    Timestamp created_at;
-    std::filesystem::path target_path;
-    
-    // 解析データ
-    AnalysisResult single_file_result;        // 単一ファイルの場合
-    DirectoryAnalysis directory_result;       // ディレクトリの場合
-    bool is_directory = false;
-    
-    // セッション管理
-    struct CommandHistory {
-        std::string command;
-        Timestamp timestamp;
-        std::string result_type;
-    };
-    std::vector<CommandHistory> command_history;
-    
-    // クイック統計（高速アクセス用）
-    nlohmann::json quick_stats;
-    
-    // JSONシリアライズ
-    nlohmann::json to_json() const;
-    static SessionData from_json(const nlohmann::json& j);
-};
 
 //=============================================================================
 // 🎮 Session Manager - セッション管理クラス
@@ -79,39 +50,14 @@ public:
     
 private:
     std::filesystem::path sessions_dir_;
+    SessionCommands session_commands_;
     
     // セッションファイル管理
     std::filesystem::path get_session_file(const std::string& session_id) const;
     SessionData load_session(const std::string& session_id) const;
     void save_session(const SessionData& session) const;
     
-    // コマンド実行
-    nlohmann::json cmd_stats(const SessionData& session) const;
-    nlohmann::json cmd_files(const SessionData& session) const;
-    nlohmann::json cmd_complexity(const SessionData& session) const;
-    nlohmann::json cmd_structure(const SessionData& session) const;
-    nlohmann::json cmd_calls(const SessionData& session) const;
-    nlohmann::json cmd_find(const SessionData& session, const std::string& term) const;
-    nlohmann::json cmd_find_symbols(const SessionData& session, 
-                                    const std::string& symbol,
-                                    const std::vector<std::string>& options,
-                                    bool debug = false) const;
-    nlohmann::json cmd_help() const;
-    
-    // Include解析コマンド
-    nlohmann::json cmd_include_graph(const SessionData& session) const;
-    nlohmann::json cmd_include_cycles(const SessionData& session) const;
-    nlohmann::json cmd_include_impact(const SessionData& session) const;
-    nlohmann::json cmd_include_unused(const SessionData& session) const;
-    nlohmann::json cmd_include_optimize(const SessionData& session) const;
-    nlohmann::json cmd_duplicates(const SessionData& session) const;
-    nlohmann::json cmd_large_files(const SessionData& session, int threshold) const;
-    nlohmann::json cmd_todo(const SessionData& session) const;
-    nlohmann::json cmd_complexity_ranking(const SessionData& session) const;
-    nlohmann::json cmd_analyze(const SessionData& session, const std::string& filename, bool deep) const;
-    nlohmann::json cmd_structure_detailed(const SessionData& session, const std::string& filename) const;
-    nlohmann::json cmd_complexity_methods(const SessionData& session, const std::string& filename) const;
-    nlohmann::json cmd_calls_detailed(const SessionData& session, const std::string& function_name) const;
+    // SessionCommandsにコマンド処理を委譲
     
     // analyze用ヘルパー関数
     nlohmann::json analyze_file(const AnalysisResult& file, bool deep) const;
