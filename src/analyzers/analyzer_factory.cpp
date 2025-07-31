@@ -4,10 +4,10 @@
 // 言語に応じた適切なアナライザーを生成
 //=============================================================================
 
-#include "nekocode/analyzers/base_analyzer.hpp"
+#include "base_analyzer.hpp"
 // #include "nekocode/analyzers/javascript_analyzer.hpp" // regex版は削除済み
-#include "nekocode/analyzers/javascript_pegtl_analyzer.hpp"
-#include "nekocode/analyzers/typescript_pegtl_analyzer.hpp"
+#include "javascript/javascript_pegtl_analyzer.hpp"
+#include "typescript/typescript_pegtl_analyzer.hpp"
 #include "nekocode/analyzers/python_analyzer.hpp"
 #include "nekocode/analyzers/python_pegtl_analyzer.hpp"
 #include "nekocode/analyzers/cpp_language_analyzer.hpp"
