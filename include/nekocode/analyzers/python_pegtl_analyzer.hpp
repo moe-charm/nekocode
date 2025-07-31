@@ -7,7 +7,7 @@
 // Python特殊事情：インデント依存・def/class構文・import多様性
 //=============================================================================
 
-#include "nekocode/analyzers/base_analyzer.hpp"
+#include "base_analyzer.hpp"
 #include "nekocode/analyzers/python_minimal_grammar.hpp"
 #include <tao/pegtl.hpp>
 #include <vector>

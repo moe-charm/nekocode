@@ -165,12 +165,12 @@ set(NEKOCODE_HEADERS
     ${INCLUDE_DIR}/nekocode/include_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/symbol_finder.hpp
     ${INCLUDE_DIR}/nekocode/progress_tracker.hpp
-    # 言語別アナライザーヘッダー
-    ${INCLUDE_DIR}/nekocode/analyzers/base_analyzer.hpp
+    # 言語別アナライザーヘッダー（新構造対応）
+    ${SRC_DIR}/analyzers/base_analyzer.hpp
+    ${SRC_DIR}/analyzers/javascript/javascript_pegtl_analyzer.hpp
+    ${SRC_DIR}/analyzers/javascript/javascript_minimal_grammar.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/python_analyzer.hpp
-    # ${INCLUDE_DIR}/nekocode/analyzers/javascript_analyzer.hpp # regex版は削除済み
     ${INCLUDE_DIR}/nekocode/analyzers/cpp_language_analyzer.hpp
-    # ${INCLUDE_DIR}/nekocode/analyzers/csharp_analyzer.hpp # regex版は削除済み
     ${INCLUDE_DIR}/nekocode/analyzers/unity_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/unity_patterns.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/unity_components.hpp
@@ -183,6 +183,8 @@ add_library(nekocode_static STATIC ${NEKOCODE_SOURCES} ${NEKOCODE_HEADERS})
 target_include_directories(nekocode_static PUBLIC 
     ${INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${SRC_DIR}/analyzers
+    ${SRC_DIR}/include
 )
 target_link_libraries(nekocode_static 
     nlohmann_json::nlohmann_json 

@@ -5,7 +5,7 @@
 //=============================================================================
 
 #include "nekocode/pegtl_analyzer.hpp"
-#include "nekocode/analyzers/base_analyzer.hpp"
+#include "../analyzers/base_analyzer.hpp"
 #include "nekocode/utf8_utils.hpp"
 #include <chrono>
 
