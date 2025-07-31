@@ -10,10 +10,10 @@ Claude Codeユーザー向けドキュメントのクイックアクセスガイ
 ### 1. 🏗️ **大規模プロジェクト対応ガイド** ⭐️ NEW!
 **📍 Path:** `docs/LARGE_PROJECT_HANDLING.md`
 
-Claude Code最適化の最新機能！非同期処理でブロックを回避
-- 🚀 session-create-async コマンド
-- 📊 session-status コマンド
-- 💡 使い分けガイドライン
+Claude Code最適化の最新機能！高速処理でブロックを回避
+- 🚀 --stats-only オプション（高速統計）
+- 📊 --io-threads 16 オプション（並列処理）
+- 💡 Claude Code Quick Startセクション
 
 ### 2. 🎯 **基本使用方法（日本語）**
 **📍 Path:** `docs/USAGE_jp.md`
@@ -52,20 +52,18 @@ nekocode_ai session-cmd [session_id] "find interface --limit 20"
 
 ### 大規模プロジェクト（1,000ファイル以上）
 ```bash
-# 非同期セッション作成（Claude Codeブロック回避）
-nekocode_ai session-create-async large_project/ --progress
+# 高速統計解析（Claude Codeブロック回避）
+nekocode_ai analyze large_project/ --stats-only --io-threads 16
 
-# 進捗確認
-nekocode_ai session-status [session_id]
-
-# 完了後に通常通り使用
+# 詳細解析が必要な場合はセッション作成
+nekocode_ai session-create large_project/
 nekocode_ai session-cmd [session_id] stats
 ```
 
 ## 💡 よくある質問
 
 **Q: Claude Codeが長時間フリーズする**
-→ A: `docs/LARGE_PROJECT_HANDLING.md` の非同期処理を使用
+→ A: `--stats-only --io-threads 16` オプションで高速化
 
 **Q: JSON出力にエラーが混ざる**
 → A: `docs/DEBUG_GUIDE.md` のトラブルシューティング参照

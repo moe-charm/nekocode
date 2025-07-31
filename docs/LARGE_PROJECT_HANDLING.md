@@ -45,78 +45,72 @@ This will block Claude Code for ~55 minutes.
 Continue? [y/N]:
 ```
 
-## 🚀 非同期処理（Claude Code最適化）
+## 🚀 高速処理（Claude Code最適化）
 
-大規模プロジェクトでClaude Codeがブロックされる問題を解決する非同期機能
+大規模プロジェクトでClaude Codeがブロックされる問題を解決する高速化機能
 
 ### 基本的な使い方
 ```bash
 # 🔍 事前にファイル数確認
 find project/ -type f | wc -l
 
-# 1,000ファイル未満: 通常モード（数分）
+# 1,000ファイル未満: 通常セッション（数分）
 nekocode_ai session-create project/
 
-# 1,000ファイル以上: 非同期モード（バックグラウンド）
-nekocode_ai session-create-async project/ --progress
+# 1,000ファイル以上: 高速統計解析（秒単位）
+nekocode_ai analyze project/ --stats-only --io-threads 16
 ```
 
-### 非同期処理のワークフロー
+### 高速処理のワークフロー
 
-#### ステップ1: 非同期セッション開始
+#### ステップ1: 高速統計解析（推奨）
 ```bash
-nekocode_ai session-create-async large_project/ --progress
+nekocode_ai analyze large_project/ --stats-only --io-threads 16
 ```
 
 **即座に出力される情報:**
 ```json
 {
-  "session_id": "ai_session_20250729_123456",
-  "status": "started",
-  "mode": "async", 
-  "pid": 12345,
-  "message": "✅ Background analysis started. Use session-status to check progress."
+  "analysis_type": "directory",
+  "directory_path": "large_project/",
+  "summary": {
+    "total_classes": 145,
+    "total_functions": 892,
+    "total_lines": 25637
+  },
+  "total_files": 1534
 }
 ```
 
-#### ステップ2: 進捗確認
+#### ステップ2: 詳細解析が必要な場合
 ```bash
-nekocode_ai session-status ai_session_20250729_123456
+# セッション作成（詳細な対話解析用）
+nekocode_ai session-create large_project/
 ```
 
-**進行中の出力例:**
+**出力例:**
 ```json
 {
   "session_id": "ai_session_20250729_123456",
-  "status": "RUNNING",
-  "progress_percent": 47.3,
-  "last_progress": "[2025-07-29 12:34:56] PROCESSING: 2847/6024 (47.3%) | src/compiler/factory.ts | OK"
+  "message": "✅ AI Session created",
+  "files_analyzed": 1534,
+  "processing_time": "45.2s"
 }
 ```
 
-**完了時の出力例:**
-```json
-{
-  "session_id": "ai_session_20250729_123456", 
-  "status": "COMPLETED",
-  "progress_percent": 100,
-  "last_progress": "[2025-07-29 12:40:15] COMPLETE: 6024/6024 (100%) | Total: 5m 32s | Success: 6020 | Errors: 4 | Skipped: 0"
-}
-```
-
-#### ステップ3: 完了後の解析
+#### ステップ3: 対話的解析
 ```bash
-# セッション利用（実際のセッションIDは若干異なる場合があります）
+# セッション利用
 nekocode_ai session-cmd ai_session_20250729_123456 stats
 nekocode_ai session-cmd ai_session_20250729_123456 "find interface --limit 20"
 nekocode_ai session-cmd ai_session_20250729_123456 complexity
 ```
 
 ### Claude Code最適化のメリット
-- ✅ **即座に制御を返す**: バックグラウンド処理でClaude Codeブロックを回避
-- ✅ **リアルタイム進捗**: session-statusで随時確認可能
+- ✅ **超高速レスポンス**: --stats-onlyで秒単位の結果取得
+- ✅ **並列処理**: --io-threads 16で大幅高速化
 - ✅ **完全な互換性**: 従来のsession-cmdがそのまま利用可能
-- ✅ **安全な処理**: fork()による安全なプロセス分離
+- ✅ **メモリ効率**: 統計のみなので軽量処理
 
 ## ⚡ パフォーマンス最適化
 
@@ -136,8 +130,8 @@ nekocode_ai session-create project/ --threads 16
 | プロジェクトサイズ | 推奨オプション | Claude Code対応 |
 |-------------------|---------------|----------------|
 | < 1,000ファイル   | デフォルト     | ✅ 問題なし |
-| 1,000-10,000     | `--progress`   | ⚠️ 数分待機 |
-| 10,000+          | `--progress --check-only` | 🚨 長時間ブロック |
+| 1,000-10,000     | `--stats-only --io-threads 16`   | ✅ 秒単位完了 |
+| 10,000+          | `--stats-only --io-threads 16` | ✅ 高速統計 |
 
 ## 📊 進捗監視機能
 

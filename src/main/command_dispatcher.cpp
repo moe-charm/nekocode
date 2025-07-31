@@ -12,7 +12,6 @@ extern void show_help();
 extern void show_supported_languages();
 extern int analyze_target(const std::string& target_path, const nekocode::CommandLineArgs& args);
 extern int create_session(const std::string& target_path, const nekocode::CommandLineArgs& args);
-extern int create_session_async(const std::string& target_path, const nekocode::CommandLineArgs& args);
 extern int check_session_status(const std::string& session_id);
 extern int execute_session_command(const std::string& session_id, const std::string& command);
 
@@ -52,12 +51,6 @@ int CommandDispatcher::dispatch(int argc, char* argv[]) {
             return handle_missing_argument("session-create", "target path");
         }
         return dispatch_session_create(argv[2], argc - 2, argv + 2);
-    }
-    else if (action == "session-create-async") {
-        if (argc < 3) {
-            return handle_missing_argument("session-create-async", "target path");
-        }
-        return dispatch_session_create_async(argv[2], argc - 2, argv + 2);
     }
     else if (action == "session-status") {
         if (argc < 3) {
@@ -109,27 +102,6 @@ int CommandDispatcher::dispatch_session_create(const std::string& target_path, i
     return create_session(target_path, args);
 }
 
-int CommandDispatcher::dispatch_session_create_async(const std::string& target_path, int argc, char* argv[]) {
-    // session-create-async 専用引数解析
-    CommandLineArgs args;
-    for (int i = 1; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "--progress") {
-            args.enable_progress = true;
-        } else if (arg == "--io-threads" && i + 1 < argc) {
-            args.io_threads = std::stoul(argv[++i]);
-        } else if (arg == "--cpu-threads" && i + 1 < argc) {
-            args.cpu_threads = std::stoul(argv[++i]);
-        } else if (arg == "--no-check") {
-            args.skip_precheck = true;
-        } else if (arg == "--force") {
-            args.force_execution = true;
-        } else if (arg == "--check-only") {
-            args.check_only = true;
-        }
-    }
-    return create_session_async(target_path, args);
-}
 
 int CommandDispatcher::dispatch_session_status(const std::string& session_id, int argc, char* argv[]) {
     return check_session_status(session_id);
