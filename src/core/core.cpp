@@ -7,7 +7,7 @@
 #include "nekocode/tree_sitter_analyzer.hpp"
 #include "nekocode/pegtl_analyzer.hpp"
 // #include "nekocode/analyzers/csharp_analyzer.hpp" // regex版は削除済み
-#include "nekocode/analyzers/base_analyzer.hpp"
+#include "../analyzers/base_analyzer.hpp"
 #include <fstream>
 #include <sstream>
 #include <algorithm>

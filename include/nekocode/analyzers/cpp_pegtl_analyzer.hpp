@@ -10,7 +10,7 @@
 #define NEKOCODE_FOUNDATION_CORE_CPP
 //=============================================================================
 
-#include "nekocode/analyzers/base_analyzer.hpp"
+#include "base_analyzer.hpp"
 #include "nekocode/analyzers/cpp_minimal_grammar.hpp"
 #include "nekocode/debug_logger.hpp"
 #include <tao/pegtl.hpp>

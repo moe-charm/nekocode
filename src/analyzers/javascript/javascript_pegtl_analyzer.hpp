@@ -7,8 +7,8 @@
 // ES6+対応、クラス、関数、import/export検出
 //=============================================================================
 
-#include "nekocode/analyzers/base_analyzer.hpp"
-#include "nekocode/analyzers/javascript_minimal_grammar.hpp"
+#include "../base_analyzer.hpp"
+#include "javascript_minimal_grammar.hpp"
 #include <tao/pegtl.hpp>
 #include <vector>
 #include <string>

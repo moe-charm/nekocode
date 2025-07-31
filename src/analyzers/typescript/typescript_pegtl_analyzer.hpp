@@ -7,7 +7,7 @@
 // interface, type, enum, namespace, generics等の検出
 //=============================================================================
 
-#include "javascript_pegtl_analyzer.hpp"
+#include "../javascript/javascript_pegtl_analyzer.hpp"
 #include <regex>
 #include <sstream>
 #include <set>

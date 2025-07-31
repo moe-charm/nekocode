@@ -11,7 +11,7 @@
 // - モジュール (mod, use)
 //=============================================================================
 
-#include "nekocode/analyzers/base_analyzer.hpp"
+#include "base_analyzer.hpp"
 #include <regex>
 #include <string>
 #include <vector>

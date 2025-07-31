@@ -22,7 +22,7 @@
 // 理由: std::regexは遅い、ネスト構造を扱えない、保守性が低い
 // Claudeへ: また無意識にstd::regex使おうとしてるなら深呼吸してPEGTL使うにゃ！
 
-#include "../types.hpp"
+#include "nekocode/types.hpp"
 #include <string>
 #include <memory>
 
