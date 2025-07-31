@@ -330,7 +330,16 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                         std::cerr << "⚙️ C# PEGTL analyzer used for: " << filename << std::endl;
                     }
                 } else {
-                    std::cerr << "ERROR: Failed to create C#/Unity analyzer for: " << filename << std::endl;
+                    // Unity判定に失敗した場合は通常のC#アナライザーを使用
+                    analyzer = AnalyzerFactory::create_analyzer(Language::CSHARP);
+                    if (analyzer) {
+                        auto csharp_result = analyzer->analyze(content, filename);
+                        result.csharp_result = csharp_result;
+                        result.file_info = csharp_result.file_info;
+                        std::cerr << "⚙️ C# PEGTL analyzer used (fallback) for: " << filename << std::endl;
+                    } else {
+                        std::cerr << "ERROR: Failed to create C# analyzer for: " << filename << std::endl;
+                    }
                 }
                 break;
             }
