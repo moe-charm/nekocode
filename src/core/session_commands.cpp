@@ -370,19 +370,57 @@ nlohmann::json SessionCommands::cmd_analyze(const SessionData& session, const st
 }
 
 nlohmann::json SessionCommands::cmd_include_graph(const SessionData& session) const {
-    return {
-        {"command", "include-graph"},
-        {"result", "Not implemented yet - moved to SessionCommands"}, 
-        {"summary", "Include graph feature pending implementation"}
-    };
+    try {
+        // IncludeAnalyzerを作成
+        IncludeAnalyzer analyzer;
+        
+        // 設定
+        IncludeAnalyzer::Config config;
+        config.analyze_system_headers = false;  // システムヘッダーは除外
+        config.detect_circular = true;
+        config.detect_unused = true;
+        analyzer.set_config(config);
+        
+        // ディレクトリ解析実行
+        auto analysis_result = analyzer.analyze_directory(session.target_path);
+        
+        // グラフ情報をJSON形式で返却
+        return analyzer.get_include_graph(analysis_result);
+        
+    } catch (const std::exception& e) {
+        return {
+            {"command", "include-graph"},
+            {"error", e.what()},
+            {"summary", "Include graph analysis failed"}
+        };
+    }
 }
 
 nlohmann::json SessionCommands::cmd_include_cycles(const SessionData& session) const {
-    return {
-        {"command", "include-cycles"},
-        {"result", "Not implemented yet - moved to SessionCommands"},
-        {"summary", "Include cycles feature pending implementation"}
-    };
+    try {
+        // IncludeAnalyzerを作成
+        IncludeAnalyzer analyzer;
+        
+        // 設定
+        IncludeAnalyzer::Config config;
+        config.analyze_system_headers = false;
+        config.detect_circular = true;
+        config.detect_unused = false;  // 循環依存のみ検出
+        analyzer.set_config(config);
+        
+        // ディレクトリ解析実行
+        auto analysis_result = analyzer.analyze_directory(session.target_path);
+        
+        // 循環依存情報をJSON形式で返却
+        return analyzer.get_circular_dependencies(analysis_result);
+        
+    } catch (const std::exception& e) {
+        return {
+            {"command", "include-cycles"},
+            {"error", e.what()},
+            {"summary", "Circular dependency detection failed"}
+        };
+    }
 }
 
 nlohmann::json SessionCommands::cmd_include_impact(const SessionData& session) const {
@@ -394,11 +432,30 @@ nlohmann::json SessionCommands::cmd_include_impact(const SessionData& session) c
 }
 
 nlohmann::json SessionCommands::cmd_include_unused(const SessionData& session) const {
-    return {
-        {"command", "include-unused"},
-        {"result", "Not implemented yet - moved to SessionCommands"},
-        {"summary", "Include unused feature pending implementation"}
-    };
+    try {
+        // IncludeAnalyzerを作成
+        IncludeAnalyzer analyzer;
+        
+        // 設定
+        IncludeAnalyzer::Config config;
+        config.analyze_system_headers = false;
+        config.detect_circular = false;
+        config.detect_unused = true;  // 不要include検出
+        analyzer.set_config(config);
+        
+        // ディレクトリ解析実行
+        auto analysis_result = analyzer.analyze_directory(session.target_path);
+        
+        // 不要include情報をJSON形式で返却
+        return analyzer.get_unused_includes(analysis_result);
+        
+    } catch (const std::exception& e) {
+        return {
+            {"command", "include-unused"},
+            {"error", e.what()},
+            {"summary", "Unused include detection failed"}
+        };
+    }
 }
 
 nlohmann::json SessionCommands::cmd_include_optimize(const SessionData& session) const {
