@@ -39,6 +39,7 @@ std::unique_ptr<IReportFormatter> FormatterFactory::create_formatter(OutputForma
 AIReportFormatter::AIReportFormatter() {}
 
 std::string AIReportFormatter::format_single_file(const AnalysisResult& result) {
+    
     nlohmann::json json_result;
     
     json_result["analysis_type"] = "single_file";
@@ -55,11 +56,13 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
                   << ", result.stats.function_count=" << result.stats.function_count << std::endl;
     }
     
+    std::cerr << "🔥 Formatter: result.stats.commented_lines_count=" << result.stats.commented_lines_count << std::endl;
     json_result["statistics"] = {
         {"total_classes", result.stats.class_count},      // 🔥 修正：正しい統計フィールドを使用
         {"total_functions", result.stats.function_count}, // 🔥 修正：正しい統計フィールドを使用
         {"total_imports", result.stats.import_count},     // 🔥 修正：正しい統計フィールドを使用
-        {"total_exports", result.stats.export_count}      // 🔥 修正：正しい統計フィールドを使用
+        {"total_exports", result.stats.export_count},     // 🔥 修正：正しい統計フィールドを使用
+        {"commented_lines_count", result.stats.commented_lines_count}  // 🆕 コメントアウト行数
     };
     
     // 🎯 詳細なクラス情報
@@ -142,6 +145,24 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
         json_result["exports"] = exports_json;
     }
     
+    // 🆕 詳細なコメントアウト行情報
+    std::cerr << "🔥 Formatter: commented_lines.size()=" << result.commented_lines.size() << std::endl;
+    if (!result.commented_lines.empty()) {
+        std::cerr << "🔥 Formatter: Processing commented_lines..." << std::endl;
+        nlohmann::json commented_lines_json = nlohmann::json::array();
+        for (const auto& comment : result.commented_lines) {
+            nlohmann::json comment_json = {
+                {"line_start", comment.line_start},
+                {"line_end", comment.line_end},
+                {"type", comment.type},
+                {"content", comment.content},
+                {"looks_like_code", comment.looks_like_code}
+            };
+            commented_lines_json.push_back(comment_json);
+        }
+        json_result["commented_lines"] = commented_lines_json;
+    }
+    
     if (result.complexity.cyclomatic_complexity > 0) {
         json_result["complexity"] = {
             {"cyclomatic_complexity", result.complexity.cyclomatic_complexity},
@@ -196,16 +217,19 @@ std::string AIReportFormatter::format_directory(const DirectoryAnalysis& analysi
     uint32_t total_classes = 0;
     uint32_t total_functions = 0;
     uint32_t total_lines = 0;
+    uint32_t total_commented_lines = 0;  // 🆕 コメントアウト行統計
     
     for (const auto& file : analysis.files) {
         total_classes += file.classes.size();
         total_functions += file.functions.size();
         total_lines += file.file_info.total_lines;
+        total_commented_lines += file.stats.commented_lines_count;  // 🆕 コメントアウト行数を集計
     }
     
     json_result["summary"] = {
         {"total_classes", total_classes},
         {"total_functions", total_functions},
+        {"total_commented_lines", total_commented_lines},  // 🆕 コメントアウト行数を追加
         {"total_lines", total_lines}
     };
     
@@ -287,16 +311,19 @@ std::string HumanReportFormatter::format_directory(const DirectoryAnalysis& anal
     uint32_t total_classes = 0;
     uint32_t total_functions = 0;
     uint32_t total_lines = 0;
+    uint32_t total_commented_lines = 0;  // 🆕 コメントアウト行統計
     
     for (const auto& file : analysis.files) {
         total_classes += file.classes.size();
         total_functions += file.functions.size();
         total_lines += file.file_info.total_lines;
+        total_commented_lines += file.stats.commented_lines_count;  // 🆕 コメントアウト行数を集計
     }
     
     ss << "📈 Project Summary\n";
     ss << "-------------------\n";
     ss << "  🏗️ Total Classes: " << total_classes << "\n";
+    ss << "  📝 Total Commented Lines: " << total_commented_lines << "\n";  // 🆕 コメントアウト行数を表示
     ss << "  ⚙️ Total Functions: " << total_functions << "\n";
     ss << "  📏 Total Lines: " << total_lines << "\n\n";
     

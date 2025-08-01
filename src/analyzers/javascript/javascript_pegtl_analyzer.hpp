@@ -564,17 +564,24 @@ public:
     AnalysisResult analyze(const std::string& content, const std::string& filename) override {
         AnalysisResult result;
         
+        // 🔥 前処理革命：コメント・文字列除去システム（コメント収集付き）
+        std::vector<CommentInfo> comments;
+        std::string preprocessed_content = preprocess_content(content, &comments);
+        
         // ファイル情報設定
         result.file_info.name = filename;
         result.file_info.size_bytes = content.size();
         result.language = Language::JAVASCRIPT;
         
+        // 🆕 コメントアウト行情報を結果に追加
+        result.commented_lines = std::move(comments);
+        
         // PEGTL解析実行
         try {
             JavaScriptParseState state;
-            state.current_content = content;
+            state.current_content = preprocessed_content;
             
-            tao::pegtl::string_input input(content, filename);
+            tao::pegtl::string_input input(preprocessed_content, filename);
             bool success = tao::pegtl::parse<javascript::minimal_grammar::javascript_minimal, 
                                           javascript_action>(input, state);
             
@@ -1467,6 +1474,290 @@ private:
                 existing_functions.insert(func_name);
             }
         }
+    }
+    
+    // 🆕 ===============================================================================
+    // 💬 Comment Collection System - TypeScriptアナライザーからの移植
+    // ===============================================================================
+    
+    // 🆕 コメント収集機能付き前処理（オーバーロード）
+    std::string preprocess_content(const std::string& content, std::vector<CommentInfo>* out_comments) {
+        if (!out_comments) {
+            return preprocess_content_basic(content);  // 従来版にフォールバック
+        }
+        
+        std::string result = content;
+        
+        // 1. 複数行コメント /* ... */ を除去・収集
+        result = remove_multiline_comments(result, out_comments);
+        
+        // 2. 単行コメント // ... を除去・収集
+        result = remove_single_line_comments(result, out_comments);
+        
+        // 3. 文字列リテラル "...", '...', `...` を除去
+        result = remove_string_literals(result);
+        
+        return result;
+    }
+    
+    // 🔧 行番号計算ヘルパー関数
+    std::uint32_t calculate_line_number(const std::string& content, size_t position) {
+        std::uint32_t line_number = 1;
+        for (size_t i = 0; i < position && i < content.length(); ++i) {
+            if (content[i] == '\n') {
+                line_number++;
+            }
+        }
+        return line_number;
+    }
+    
+    // 🤖 コードらしさ判定ロジック（JavaScript専用）
+    bool looks_like_code(const std::string& comment_text) {
+        // コメント記号を除去したテキストを取得
+        std::string content = comment_text;
+        
+        // コメント記号を削除
+        if (content.find("//") == 0) {
+            content = content.substr(2);
+        }
+        if (content.find("/*") == 0 && content.length() >= 4 && content.substr(content.length()-2) == "*/") {
+            content = content.substr(2, content.length()-4);
+        }
+        
+        // 空白を除去
+        content.erase(0, content.find_first_not_of(" \t\n\r"));
+        content.erase(content.find_last_not_of(" \t\n\r") + 1);
+        
+        if (content.empty()) return false;
+        
+        // 🎯 コード判定キーワード（JavaScript専用）
+        std::vector<std::string> code_keywords = {
+            "function", "const", "let", "var", "class", "return", "if", "else", 
+            "for", "while", "switch", "case", "break", "continue", "try", "catch", 
+            "finally", "throw", "import", "export", "async", "await", "yield",
+            "console.log", "console.error", "console.warn", "debugger", "void", 
+            "null", "undefined", "true", "false", "typeof", "instanceof", "new", 
+            "delete", "this", "super", "extends", "implements"
+        };
+        
+        // キーワードマッチング
+        for (const auto& keyword : code_keywords) {
+            if (content.find(keyword) != std::string::npos) {
+                return true;
+            }
+        }
+        
+        // 🔧 構文パターンマッチング
+        // セミコロン終了
+        if (content.back() == ';') return true;
+        
+        // 中括弧・小括弧パターン
+        if (content.find('{') != std::string::npos || content.find('}') != std::string::npos) return true;
+        if (content.find('(') != std::string::npos && content.find(')') != std::string::npos) return true;
+        
+        // 代入演算子
+        if (content.find('=') != std::string::npos && content.find("==") == std::string::npos) return true;
+        
+        // メソッド呼び出しパターン
+        if (content.find('.') != std::string::npos && content.find('(') != std::string::npos) return true;
+        
+        return false;
+    }
+    
+    // 🆕 複数行コメント /* ... */ 除去・収集（オーバーロード）
+    std::string remove_multiline_comments(const std::string& content, std::vector<CommentInfo>* out_comments) {
+        std::string result;
+        size_t pos = 0;
+        
+        while (pos < content.length()) {
+            size_t comment_start = content.find("/*", pos);
+            if (comment_start == std::string::npos) {
+                result += content.substr(pos);
+                break;
+            }
+            
+            // コメント開始前までをコピー
+            result += content.substr(pos, comment_start - pos);
+            
+            // コメント終了を検索
+            size_t comment_end = content.find("*/", comment_start + 2);
+            if (comment_end == std::string::npos) {
+                // コメントが閉じられていない場合
+                std::string comment_text = content.substr(comment_start);
+                std::uint32_t start_line = calculate_line_number(content, comment_start);
+                std::uint32_t end_line = calculate_line_number(content, content.length());
+                
+                CommentInfo comment_info(start_line, end_line, "multi_line", comment_text);
+                comment_info.looks_like_code = looks_like_code(comment_text);
+                out_comments->push_back(comment_info);
+                
+                result += std::string(content.length() - comment_start, ' ');
+                break;
+            }
+            
+            // コメント情報を収集
+            std::string comment_text = content.substr(comment_start, comment_end - comment_start + 2);
+            std::uint32_t start_line = calculate_line_number(content, comment_start);
+            std::uint32_t end_line = calculate_line_number(content, comment_end + 2);
+            
+            CommentInfo comment_info(start_line, end_line, "multi_line", comment_text);
+            comment_info.looks_like_code = looks_like_code(comment_text);
+            out_comments->push_back(comment_info);
+            
+            // コメント部分をスペースで置換（行数維持のため）
+            for (char c : comment_text) {
+                result += (c == '\n') ? '\n' : ' ';
+            }
+            
+            pos = comment_end + 2;
+        }
+        
+        return result;
+    }
+    
+    // 🆕 単行コメント // ... 除去・収集（オーバーロード）
+    std::string remove_single_line_comments(const std::string& content, std::vector<CommentInfo>* out_comments) {
+        std::istringstream stream(content);
+        std::string result;
+        std::string line;
+        std::uint32_t line_number = 1;
+        
+        while (std::getline(stream, line)) {
+            size_t comment_pos = line.find("//");
+            if (comment_pos != std::string::npos) {
+                // コメント情報を収集
+                std::string comment_text = line.substr(comment_pos);
+                CommentInfo comment_info(line_number, line_number, "single_line", comment_text);
+                comment_info.looks_like_code = looks_like_code(comment_text);
+                out_comments->push_back(comment_info);
+                
+                // コメント部分をスペースで置換
+                std::string clean_line = line.substr(0, comment_pos);
+                clean_line += std::string(line.length() - comment_pos, ' ');
+                result += clean_line + "\n";
+            } else {
+                result += line + "\n";
+            }
+            line_number++;
+        }
+        
+        return result;
+    }
+    
+    // 文字列リテラル "...", '...', `...` 除去
+    std::string remove_string_literals(const std::string& content) {
+        std::string result;
+        size_t pos = 0;
+        
+        while (pos < content.length()) {
+            char c = content[pos];
+            
+            // 文字列開始文字を検出
+            if (c == '"' || c == '\'' || c == '`') {
+                char quote = c;
+                result += ' '; // クォート自体もスペースに
+                pos++;
+                
+                // 文字列終了まで検索
+                while (pos < content.length()) {
+                    char current = content[pos];
+                    
+                    if (current == quote) {
+                        result += ' '; // 終了クォートもスペースに
+                        pos++;
+                        break;
+                    } else if (current == '\\' && pos + 1 < content.length()) {
+                        // エスケープシーケンス処理
+                        result += "  "; // エスケープ文字もスペースに
+                        pos += 2;
+                    } else if (current == '\n') {
+                        // 改行は保持（行数維持）
+                        result += '\n';
+                        pos++;
+                    } else {
+                        result += ' '; // その他の文字はスペースに
+                        pos++;
+                    }
+                }
+            } else {
+                result += c;
+                pos++;
+            }
+        }
+        
+        return result;
+    }
+    
+    // 従来の前処理（フォールバック用）
+    std::string preprocess_content_basic(const std::string& content) {
+        std::string result = content;
+        
+        // 1. 複数行コメント /* ... */ を除去
+        result = remove_multiline_comments_basic(result);
+        
+        // 2. 単行コメント // ... を除去
+        result = remove_single_line_comments_basic(result);
+        
+        // 3. 文字列リテラル "...", '...`, `...` を除去
+        result = remove_string_literals(result);
+        
+        return result;
+    }
+    
+    // 従来の複数行コメント除去
+    std::string remove_multiline_comments_basic(const std::string& content) {
+        std::string result;
+        size_t pos = 0;
+        
+        while (pos < content.length()) {
+            size_t comment_start = content.find("/*", pos);
+            if (comment_start == std::string::npos) {
+                result += content.substr(pos);
+                break;
+            }
+            
+            // コメント開始前までをコピー
+            result += content.substr(pos, comment_start - pos);
+            
+            // コメント終了を検索
+            size_t comment_end = content.find("*/", comment_start + 2);
+            if (comment_end == std::string::npos) {
+                // コメントが閉じられていない場合、残り全部をスペースに
+                result += std::string(content.length() - comment_start, ' ');
+                break;
+            }
+            
+            // コメント部分をスペースで置換（行数維持のため）
+            std::string comment_text = content.substr(comment_start, comment_end - comment_start + 2);
+            for (char c : comment_text) {
+                result += (c == '\n') ? '\n' : ' ';
+            }
+            
+            pos = comment_end + 2;
+        }
+        
+        return result;
+    }
+    
+    // 従来の単行コメント除去
+    std::string remove_single_line_comments_basic(const std::string& content) {
+        std::istringstream stream(content);
+        std::string result;
+        std::string line;
+        
+        while (std::getline(stream, line)) {
+            size_t comment_pos = line.find("//");
+            if (comment_pos != std::string::npos) {
+                // コメント部分をスペースで置換
+                std::string clean_line = line.substr(0, comment_pos);
+                clean_line += std::string(line.length() - comment_pos, ' ');
+                result += clean_line + "\n";
+            } else {
+                result += line + "\n";
+            }
+        }
+        
+        return result;
     }
 };
 

@@ -192,10 +192,17 @@ public:
     AnalysisResult analyze(const std::string& content, const std::string& filename) override {
         AnalysisResult result;
         
+        // 🔥 前処理革命：コメント・文字列除去システム（コメント収集付き）
+        std::vector<CommentInfo> comments;
+        std::string preprocessed_content = preprocess_content(content, &comments);
+        
         // ファイル情報設定
         result.file_info.name = filename;
         result.file_info.size_bytes = content.size();
         result.language = Language::PYTHON;
+        
+        // 🆕 コメントアウト行情報を結果に追加
+        result.commented_lines = std::move(comments);
         
         // 強制デバッグ: Python PEGTL analyzer が呼ばれたことを確認
         ClassInfo debug_class;
@@ -207,9 +214,9 @@ public:
         bool pegtl_success = false;
         try {
             PythonParseState state;
-            state.current_content = content;
+            state.current_content = preprocessed_content;
             
-            tao::pegtl::string_input input(content, filename);
+            tao::pegtl::string_input input(preprocessed_content, filename);
             bool success = tao::pegtl::parse<python::minimal_grammar::python_minimal, 
                                           python_action>(input, state);
             
@@ -617,6 +624,149 @@ private:
             }
         }
         return false;
+    }
+    
+    // 🆕 Python用コメント収集機能付き前処理（オーバーロード）
+    std::string preprocess_content(const std::string& content, std::vector<CommentInfo>* out_comments) {
+        if (!out_comments) {
+            return content;  // Pythonは基本的に前処理不要だけど、コメント除去版を返す
+        }
+        
+        std::cerr << "🔥 Python preprocess_content called with comment collection!" << std::endl;
+        
+        // Python用コメント除去処理と同時にコメント情報を収集
+        std::string result = content;
+        
+        // 単行コメント # の除去と収集
+        result = remove_single_line_comments(result, *out_comments);
+        std::cerr << "🔥 After single line: " << out_comments->size() << " comments collected" << std::endl;
+        
+        return result;
+    }
+    
+    // 🆕 従来版preprocess_content（後方互換性）
+    std::string preprocess_content(const std::string& content) {
+        // Pythonは基本的に前処理不要
+        return content;
+    }
+    
+    // 🆕 Python単行コメント除去と収集
+    std::string remove_single_line_comments(const std::string& content, std::vector<CommentInfo>& comments) {
+        std::istringstream stream(content);
+        std::ostringstream result;
+        std::string line;
+        uint32_t line_number = 1;
+        
+        while (std::getline(stream, line)) {
+            size_t comment_pos = line.find("#");
+            
+            if (comment_pos != std::string::npos) {
+                // 文字列リテラル内の#は除外（簡易版）
+                bool in_string = false;
+                char string_char = 0;
+                bool is_real_comment = true;
+                
+                for (size_t i = 0; i < comment_pos; i++) {
+                    char c = line[i];
+                    if (!in_string && (c == '"' || c == '\'')) {
+                        in_string = true;
+                        string_char = c;
+                    } else if (in_string && c == string_char && (i == 0 || line[i-1] != '\\')) {
+                        in_string = false;
+                    }
+                }
+                
+                if (in_string) {
+                    is_real_comment = false;
+                }
+                
+                if (is_real_comment) {
+                    // コメント内容を抽出
+                    std::string comment_content = line.substr(comment_pos);
+                    
+                    // コメント情報を作成
+                    CommentInfo comment_info(line_number, line_number, "single_line", comment_content);
+                    comment_info.looks_like_code = looks_like_code(comment_content);
+                    comments.push_back(comment_info);
+                    
+                    // コメント部分を除去
+                    line = line.substr(0, comment_pos);
+                }
+            }
+            
+            result << line << '\n';
+            line_number++;
+        }
+        
+        return result.str();
+    }
+    
+    // 🆕 コードらしさ判定（Python特化版）
+    bool looks_like_code(const std::string& comment) {
+        // Pythonキーワードを定義
+        static const std::vector<std::string> python_keywords = {
+            "if", "else", "elif", "for", "while", "def", "class", "import", "from",
+            "return", "break", "continue", "pass", "try", "except", "finally",
+            "with", "as", "lambda", "yield", "global", "nonlocal", "assert",
+            "True", "False", "None", "and", "or", "not", "in", "is",
+            "print", "len", "range", "str", "int", "float", "list", "dict", "set"
+        };
+        
+        // コメント記号を除去
+        std::string content = comment;
+        if (content.find("#") == 0) {
+            content = content.substr(1);
+        }
+        
+        // 前後の空白を除去
+        content.erase(0, content.find_first_not_of(" \t\n\r"));
+        content.erase(content.find_last_not_of(" \t\n\r") + 1);
+        
+        // 空の場合はコードではない
+        if (content.empty()) return false;
+        
+        // Pythonのコード特徴をチェック
+        int code_score = 0;
+        
+        // キーワードマッチング
+        for (const auto& keyword : python_keywords) {
+            if (content.find(keyword) != std::string::npos) {
+                code_score += 2;
+            }
+        }
+        
+        // Python構文特徴
+        if (content.find("(") != std::string::npos && content.find(")") != std::string::npos) {
+            code_score += 1; // 関数呼び出しっぽい
+        }
+        if (content.find("[") != std::string::npos && content.find("]") != std::string::npos) {
+            code_score += 1; // リストアクセスっぽい
+        }
+        if (content.find("=") != std::string::npos) {
+            code_score += 1; // 代入っぽい
+        }
+        if (content.find(".") != std::string::npos) {
+            code_score += 1; // メソッド呼び出しっぽい
+        }
+        if (content.find(":") != std::string::npos) {
+            code_score += 1; // Pythonのコロン構文
+        }
+        if (content.find("==") != std::string::npos || content.find("!=") != std::string::npos ||
+            content.find(">=") != std::string::npos || content.find("<=") != std::string::npos) {
+            code_score += 1; // 比較演算子
+        }
+        if (content.find("import ") != std::string::npos || content.find("from ") != std::string::npos) {
+            code_score += 3; // インポート文
+        }
+        
+        // 通常のコメント特徴（減点）
+        if (content.find("TODO") != std::string::npos || content.find("FIXME") != std::string::npos ||
+            content.find("NOTE") != std::string::npos || content.find("BUG") != std::string::npos) {
+            code_score -= 1; // 通常のコメント
+        }
+        
+        // 3点以上でコードらしいと判定
+        return code_score >= 3;
     }
 };
 

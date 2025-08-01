@@ -157,10 +157,45 @@ EXAMPLES:
 OUTPUT:
     マルチ言語対応構造化JSON - Claude Codeでの解析に最適化
 
+🆕 COMMENT EXTRACTION FEATURES (コメント抽出機能):
+    📝 コメントアウトされたコードを自動検出
+    🔍 各言語のコメント形式に対応:
+        • JavaScript/TypeScript: // と /* */
+        • C/C++: // と /* */  
+        • Python: #
+        • C#: // と /* */ と ///
+    🤖 AIコード判定機能:
+        • コメント内のコードらしさを自動判定
+        • 変数代入、関数定義、制御構文を検出
+    📊 JSON出力フィールド:
+        "commented_lines": [
+            {
+                "line_start": 行番号,
+                "line_end": 終了行,
+                "type": "single_line" | "multi_line",
+                "content": "コメント内容",
+                "looks_like_code": true/false
+            }
+        ]
+
+🎯 CLAUDE CODE向けコメント活用例:
+    # コメントアウトされたコードを発見
+    nekocode_ai src/legacy_code.py --io-threads 8
+    → JSON出力の"commented_lines"をチェック
+    
+    # 大規模プロジェクトのコメント統計
+    nekocode_ai large_project/ --stats-only --io-threads 16
+    → "total_commented_lines"で全体把握
+    
+    # セッション内でコメント分析
+    nekocode_ai session-cmd ai_session_xxx "analyze main.cpp"
+    → 詳細なコメント情報付き解析結果
+
 MULTI-LANGUAGE FEATURES:
     🌍 UTF-8完全対応 (日本語・Unicode)
     🔥 C++大規模プロジェクト対応
     ⚡ 言語別最適化エンジン
+    💬 コメント抽出・コード判定機能
     🎯 実行ファイル２個大作戦 - AI専用
 
 革命的多言語解析エンジン 🚀✨
@@ -286,6 +321,9 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 analysis_result.complexity = cpp_result.complexity;
                 analysis_result.stats = cpp_result.stats;
                 analysis_result.language = Language::CPP;
+                
+                // 🆕 CRITICAL FIX: commented_lines配列をコピー（欠落していた！）
+                analysis_result.commented_lines = cpp_result.commented_lines;
                 
                 // C++クラス情報を変換
                 for (const auto& cpp_class : cpp_result.cpp_classes) {
@@ -589,6 +627,9 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                 analysis_result.complexity = cpp_result.complexity;
                 analysis_result.stats = cpp_result.stats;
                 analysis_result.language = Language::CPP;
+                
+                // 🆕 CRITICAL FIX: commented_lines配列をコピー（欠落していた！）
+                analysis_result.commented_lines = cpp_result.commented_lines;
                 
                 // C++クラス情報を変換
                 for (const auto& cpp_class : cpp_result.cpp_classes) {
