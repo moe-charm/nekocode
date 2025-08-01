@@ -81,6 +81,12 @@ CppAnalysisResult CppAnalyzer::analyze_cpp_file(const std::string& content, cons
     // 統計計算 - 正規表現問題のため一時的に無効化
     // calculate_cpp_statistics(result);
     
+    // 🔧 シンプルな関数検出を追加（正規表現を使わない）
+    result.cpp_functions = extract_functions_simple(clean_content);
+    
+    // 🔧 ファイル全体の複雑度も計算
+    result.complexity = calculate_cpp_complexity(content);
+    
     return result;
 }
 
@@ -248,6 +254,162 @@ std::vector<CppFunction> CppAnalyzer::analyze_functions(const std::string& conte
     return functions;
 }
 
+// 🔧 シンプルな関数検出（正規表現を使わない文字列ベース）
+std::vector<CppFunction> CppAnalyzer::extract_functions_simple(const std::string& content) {
+    std::vector<CppFunction> functions;
+    auto lines = utf8::split_lines_safe(content);
+    
+    for (size_t i = 0; i < lines.size(); ++i) {
+        const auto& line = lines[i];
+        
+        // 関数定義の基本パターン: "(" と ")" と "{" が同じ行または近くにある
+        size_t paren_open = line.find('(');
+        size_t paren_close = line.find(')', paren_open);
+        
+        if (paren_open != std::string::npos && paren_close != std::string::npos) {
+            // 関数名を抽出
+            size_t name_end = paren_open;
+            while (name_end > 0 && std::isspace(line[name_end - 1])) {
+                name_end--;
+            }
+            
+            size_t name_start = name_end;
+            while (name_start > 0 && (std::isalnum(line[name_start - 1]) || line[name_start - 1] == '_' || line[name_start - 1] == ':')) {
+                name_start--;
+            }
+            
+            if (name_start < name_end) {
+                std::string func_name = line.substr(name_start, name_end - name_start);
+                
+                // C++キーワードを除外
+                static const std::unordered_set<std::string> keywords = {
+                    "if", "while", "for", "switch", "catch", "return", "sizeof", "typeof",
+                    "static_cast", "dynamic_cast", "reinterpret_cast", "const_cast"
+                };
+                
+                if (keywords.find(func_name) == keywords.end() && !func_name.empty()) {
+                    // "{" を探す（同じ行または次の数行内）
+                    bool has_brace = false;
+                    size_t brace_line = i;
+                    
+                    // 現在の行をチェック
+                    if (line.find('{', paren_close) != std::string::npos) {
+                        has_brace = true;
+                    } else {
+                        // 次の数行をチェック
+                        for (size_t j = i + 1; j < std::min(i + 5, lines.size()); ++j) {
+                            if (lines[j].find('{') != std::string::npos) {
+                                has_brace = true;
+                                brace_line = j;
+                                break;
+                            }
+                            // セミコロンがあったら宣言のみ
+                            if (lines[j].find(';') != std::string::npos) {
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (has_brace) {
+                        CppFunction func;
+                        func.source_language = Language::CPP;
+                        func.name = func_name;
+                        func.start_line = static_cast<uint32_t>(i + 1);
+                        
+                        // パラメータを抽出
+                        std::string params_str = line.substr(paren_open + 1, paren_close - paren_open - 1);
+                        func.parameters = parse_function_parameters(params_str);
+                        
+                        // 関数の終了行を推定（簡易版）
+                        func.end_line = find_function_end_line(lines, brace_line);
+                        
+                        // 関数本体の複雑度を計算
+                        func.complexity = calculate_function_complexity(lines, func.start_line - 1, func.end_line - 1);
+                        
+                        functions.push_back(func);
+                    }
+                }
+            }
+        }
+    }
+    
+    return functions;
+}
+
+// 関数の終了行を見つける（ブレースのバランスを追跡）
+uint32_t CppAnalyzer::find_function_end_line(const std::vector<std::string>& lines, size_t start_line) {
+    int brace_count = 0;
+    bool in_function = false;
+    
+    for (size_t i = start_line; i < lines.size(); ++i) {
+        const auto& line = lines[i];
+        
+        for (char c : line) {
+            if (c == '{') {
+                brace_count++;
+                in_function = true;
+            } else if (c == '}') {
+                brace_count--;
+                if (in_function && brace_count == 0) {
+                    return static_cast<uint32_t>(i + 1);
+                }
+            }
+        }
+    }
+    
+    // 見つからない場合は開始行+10を返す
+    return static_cast<uint32_t>(std::min(start_line + 10, lines.size()));
+}
+
+// 関数の複雑度を計算
+ComplexityInfo CppAnalyzer::calculate_function_complexity(const std::vector<std::string>& lines, size_t start_line, size_t end_line) {
+    ComplexityInfo complexity;
+    complexity.cyclomatic_complexity = 1; // 基本パス
+    
+    // 関数内の制御構造をカウント
+    for (size_t i = start_line; i <= end_line && i < lines.size(); ++i) {
+        const auto& line = lines[i];
+        
+        // 制御構造キーワードをチェック（文字列ベース、正規表現不使用）
+        static const std::vector<std::string> control_keywords = {
+            "if ", "else", "while ", "for ", "do ", "switch ", "case ", 
+            "catch ", "&&", "||", "?", "return "
+        };
+        
+        for (const auto& keyword : control_keywords) {
+            size_t pos = 0;
+            while ((pos = line.find(keyword, pos)) != std::string::npos) {
+                // 単語境界チェック（簡易版）
+                if (pos == 0 || !std::isalnum(line[pos - 1])) {
+                    complexity.cyclomatic_complexity++;
+                }
+                pos += keyword.length();
+            }
+        }
+    }
+    
+    // ネスト深度計算
+    int current_depth = 0;
+    complexity.max_nesting_depth = 0;
+    
+    for (size_t i = start_line; i <= end_line && i < lines.size(); ++i) {
+        const auto& line = lines[i];
+        for (char c : line) {
+            if (c == '{') {
+                current_depth++;
+                if (current_depth > static_cast<int>(complexity.max_nesting_depth)) {
+                    complexity.max_nesting_depth = current_depth;
+                }
+            } else if (c == '}') {
+                current_depth = std::max(0, current_depth - 1);
+            }
+        }
+    }
+    
+    complexity.update_rating();
+    return complexity;
+}
+
 std::vector<CppInclude> CppAnalyzer::analyze_includes(const std::string& content) {
     std::vector<CppInclude> includes;
     
@@ -288,12 +450,25 @@ ComplexityInfo CppAnalyzer::calculate_cpp_complexity(const std::string& content)
     // サイクロマチック複雑度計算
     complexity.cyclomatic_complexity = 1; // 基本パス
     
+    // 🔧 正規表現を使わない単純な文字列検索に変更
     for (const auto& keyword : control_keywords) {
-        std::regex keyword_regex("\\b" + keyword + "\\b");
-        std::sregex_iterator iter(content.begin(), content.end(), keyword_regex);
-        std::sregex_iterator end;
-        
-        complexity.cyclomatic_complexity += static_cast<uint32_t>(std::distance(iter, end));
+        size_t pos = 0;
+        while ((pos = content.find(keyword, pos)) != std::string::npos) {
+            // 単語境界チェック（簡易版）
+            bool valid = true;
+            if (pos > 0 && std::isalnum(content[pos - 1])) {
+                valid = false;
+            }
+            if (pos + keyword.length() < content.length() && 
+                std::isalnum(content[pos + keyword.length()])) {
+                valid = false;
+            }
+            
+            if (valid) {
+                complexity.cyclomatic_complexity++;
+            }
+            pos += keyword.length();
+        }
     }
     
     // 最大ネスト深度計算
