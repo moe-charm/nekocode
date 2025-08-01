@@ -41,8 +41,8 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer(Language language
             return std::make_unique<TypeScriptPEGTLAnalyzer>();
             
         case Language::CPP:
-            // PEGTL版を使用（Claude Code支援作戦）
-            return std::make_unique<CppPEGTLAnalyzer>();
+            // 🔧 修正済みAnalyzerを使用（関数複雑度計算対応）
+            return std::make_unique<CppLanguageAnalyzer>();
             
         case Language::C:
             return std::make_unique<CLanguageAnalyzer>();
@@ -88,8 +88,8 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
     // C++
     if (ext == ".cpp" || ext == ".cxx" || ext == ".cc" || 
         ext == ".hpp" || ext == ".hxx" || ext == ".hh" || ext == ".h++") {
-        // PEGTL版を使用（Claude Code支援作戦）
-        return std::make_unique<CppPEGTLAnalyzer>();
+        // 🔧 修正済みAnalyzerを使用（関数複雑度計算対応）
+        return std::make_unique<CppLanguageAnalyzer>();
     }
     
     // C (注意: .h は曖昧なので内容で判断が必要)
