@@ -302,7 +302,7 @@ public:
         
         // 🚀 C#ハイブリッド戦略: JavaScript/TypeScript/C++成功パターン移植
         if (needs_csharp_line_based_fallback(state.result, content)) {
-            std::cerr << "🔥 C# Hybrid Strategy TRIGGERED!" << std::endl;
+            // std::cerr << "🔥 C# Hybrid Strategy TRIGGERED!" << std::endl;
             apply_csharp_line_based_analysis(state.result, content, filename);
             std::cerr << "✅ C# Line-based analysis completed. Classes: " << state.result.classes.size() 
                       << ", Functions: " << state.result.functions.size() << std::endl;
@@ -350,15 +350,15 @@ private:
         size_t detected_functions = result.functions.size();
         
         // デバッグ出力
-        std::cerr << "🔍 Debug: complexity=" << complexity 
-                  << ", detected_classes=" << detected_classes
-                  << ", detected_functions=" << detected_functions << std::endl;
+        // std::cerr << "🔍 Debug: complexity=" << complexity 
+        //           << ", detected_classes=" << detected_classes
+        //           << ", detected_functions=" << detected_functions << std::endl;
         bool has_class = content.find("class ") != std::string::npos;
         bool has_namespace = content.find("namespace ") != std::string::npos;
         bool has_interface = content.find("interface ") != std::string::npos;
-        std::cerr << "🔍 Debug: has_class=" << has_class 
-                  << ", has_namespace=" << has_namespace 
-                  << ", has_interface=" << has_interface << std::endl;
+        // std::cerr << "🔍 Debug: has_class=" << has_class 
+        //           << ", has_namespace=" << has_namespace 
+        //           << ", has_interface=" << has_interface << std::endl;
         
         // C#特化閾値: C#は規則正しいので、C++より厳しい閾値
         if (complexity > 30 && detected_classes == 0 && detected_functions < 3) {
@@ -607,7 +607,7 @@ private:
     // 🎯 C#メンバ変数検出（C++/Python/JS/TSと同じパターン）
     void detect_member_variables(AnalysisResult& result, const std::string& content) {
         if (g_debug_mode) {
-            std::cerr << "🔥 C# detect_member_variables called with " << result.classes.size() << " classes" << std::endl;
+            // std::cerr << "🔥 C# detect_member_variables called with " << result.classes.size() << " classes" << std::endl;
         }
         
         std::istringstream stream(content);
@@ -622,7 +622,7 @@ private:
                 cls.name.find("enum:") == 0) continue;
             
             if (g_debug_mode) {
-                std::cerr << "🔍 Detecting member variables for class: " << cls.name << std::endl;
+                // std::cerr << "🔍 Detecting member variables for class: " << cls.name << std::endl;
             }
             
             // クラス内のメンバ変数を検出

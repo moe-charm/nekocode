@@ -632,14 +632,14 @@ private:
             return content;  // Pythonは基本的に前処理不要だけど、コメント除去版を返す
         }
         
-        std::cerr << "🔥 Python preprocess_content called with comment collection!" << std::endl;
+        // std::cerr << "🔥 Python preprocess_content called with comment collection!" << std::endl;
         
         // Python用コメント除去処理と同時にコメント情報を収集
         std::string result = content;
         
         // 単行コメント # の除去と収集
         result = remove_single_line_comments(result, *out_comments);
-        std::cerr << "🔥 After single line: " << out_comments->size() << " comments collected" << std::endl;
+        // std::cerr << "🔥 After single line: " << out_comments->size() << " comments collected" << std::endl;
         
         return result;
     }
