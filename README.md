@@ -38,6 +38,14 @@ You: "Analyze my Python project too"
 Claude: "🐍 Python support detected! 
 ./nekocode_ai analyze python_project/ --stats-only --io-threads 16
 Analyzing classes, functions, imports..."
+
+You: "Find commented-out code in legacy module"
+Claude: "💬 Using comment extraction feature!
+./nekocode_ai analyze src/legacy_module.py --io-threads 8
+Found 45 commented lines, 32 look like actual code:
+- Line 42: '# old_function(data)' - Previous implementation
+- Line 78-82: '/* Legacy algorithm */' - Alternative approach
+Should I help you clean these up?"
 ```
 
 **🚀 CRITICAL: Always use `--io-threads 16` for folder analysis!**
@@ -68,6 +76,7 @@ No manual setup, no configuration files, no learning curve!
 ## 🌟 Key Features
 
 - **🚀 Ultra-Fast Performance**: 10-100x faster than Python implementations
+- **💬 Comment Extraction & Analysis**: Auto-detect commented-out code with AI-powered classification (**NEW v2.1!**)
 - **⚡ Storage-Optimized Analysis**: `--ssd` (4-16x faster) and `--hdd` (safe) modes (**NEW!**)
 - **📊 Progress Monitoring**: Real-time progress for large projects (30K+ files) (**NEW!**)
 - **🎯 Advanced Member Variable Detection**: Comprehensive class member analysis across all languages (**NEW!**)
@@ -76,7 +85,7 @@ No manual setup, no configuration files, no learning curve!
 - **🔍 Advanced C++ Analysis**: Complex dependency visualization, circular dependency detection
 - **🧬 Template & Macro Analysis**: C++ template specialization, variadic templates, macro expansion tracking
 - **🎯 ASCII Quality Check**: Simple and practical code quality checking
-- **📊 Comprehensive Statistics**: Classes, functions, complexity analysis, member variables
+- **📊 Comprehensive Statistics**: Classes, functions, complexity analysis, member variables, commented lines
 - **🌳 Tree-sitter Integration**: Migration foundation from regex to AST analysis
 
 ## 🚀 Quick Start

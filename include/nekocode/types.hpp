@@ -238,6 +238,25 @@ struct FunctionCall {
 using FunctionCallFrequency = std::unordered_map<std::string, std::uint32_t>;
 
 //=============================================================================
+// 💬 Comment Analysis - コメントアウト行解析
+//=============================================================================
+
+/// コメントアウトされた行の情報
+struct CommentInfo {
+    std::uint32_t line_start = 0;           // 開始行番号
+    std::uint32_t line_end = 0;             // 終了行番号
+    std::string type;                       // "single_line" | "multi_line"
+    std::string content;                    // 生のコメント内容
+    bool looks_like_code = false;           // コードらしさの判定結果
+    
+    CommentInfo() = default;
+    
+    CommentInfo(std::uint32_t start, std::uint32_t end, 
+                const std::string& comment_type, const std::string& comment_content)
+        : line_start(start), line_end(end), type(comment_type), content(comment_content) {}
+};
+
+//=============================================================================
 // 📊 Analysis Results - 解析結果統合
 //=============================================================================
 
@@ -264,6 +283,9 @@ struct AnalysisResult {
     // 複雑度
     ComplexityInfo complexity;
     
+    // コメントアウト行解析
+    std::vector<CommentInfo> commented_lines;
+    
     // 拡張メタデータ（Unity等の特殊情報）
     std::unordered_map<std::string, std::string> metadata;
     
@@ -275,6 +297,7 @@ struct AnalysisResult {
         std::uint32_t export_count = 0;
         std::uint32_t unique_calls = 0;
         std::uint32_t total_calls = 0;
+        std::uint32_t commented_lines_count = 0;  // コメントアウト行数
     } stats;
     
     // 生成時刻
@@ -289,6 +312,7 @@ struct AnalysisResult {
         stats.export_count = static_cast<std::uint32_t>(exports.size());
         stats.unique_calls = static_cast<std::uint32_t>(call_frequency.size());
         stats.total_calls = static_cast<std::uint32_t>(function_calls.size());
+        stats.commented_lines_count = static_cast<std::uint32_t>(commented_lines.size());
     }
 };
 

@@ -232,10 +232,18 @@ public:
         
         AnalysisResult result;
         
+        // 🔥 前処理革命：コメント・文字列除去システム（コメント収集付き）
+        std::vector<CommentInfo> comments;
+        std::string preprocessed_content = preprocess_content(content, &comments);
+        
         // ファイル情報設定
         result.file_info.name = filename;
         result.file_info.size_bytes = content.size();
         result.language = Language::CPP;
+        
+        // 🆕 コメントアウト行情報を結果に追加
+        result.commented_lines = std::move(comments);
+        std::cerr << "🔥 After move: result.commented_lines.size()=" << result.commented_lines.size() << std::endl;
         
         // 行数カウント
         result.file_info.total_lines = 1 + std::count(content.begin(), content.end(), '\n');
@@ -265,9 +273,9 @@ public:
         bool pegtl_success = false;
         try {
             CppParseState state;
-            state.current_content = content;
+            state.current_content = preprocessed_content;
             
-            tao::pegtl::string_input input(content, filename);
+            tao::pegtl::string_input input(preprocessed_content, filename);
             bool success = tao::pegtl::parse<cpp::minimal_grammar::cpp_minimal, 
                                           cpp_action>(input, state);
             
@@ -331,12 +339,15 @@ public:
         // 統計更新
         NEKOCODE_PERF_CHECKPOINT("statistics");
         std::cerr << "🔍 Before update_statistics: classes=" << result.classes.size() 
-                  << ", functions=" << result.functions.size() << std::endl;
+                  << ", functions=" << result.functions.size() 
+                  << ", commented_lines=" << result.commented_lines.size() << std::endl;
         
         result.update_statistics();
         
         std::cerr << "🔍 After update_statistics: stats.class_count=" << result.stats.class_count 
-                  << ", stats.function_count=" << result.stats.function_count << std::endl;
+                  << ", stats.function_count=" << result.stats.function_count 
+                  << ", stats.commented_lines_count=" << result.stats.commented_lines_count
+                  << ", commented_lines.size()=" << result.commented_lines.size() << std::endl;
         
         NEKOCODE_LOG_DEBUG("CppAnalyzer", "Final statistics: total_classes=" + std::to_string(result.stats.class_count) +
                           ", total_functions=" + std::to_string(result.stats.function_count));
@@ -345,7 +356,8 @@ public:
         
         // 🔥 デバッグ：最終リターン直前の統計確認
         std::cerr << "🔥 Final return: result.stats.class_count=" << result.stats.class_count 
-                  << ", result.stats.function_count=" << result.stats.function_count << std::endl;
+                  << ", result.stats.function_count=" << result.stats.function_count 
+                  << ", result.commented_lines.size()=" << result.commented_lines.size() << std::endl;
         
         return result;
     }
@@ -1247,6 +1259,180 @@ private:
                 local_functions.push_back(func_info);
             }
         }
+    }
+    
+    // 🆕 コメント収集機能付き前処理（オーバーロード）
+    std::string preprocess_content(const std::string& content, std::vector<CommentInfo>* out_comments) {
+        if (!out_comments) {
+            return preprocess_content(content);  // 従来版にフォールバック
+        }
+        
+        std::cerr << "🔥 C++ preprocess_content called with comment collection!" << std::endl;
+        
+        // コメント除去処理と同時にコメント情報を収集
+        std::string result = content;
+        
+        // 複数行コメント /* ... */ の除去と収集
+        result = remove_multiline_comments(result, *out_comments);
+        std::cerr << "🔥 After multiline: " << out_comments->size() << " comments collected" << std::endl;
+        
+        // 単行コメント // の除去と収集
+        result = remove_single_line_comments(result, *out_comments);
+        std::cerr << "🔥 After single line: " << out_comments->size() << " comments collected" << std::endl;
+        
+        return result;
+    }
+    
+    // 🆕 従来版preprocess_content（後方互換性）
+    std::string preprocess_content(const std::string& content) {
+        // 既存のプリプロセッサ除去機能を活用
+        return preprocess_cpp_content(content);
+    }
+    
+    // 🆕 複数行コメント除去と収集
+    std::string remove_multiline_comments(const std::string& content, std::vector<CommentInfo>& comments) {
+        std::string result = content;
+        size_t pos = 0;
+        
+        while ((pos = result.find("/*", pos)) != std::string::npos) {
+            size_t end_pos = result.find("*/", pos + 2);
+            if (end_pos == std::string::npos) {
+                // 閉じられていない複数行コメント
+                break;
+            }
+            
+            end_pos += 2; // "*/"を含める
+            
+            // コメント内容を抽出
+            std::string comment_content = result.substr(pos, end_pos - pos);
+            
+            // 行番号を計算
+            uint32_t start_line = 1 + std::count(content.begin(), content.begin() + pos, '\n');
+            uint32_t end_line = 1 + std::count(content.begin(), content.begin() + end_pos, '\n');
+            
+            // コメント情報を作成
+            CommentInfo comment_info(start_line, end_line, "multi_line", comment_content);
+            comment_info.looks_like_code = looks_like_code(comment_content);
+            comments.push_back(comment_info);
+            
+            // コメントを空白で置換（行番号を維持）
+            std::string replacement(end_pos - pos, ' ');
+            for (size_t i = pos; i < end_pos; i++) {
+                if (result[i] == '\n') {
+                    replacement[i - pos] = '\n';
+                }
+            }
+            result.replace(pos, end_pos - pos, replacement);
+            
+            pos = end_pos;
+        }
+        
+        return result;
+    }
+    
+    // 🆕 単行コメント除去と収集
+    std::string remove_single_line_comments(const std::string& content, std::vector<CommentInfo>& comments) {
+        std::istringstream stream(content);
+        std::ostringstream result;
+        std::string line;
+        uint32_t line_number = 1;
+        
+        while (std::getline(stream, line)) {
+            size_t comment_pos = line.find("//");
+            
+            if (comment_pos != std::string::npos) {
+                // コメント内容を抽出
+                std::string comment_content = line.substr(comment_pos);
+                
+                // コメント情報を作成
+                CommentInfo comment_info(line_number, line_number, "single_line", comment_content);
+                comment_info.looks_like_code = looks_like_code(comment_content);
+                comments.push_back(comment_info);
+                
+                // コメント部分を除去
+                line = line.substr(0, comment_pos);
+            }
+            
+            result << line << '\n';
+            line_number++;
+        }
+        
+        return result.str();
+    }
+    
+    // 🆕 コードらしさ判定（C++特化版）
+    bool looks_like_code(const std::string& comment) {
+        // C++キーワードを定義
+        static const std::vector<std::string> cpp_keywords = {
+            "if", "else", "for", "while", "do", "switch", "case", "break", "continue",
+            "return", "class", "struct", "namespace", "public", "private", "protected",
+            "virtual", "override", "const", "static", "inline", "template", "typename",
+            "void", "int", "char", "bool", "float", "double", "string", "vector", "map",
+            "new", "delete", "this", "throw", "try", "catch", "sizeof", "nullptr",
+            "auto", "decltype", "constexpr", "noexcept", "final", "explicit"
+        };
+        
+        // コメント記号を除去
+        std::string content = comment;
+        if (content.find("//") == 0) {
+            content = content.substr(2);
+        }
+        if (content.find("/*") == 0 && content.size() >= 4) {
+            content = content.substr(2, content.size() - 4);
+        }
+        
+        // 前後の空白を除去
+        content.erase(0, content.find_first_not_of(" \t\n\r"));
+        content.erase(content.find_last_not_of(" \t\n\r") + 1);
+        
+        // 空の場合はコードではない
+        if (content.empty()) return false;
+        
+        // C++のコード特徴をチェック
+        int code_score = 0;
+        
+        // キーワードマッチング
+        for (const auto& keyword : cpp_keywords) {
+            if (content.find(keyword) != std::string::npos) {
+                code_score += 2;
+            }
+        }
+        
+        // C++の構文特徴
+        if (content.find("(") != std::string::npos && content.find(")") != std::string::npos) {
+            code_score += 1; // 関数呼び出しっぽい
+        }
+        if (content.find(";") != std::string::npos) {
+            code_score += 2; // セミコロンは強いC++の特徴
+        }
+        if (content.find("{") != std::string::npos || content.find("}") != std::string::npos) {
+            code_score += 1; // ブロック構造
+        }
+        if (content.find("::") != std::string::npos) {
+            code_score += 2; // C++のスコープ演算子
+        }
+        if (content.find("->") != std::string::npos || content.find(".") != std::string::npos) {
+            code_score += 1; // メンバアクセス
+        }
+        if (content.find("==") != std::string::npos || content.find("!=") != std::string::npos ||
+            content.find(">=") != std::string::npos || content.find("<=") != std::string::npos) {
+            code_score += 1; // 比較演算子
+        }
+        if (content.find("&&") != std::string::npos || content.find("||") != std::string::npos) {
+            code_score += 1; // 論理演算子
+        }
+        if (content.find("#include") != std::string::npos || content.find("#define") != std::string::npos) {
+            code_score += 3; // プリプロセッサ指令
+        }
+        
+        // 通常のコメント特徴（減点）
+        if (content.find("TODO") != std::string::npos || content.find("FIXME") != std::string::npos ||
+            content.find("NOTE") != std::string::npos || content.find("BUG") != std::string::npos) {
+            code_score -= 1; // 通常のコメント
+        }
+        
+        // 3点以上でコードらしいと判定
+        return code_score >= 3;
     }
 };
 

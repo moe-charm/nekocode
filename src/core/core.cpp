@@ -127,6 +127,9 @@ Result<AnalysisResult> NekoCodeCore::analyze_content(const std::string& content,
                 if (impl_->config_.analyze_complexity) {
                     result.complexity = pg_result.complexity;
                 }
+                
+                // 🆕 CRITICAL FIX: commented_lines配列をコピー（欠落していた！）
+                result.commented_lines = pg_result.commented_lines;
             }
         }
         
@@ -258,6 +261,9 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                     
                     // 🔥 CRITICAL FIX: 統計情報を直接コピー（変換で失われるのを防ぐ）
                     cpp_result.stats = analysis_result.stats;
+                    
+                    // 🆕 CRITICAL FIX: commented_lines配列をコピー（欠落していた！）
+                    cpp_result.commented_lines = analysis_result.commented_lines;
                     
                     // クラス・関数情報を変換
                     for (const auto& cls : analysis_result.classes) {
