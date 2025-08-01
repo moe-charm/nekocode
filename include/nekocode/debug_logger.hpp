@@ -13,6 +13,9 @@
 #include <sstream>
 #include <iomanip>
 
+// 🔧 グローバルクワイエットモードフラグ参照（analyzer_factory.cppで定義）
+extern bool g_quiet_mode;
+
 namespace nekocode {
 namespace debug {
 
@@ -69,6 +72,9 @@ inline const char* level_to_string(LogLevel level) {
 // コア出力関数
 inline void log_output(LogLevel level, const std::string& category, 
                       const std::string& message) {
+    // 🔇 Claude Code用：quiet modeで全ログ出力を抑制（Geminiクラッシュ対策）
+    if (g_quiet_mode) return;
+    
     if (static_cast<int>(level) >= NEKOCODE_DEBUG_LEVEL) {
         std::cerr << "[" << get_timestamp() << "] " 
                   << "[" << level_to_string(level) << "] "

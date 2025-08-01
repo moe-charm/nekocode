@@ -260,7 +260,13 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
     try {
         // 🔧 グローバルデバッグフラグ設定
         g_debug_mode = args.debug_mode;
-        g_quiet_mode = args.quiet_mode;
+        
+        // 🔇 Claude Code用：quiet modeはデフォルトでtrue（Geminiクラッシュ対策）
+        // コマンドライン引数でfalseが明示的に指定された場合のみ無効化
+        if (args.debug_mode) {
+            g_quiet_mode = false;  // デバッグモード時はログ出力有効
+        }
+        // それ以外はanalyzer_factory.cppのデフォルト設定（true）を保持
         
         // 設定作成（フルモード）
         AnalysisConfig config;
