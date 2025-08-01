@@ -74,7 +74,7 @@ ACTIONS:
     analyze <path>              単発解析（旧形式互換）
     session-create <path>       対話式セッション作成
     session-status <id>         📊 セッション状態確認
-    session-cmd <id> <cmd>      セッションコマンド実行
+    session-command <id> <cmd>      セッションコマンド実行
     <path>                      単発解析（後方互換）
 
 INTERACTIVE COMMANDS:
@@ -128,20 +128,20 @@ EXAMPLES:
 
     # 👨‍💻 Human向け（詳細分析）
     nekocode_ai session-create charmflow_v5/
-    nekocode_ai session-cmd ai_session_20250727_123456 stats
-    nekocode_ai session-cmd ai_session_20250727_123456 complexity
-    nekocode_ai session-cmd ai_session_20250727_123456 large-files
-    nekocode_ai session-cmd ai_session_20250727_123456 "large-files --threshold 1000"
-    nekocode_ai session-cmd ai_session_20250727_123456 duplicates
-    nekocode_ai session-cmd ai_session_20250727_123456 todo
-    nekocode_ai session-cmd ai_session_20250727_123456 complexity-ranking
-    nekocode_ai session-cmd ai_session_20250727_123456 "find nyamesh --debug"
-    nekocode_ai session-cmd ai_session_20250727_123456 "find std::cout --limit 10"
+    nekocode_ai session-command ai_session_20250727_123456 stats
+    nekocode_ai session-command ai_session_20250727_123456 complexity
+    nekocode_ai session-command ai_session_20250727_123456 large-files
+    nekocode_ai session-command ai_session_20250727_123456 "large-files --threshold 1000"
+    nekocode_ai session-command ai_session_20250727_123456 duplicates
+    nekocode_ai session-command ai_session_20250727_123456 todo
+    nekocode_ai session-command ai_session_20250727_123456 complexity-ranking
+    nekocode_ai session-command ai_session_20250727_123456 "find nyamesh --debug"
+    nekocode_ai session-command ai_session_20250727_123456 "find std::cout --limit 10"
     
     # 🔍 Claude Code君向け詳細解析
-    nekocode_ai session-cmd ai_session_20250727_123456 "structure --detailed UICore.cpp"
-    nekocode_ai session-cmd ai_session_20250727_123456 "complexity --methods UICore.cpp"
-    nekocode_ai session-cmd ai_session_20250727_123456 "calls --detailed createElement"
+    nekocode_ai session-command ai_session_20250727_123456 "structure --detailed UICore.cpp"
+    nekocode_ai session-command ai_session_20250727_123456 "complexity --methods UICore.cpp"
+    nekocode_ai session-command ai_session_20250727_123456 "calls --detailed createElement"
     
     # 🔍 事前チェック機能
     nekocode_ai session-create typescript/TypeScript/ --check-only  # サイズ確認のみ
@@ -188,7 +188,7 @@ OUTPUT:
     → "total_commented_lines"で全体把握
     
     # セッション内でコメント分析
-    nekocode_ai session-cmd ai_session_xxx "analyze main.cpp"
+    nekocode_ai session-command ai_session_xxx "analyze main.cpp"
     → 詳細なコメント情報付き解析結果
 
 MULTI-LANGUAGE FEATURES:
