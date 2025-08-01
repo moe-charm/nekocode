@@ -5,9 +5,35 @@ Claude Codeユーザー向けドキュメントのクイックアクセスガイ
 ## 📌 重要なお知らせ
 **NekoCodeはClaude Code専用に設計されています** - [設計哲学](DESIGN_PHILOSOPHY.md)
 
+## 🆕 最新機能！コメント抽出・解析
+
+### 💬 **コメントアウトコード自動検出機能** ⭐️ NEW!
+**📍 Since:** v2.1 (2025-08-01)
+
+Claude Codeの解析力を大幅に向上させる革新的機能！
+- 📝 **コメントアウトされたコードを自動検出**
+- 🤖 **AIによるコードらしさ判定** 
+- 📊 **JSON構造化出力で解析容易**
+
+#### 使い方
+```bash
+# 単一ファイルのコメント解析
+nekocode_ai analyze legacy_code.py --io-threads 8
+# → "commented_lines"配列に詳細情報
+
+# プロジェクト全体のコメント統計
+nekocode_ai analyze project/ --stats-only --io-threads 16
+# → "total_commented_lines"で総数確認
+```
+
+#### 活用例
+- 🔍 **レガシーコード発見**: 古い実装やTODOを特定
+- 📈 **コード品質評価**: コメント/コード比率を分析
+- 🧹 **リファクタリング支援**: 不要コメント整理
+
 ## 📚 主要ドキュメント
 
-### 1. 🏗️ **大規模プロジェクト対応ガイド** ⭐️ NEW!
+### 1. 🏗️ **大規模プロジェクト対応ガイド**
 **📍 Path:** `docs/LARGE_PROJECT_HANDLING.md`
 
 Claude Code最適化の最新機能！高速処理でブロックを回避
@@ -79,5 +105,5 @@ nekocode_ai session-cmd [session_id] stats
 - `CHANGELOG_PEGTL.md` - 技術的な変更履歴
 
 ---
-**最終更新:** 2025-07-30
-**対応バージョン:** NekoCode AI v2.0 (Claude Code専用設計)
+**最終更新:** 2025-08-01
+**対応バージョン:** NekoCode AI v2.1 (Claude Code専用設計 + コメント抽出機能)
