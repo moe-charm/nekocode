@@ -52,11 +52,11 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
     
     // 🔥 デバッグ：統計フィールド確認
     if (g_debug_mode) {
-        std::cerr << "🔥 Formatter debug: result.stats.class_count=" << result.stats.class_count
-                  << ", result.stats.function_count=" << result.stats.function_count << std::endl;
+        // std::cerr << "🔥 Formatter debug: result.stats.class_count=" << result.stats.class_count
+        //           << ", result.stats.function_count=" << result.stats.function_count << std::endl;
     }
     
-    std::cerr << "🔥 Formatter: result.stats.commented_lines_count=" << result.stats.commented_lines_count << std::endl;
+    // std::cerr << "🔥 Formatter: result.stats.commented_lines_count=" << result.stats.commented_lines_count << std::endl;
     json_result["statistics"] = {
         {"total_classes", result.stats.class_count},      // 🔥 修正：正しい統計フィールドを使用
         {"total_functions", result.stats.function_count}, // 🔥 修正：正しい統計フィールドを使用
@@ -146,9 +146,9 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
     }
     
     // 🆕 詳細なコメントアウト行情報
-    std::cerr << "🔥 Formatter: commented_lines.size()=" << result.commented_lines.size() << std::endl;
+    // std::cerr << "🔥 Formatter: commented_lines.size()=" << result.commented_lines.size() << std::endl;
     if (!result.commented_lines.empty()) {
-        std::cerr << "🔥 Formatter: Processing commented_lines..." << std::endl;
+        // std::cerr << "🔥 Formatter: Processing commented_lines..." << std::endl;
         nlohmann::json commented_lines_json = nlohmann::json::array();
         for (const auto& comment : result.commented_lines) {
             nlohmann::json comment_json = {

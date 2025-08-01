@@ -70,7 +70,7 @@ public:
         
         // 🔥 コメントアウト行情報を結果に追加（JavaScriptAnalyzer結果の上書き前に実行）
         result.commented_lines = std::move(comments);
-        std::cerr << "🔥 Comments added to result: " << result.commented_lines.size() << " items" << std::endl;
+        // std::cerr << "🔥 Comments added to result: " << result.commented_lines.size() << " items" << std::endl;
         
         // 🚀 TypeScript特有のハイブリッド戦略追加
         if (needs_typescript_specific_analysis(result, preprocessed_content)) {
@@ -95,7 +95,7 @@ public:
         
         // 📊 統計情報を更新（commented_lines_countを含む）
         result.update_statistics();
-        std::cerr << "🔥 After update_statistics: commented_lines_count=" << result.stats.commented_lines_count << std::endl;
+        // std::cerr << "🔥 After update_statistics: commented_lines_count=" << result.stats.commented_lines_count << std::endl;
         
         return result;
     }
@@ -166,7 +166,7 @@ private:
         auto analysis_start = std::chrono::high_resolution_clock::now();
         
         if (use_full_analysis) {
-            std::cerr << "🚀 通常モード: 全機能有効（JavaScript戦略移植）" << std::endl;
+            // std::cerr << "🚀 通常モード: 全機能有効（JavaScript戦略移植）" << std::endl;
             // 通常モード：全行処理
             for (size_t i = 0; i < all_lines.size(); i++) {
                 const std::string& current_line = all_lines[i];
@@ -514,7 +514,7 @@ private:
     void second_stage_method_attack(const std::string& class_content, AnalysisResult& result, 
                                    std::set<std::string>& existing_functions, size_t class_start_pos) {
         
-        std::cerr << "🔥 三重正規表現アタック第2段階開始！" << std::endl;
+        // std::cerr << "🔥 三重正規表現アタック第2段階開始！" << std::endl;
         
         // 第2段階：基本形抽出（にゃーのアイデア）- シンプルな正規表現
         std::regex basic_method_pattern(R"((\w+)\s*\([^)]*\)\s*(?::\s*[^{]+)?\s*\{)");
@@ -648,24 +648,24 @@ private:
         
         // 🔥 【LOGGER仕込み】この関数が呼ばれたことを記録！
         if (g_debug_mode) {
-            std::cerr << "🔥 【LOGGER仕込み】gemini_line_level_double_attack()が呼ばれた！行:" << line_number 
-                      << ", 内容: " << line.substr(0, 30) << "..." << std::endl;
+            // std::cerr << "🔥 【LOGGER仕込み】gemini_line_level_double_attack()が呼ばれた！行:" << line_number 
+            //           << ", 内容: " << line.substr(0, 30) << "..." << std::endl;
         }
         
         // 🎯 アタックパターン1: オブジェクトメソッド (method() {})
-        if (g_debug_mode) std::cerr << "🔥 【LOGGER仕込み】gemini_attack_object_methods()実行中..." << std::endl;
+        if (g_debug_mode) // std::cerr << "🔥 【LOGGER仕込み】gemini_attack_object_methods()実行中..." << std::endl;
         gemini_attack_object_methods(line, line_number, result, existing_functions);
         
         // 🎯 アタックパターン2: プロパティ構文 (prop: function() {})
-        if (g_debug_mode) std::cerr << "🔥 【LOGGER仕込み】gemini_attack_property_functions()実行中..." << std::endl;
+        if (g_debug_mode) // std::cerr << "🔥 【LOGGER仕込み】gemini_attack_property_functions()実行中..." << std::endl;
         gemini_attack_property_functions(line, line_number, result, existing_functions);
         
         // 🎯 アタックパターン3: アロー関数プロパティ (prop: () => {})
-        if (g_debug_mode) std::cerr << "🔥 【LOGGER仕込み】gemini_attack_arrow_properties()実行中..." << std::endl;
+        if (g_debug_mode) // std::cerr << "🔥 【LOGGER仕込み】gemini_attack_arrow_properties()実行中..." << std::endl;
         gemini_attack_arrow_properties(line, line_number, result, existing_functions);
         
         // 🎯 アタックパターン4: インターフェースメソッド (method(): type;)
-        if (g_debug_mode) std::cerr << "🔥 【LOGGER仕込み】gemini_attack_interface_methods()実行中..." << std::endl;
+        if (g_debug_mode) // std::cerr << "🔥 【LOGGER仕込み】gemini_attack_interface_methods()実行中..." << std::endl;
         gemini_attack_interface_methods(line, line_number, result, existing_functions);
     }
     

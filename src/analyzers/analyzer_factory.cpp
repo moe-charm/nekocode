@@ -19,8 +19,9 @@
 #include "nekocode/analyzers/rust_analyzer.hpp"
 #include <algorithm>
 
-// 🔧 グローバルデバッグフラグ定義
+// 🔧 グローバルデバッグフラグ定義  
 bool g_debug_mode = false;
+bool g_quiet_mode = true;   // Claude Code用：デフォルトでstderr出力抑制（Geminiクラッシュ対策）
 #include <cctype>
 
 namespace nekocode {

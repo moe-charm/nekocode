@@ -24,7 +24,7 @@ AnalysisResult CppLanguageAnalyzer::analyze(const std::string& content, const st
     NEKOCODE_PERF_TIMER("CppLanguageAnalyzer::analyze " + filename);
     
     NEKOCODE_LOG_INFO("CppAnalyzer", "Starting C++ analysis of " + filename + " (" + std::to_string(content.size()) + " bytes)");
-    std::cerr << "🔥 CppLanguageAnalyzer::analyze called for " << filename << std::endl;
+    // std::cerr << "🔥 CppLanguageAnalyzer::analyze called for " << filename << std::endl;
     
     // 既存のCppAnalyzerを使用
     CppAnalysisResult cpp_result = cpp_analyzer_->analyze_cpp_file(content, filename);

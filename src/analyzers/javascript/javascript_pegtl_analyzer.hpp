@@ -888,7 +888,7 @@ private:
         size_t processed_lines = 0;
         
         if (use_full_analysis) {
-            std::cerr << "🚀 通常モード: 全機能有効（JavaScript最高精度）" << std::endl;
+            // std::cerr << "🚀 通常モード: 全機能有効（JavaScript最高精度）" << std::endl;
             // 通常モード：全行処理
             for (size_t i = 0; i < all_lines.size(); i++) {
                 const std::string& current_line = all_lines[i];

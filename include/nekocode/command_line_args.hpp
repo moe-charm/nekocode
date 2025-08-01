@@ -30,6 +30,7 @@ struct CommandLineArgs {
     bool list_languages = false;           // サポート言語一覧
     bool enable_progress = false;           // プログレス表示
     bool debug_mode = false;                // --debug: デバッグログ表示モード
+    bool quiet_mode = false;                // --quiet: stderr出力を抑制（Claude Code推奨）
     
     // 事前チェック関連
     bool skip_precheck = false;             // --no-check: 事前チェックスキップ

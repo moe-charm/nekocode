@@ -29,6 +29,7 @@ using namespace nekocode;
 
 // 🔧 グローバルデバッグフラグ（analyzer_factory.cppで定義済み）
 extern bool g_debug_mode;
+extern bool g_quiet_mode;
 
 //=============================================================================
 // 📋 Command Line Parser - 共通ヘッダーを使用
@@ -259,6 +260,7 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
     try {
         // 🔧 グローバルデバッグフラグ設定
         g_debug_mode = args.debug_mode;
+        g_quiet_mode = args.quiet_mode;
         
         // 設定作成（フルモード）
         AnalysisConfig config;

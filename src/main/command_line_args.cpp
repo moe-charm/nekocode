@@ -42,6 +42,8 @@ CommandLineArgs CommandLineArgs::parse(int argc, char* argv[]) {
             args.enable_progress = true;
         } else if (arg == "--debug") {
             args.debug_mode = true;
+        } else if (arg == "--quiet" || arg == "-q") {
+            args.quiet_mode = true;
         } else if (arg == "--no-check") {
             args.skip_precheck = true;
         } else if (arg == "--force") {
