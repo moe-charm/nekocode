@@ -53,6 +53,9 @@ endif()
 set(INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+# 🎯 実行ファイル出力先をbin/フォルダに設定（Geminiクラッシュ対策版を安全に配備）
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+
 # インクルードパス
 include_directories(${INCLUDE_DIR})
 
