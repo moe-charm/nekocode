@@ -89,6 +89,7 @@ AnalysisResult CppLanguageAnalyzer::convert_result(const CppAnalysisResult& cpp_
         func_info.start_line = cpp_func.start_line;
         func_info.end_line = cpp_func.end_line;
         func_info.parameters = cpp_func.parameters;
+        func_info.complexity = cpp_func.complexity;  // 🔧 関数の複雑度をコピー
         result.functions.push_back(func_info);
     }
     

@@ -47,6 +47,15 @@ public:
     /// 関数解析
     std::vector<CppFunction> analyze_functions(const std::string& content);
     
+    /// 🔧 シンプルな関数検出（正規表現を使わない）
+    std::vector<CppFunction> extract_functions_simple(const std::string& content);
+    
+    /// 関数の終了行を見つける
+    uint32_t find_function_end_line(const std::vector<std::string>& lines, size_t start_line);
+    
+    /// 関数の複雑度を計算
+    ComplexityInfo calculate_function_complexity(const std::vector<std::string>& lines, size_t start_line, size_t end_line);
+    
     /// インクルード解析
     std::vector<CppInclude> analyze_includes(const std::string& content);
     

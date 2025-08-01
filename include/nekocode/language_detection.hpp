@@ -169,6 +169,7 @@ struct CppFunction : public LanguageElement {
     bool is_const = false;
     bool is_inline = false;
     bool is_constexpr = false;
+    ComplexityInfo complexity;  // 🔧 関数レベルの複雑度を追加
     
     CppFunction() : LanguageElement(Language::CPP) {}
 };
