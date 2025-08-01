@@ -28,9 +28,13 @@
 
 // 🔧 グローバルデバッグフラグ（analyzer_factory.cppで定義済み）
 extern bool g_debug_mode;
+extern bool g_quiet_mode;
 
 // 🐛 デバッグ出力マクロ（--debugフラグがある時のみ出力）
 #define DEBUG_LOG(msg) do { if (g_debug_mode) { std::cerr << msg << std::endl; } } while(0)
+
+// 🔇 サイレント出力マクロ（Claude Code用：--quietフラグでstderr出力抑制）
+#define STDERR_LOG(msg) do { if (!g_quiet_mode) { std::cerr << msg << std::endl; } } while(0)
 
 namespace nekocode {
 
@@ -243,7 +247,7 @@ public:
         
         // 🆕 コメントアウト行情報を結果に追加
         result.commented_lines = std::move(comments);
-        std::cerr << "🔥 After move: result.commented_lines.size()=" << result.commented_lines.size() << std::endl;
+        // std::cerr << "🔥 After move: result.commented_lines.size()=" << result.commented_lines.size() << std::endl;
         
         // 行数カウント
         result.file_info.total_lines = 1 + std::count(content.begin(), content.end(), '\n');
@@ -306,7 +310,7 @@ public:
         // 🚀 C++ハイブリッド戦略: JavaScript/TypeScript成功パターン移植
         NEKOCODE_PERF_CHECKPOINT("hybrid_strategy");
         if (needs_cpp_line_based_fallback(result, content)) {
-            std::cerr << "🔥 C++ Hybrid Strategy TRIGGERED!" << std::endl;
+            // std::cerr << "🔥 C++ Hybrid Strategy TRIGGERED!" << std::endl;
             NEKOCODE_LOG_INFO("CppAnalyzer", "Hybrid strategy triggered - applying line-based fallback");
             
             size_t classes_before = result.classes.size();
@@ -314,15 +318,15 @@ public:
             
             apply_cpp_line_based_analysis(result, content, filename);
             
-            std::cerr << "✅ C++ Line-based analysis completed. Classes: " << result.classes.size() 
-                      << ", Functions: " << result.functions.size() << std::endl;
-            std::cerr << "🔍 Debug: Classes before=" << classes_before << ", after=" << result.classes.size() 
-                      << ", Functions before=" << functions_before << ", after=" << result.functions.size() << std::endl;
+            // std::cerr << "✅ C++ Line-based analysis completed. Classes: " << result.classes.size() 
+            //           << ", Functions: " << result.functions.size() << std::endl;
+            // std::cerr << "🔍 Debug: Classes before=" << classes_before << ", after=" << result.classes.size() 
+            //           << ", Functions before=" << functions_before << ", after=" << result.functions.size() << std::endl;
             NEKOCODE_LOG_DEBUG("CppAnalyzer", "Hybrid strategy completed: classes " + 
                               std::to_string(classes_before) + "->" + std::to_string(result.classes.size()) +
                               ", functions " + std::to_string(functions_before) + "->" + std::to_string(result.functions.size()));
         } else {
-            std::cerr << "⚠️  C++ Hybrid Strategy NOT triggered" << std::endl;
+            // std::cerr << "⚠️  C++ Hybrid Strategy NOT triggered" << std::endl;
             NEKOCODE_LOG_DEBUG("CppAnalyzer", "Hybrid strategy not needed");
         }
         
@@ -338,16 +342,16 @@ public:
         
         // 統計更新
         NEKOCODE_PERF_CHECKPOINT("statistics");
-        std::cerr << "🔍 Before update_statistics: classes=" << result.classes.size() 
-                  << ", functions=" << result.functions.size() 
-                  << ", commented_lines=" << result.commented_lines.size() << std::endl;
+        // std::cerr << "🔍 Before update_statistics: classes=" << result.classes.size() 
+        //           << ", functions=" << result.functions.size() 
+        //           << ", commented_lines=" << result.commented_lines.size() << std::endl;
         
         result.update_statistics();
         
-        std::cerr << "🔍 After update_statistics: stats.class_count=" << result.stats.class_count 
-                  << ", stats.function_count=" << result.stats.function_count 
-                  << ", stats.commented_lines_count=" << result.stats.commented_lines_count
-                  << ", commented_lines.size()=" << result.commented_lines.size() << std::endl;
+        // std::cerr << "🔍 After update_statistics: stats.class_count=" << result.stats.class_count 
+        //           << ", stats.function_count=" << result.stats.function_count 
+        //           << ", stats.commented_lines_count=" << result.stats.commented_lines_count
+        //           << ", commented_lines.size()=" << result.commented_lines.size() << std::endl;
         
         NEKOCODE_LOG_DEBUG("CppAnalyzer", "Final statistics: total_classes=" + std::to_string(result.stats.class_count) +
                           ", total_functions=" + std::to_string(result.stats.function_count));
@@ -355,9 +359,9 @@ public:
         NEKOCODE_LOG_INFO("CppAnalyzer", "C++ PEGTL analysis completed successfully for " + filename);
         
         // 🔥 デバッグ：最終リターン直前の統計確認
-        std::cerr << "🔥 Final return: result.stats.class_count=" << result.stats.class_count 
-                  << ", result.stats.function_count=" << result.stats.function_count 
-                  << ", result.commented_lines.size()=" << result.commented_lines.size() << std::endl;
+        // std::cerr << "🔥 Final return: result.stats.class_count=" << result.stats.class_count 
+        //           << ", result.stats.function_count=" << result.stats.function_count 
+        //           << ", result.commented_lines.size()=" << result.commented_lines.size() << std::endl;
         
         return result;
     }
@@ -413,12 +417,12 @@ private:
         while (std::getline(stream, line)) {
             line_number++;
             if (line.find(search_pattern) != std::string::npos) {
-                std::cerr << "🎯 Found correct " << (is_struct ? "struct" : "class") << " '" << class_name << "' at line " << line_number << std::endl;
+                // std::cerr << "🎯 Found correct " << (is_struct ? "struct" : "class") << " '" << class_name << "' at line " << line_number << std::endl;
                 return line_number;
             }
         }
         
-        std::cerr << "❌ Could not find " << (is_struct ? "struct" : "class") << " '" << class_name << "' in original content" << std::endl;
+        // std::cerr << "❌ Could not find " << (is_struct ? "struct" : "class") << " '" << class_name << "' in original content" << std::endl;
         return 0;
     }
     
@@ -429,8 +433,8 @@ private:
         // クラス一覧をデバッグ出力
         if (g_debug_mode) {
             for (size_t i = 0; i < result.classes.size(); ++i) {
-                std::cerr << "🏷️  Class[" << i << "]: '" << result.classes[i].name << "' (lines " 
-                          << result.classes[i].start_line << "-" << result.classes[i].end_line << ")" << std::endl;
+                // std::cerr << "🏷️  Class[" << i << "]: '" << result.classes[i].name << "' (lines " 
+                //           << result.classes[i].start_line << "-" << result.classes[i].end_line << ")" << std::endl;
             }
         }
         
@@ -440,24 +444,24 @@ private:
         
         // 各クラスに対してメンバ変数を検出
         for (auto& cls : result.classes) {
-            std::cerr << "🔍 Processing class: '" << cls.name << "'" << std::endl;
+            // std::cerr << "🔍 Processing class: '" << cls.name << "'" << std::endl;
             
             // namespace:やstruct:プレフィックスを除去
             std::string clean_class_name = cls.name;
             if (clean_class_name.find("namespace:") == 0) {
-                std::cerr << "⏭️  Skipping namespace: " << clean_class_name << std::endl;
+                // std::cerr << "⏭️  Skipping namespace: " << clean_class_name << std::endl;
                 continue; // namespaceはスキップ
             }
             if (clean_class_name.find("struct:") == 0) {
                 clean_class_name = clean_class_name.substr(7);
-                std::cerr << "📦 Struct detected, clean name: '" << clean_class_name << "'" << std::endl;
+                // std::cerr << "📦 Struct detected, clean name: '" << clean_class_name << "'" << std::endl;
             }
             
             // 🔧 元のコンテンツから正しいクラス開始行を再検索
             size_t correct_start_line = find_correct_class_start_line(content, clean_class_name, cls.name.find("struct:") == 0);
             if (correct_start_line > 0) {
                 cls.start_line = correct_start_line;
-                std::cerr << "✅ Corrected start_line for '" << cls.name << "': " << correct_start_line << std::endl;
+                // std::cerr << "✅ Corrected start_line for '" << cls.name << "': " << correct_start_line << std::endl;
             }
             
             // クラス/構造体の終了行を推定（次のクラスの開始行または最終行）
@@ -480,7 +484,7 @@ private:
                 access_modifier = "public"; // structのデフォルトはpublic
             }
             
-            std::cerr << "🔍 Scanning lines " << cls.start_line << "-" << end_line << " for class '" << clean_class_name << "'" << std::endl;
+            // std::cerr << "🔍 Scanning lines " << cls.start_line << "-" << end_line << " for class '" << clean_class_name << "'" << std::endl;
             
             while (std::getline(stream, line)) {
                 line_number++;
@@ -491,21 +495,21 @@ private:
                     if (line.find("{") != std::string::npos) {
                         brace_depth = 1;
                     }
-                    std::cerr << "🎯 Class start detected at line " << line_number << ": " << line << std::endl;
+                    // std::cerr << "🎯 Class start detected at line " << line_number << ": " << line << std::endl;
                     
                     // 🚀 単行クラス定義対応：同じ行にメンバ変数がある場合を検出
                     if (line.find("{") != std::string::npos && line.find("}") != std::string::npos) {
-                        std::cerr << "🎯 Single-line class detected, processing members inline" << std::endl;
+                        // std::cerr << "🎯 Single-line class detected, processing members inline" << std::endl;
                         
                         // { と } の間のコンテンツを抽出
                         size_t start_brace = line.find("{");
                         size_t end_brace = line.find("}", start_brace);
                         if (start_brace != std::string::npos && end_brace != std::string::npos) {
                             std::string class_body = line.substr(start_brace + 1, end_brace - start_brace - 1);
-                            std::cerr << "📝 Class body: '" << class_body << "'" << std::endl;
+                            // std::cerr << "📝 Class body: '" << class_body << "'" << std::endl;
                             
                             // デバッグ：分割前の内容を出力
-                            std::cerr << "🔍 Processing segments from body: '" << class_body << "'" << std::endl;
+                            // std::cerr << "🔍 Processing segments from body: '" << class_body << "'" << std::endl;
                             
                             // 複数のセグメントを処理
                             std::string current_access = "private"; // classのデフォルト
@@ -527,7 +531,7 @@ private:
                                 if (next_break == std::string::npos) next_break = class_body.length();
                                 
                                 std::string segment = class_body.substr(pos, next_break - pos);
-                                std::cerr << "📋 Segment[" << pos << "-" << next_break << "]: '" << segment << "'" << std::endl;
+                                // std::cerr << "📋 Segment[" << pos << "-" << next_break << "]: '" << segment << "'" << std::endl;
                                 // trim whitespace
                                 segment.erase(0, segment.find_first_not_of(" \t"));
                                 segment.erase(segment.find_last_not_of(" \t") + 1);
@@ -536,13 +540,13 @@ private:
                                     // アクセス修飾子チェック
                                     if (segment.find("public:") != std::string::npos) {
                                         current_access = "public";
-                                        std::cerr << "🔑 Access changed to: " << current_access << std::endl;
+                                        // std::cerr << "🔑 Access changed to: " << current_access << std::endl;
                                     } else if (segment.find("private:") != std::string::npos) {
                                         current_access = "private";
-                                        std::cerr << "🔑 Access changed to: " << current_access << std::endl;
+                                        // std::cerr << "🔑 Access changed to: " << current_access << std::endl;
                                     } else if (segment.find("protected:") != std::string::npos) {
                                         current_access = "protected";
-                                        std::cerr << "🔑 Access changed to: " << current_access << std::endl;
+                                        // std::cerr << "🔑 Access changed to: " << current_access << std::endl;
                                     } else {
                                         // メンバ変数パターンをチェック（改良版）
                                         std::regex member_pattern(R"(^\s*(?:static\s+)?(?:const\s+)?(\w+)\s+(\w+)\s*$)");
@@ -552,9 +556,9 @@ private:
                                             
                                             // 関数宣言を除外
                                             if (segment.find("(") == std::string::npos) {
-                                                std::cerr << "🎯 Found member variable: " << var_name << " in class " << clean_class_name << " (single-line)" << std::endl;
-                                                std::cerr << "    📝 Segment content: '" << segment << "'" << std::endl;
-                                                std::cerr << "    🔑 Access: " << current_access << std::endl;
+                                                // std::cerr << "🎯 Found member variable: " << var_name << " in class " << clean_class_name << " (single-line)" << std::endl;
+                                                // std::cerr << "    📝 Segment content: '" << segment << "'" << std::endl;
+                                                // std::cerr << "    🔑 Access: " << current_access << std::endl;
                                                 
                                                 MemberVariable member;
                                                 member.name = var_name;
@@ -588,11 +592,11 @@ private:
                 
                 if (!in_class) continue;
                 if (line_number > end_line) {
-                    std::cerr << "📍 Reached end_line " << end_line << " for class " << clean_class_name << std::endl;
+                    // std::cerr << "📍 Reached end_line " << end_line << " for class " << clean_class_name << std::endl;
                     break;
                 }
                 
-                std::cerr << "📄 Line " << line_number << " (in_class=" << in_class << ", brace_depth=" << brace_depth << "): " << line << std::endl;
+                // std::cerr << "📄 Line " << line_number << " (in_class=" << in_class << ", brace_depth=" << brace_depth << "): " << line << std::endl;
                 
                 // ブレース深度を追跡
                 for (char c : line) {
@@ -628,8 +632,8 @@ private:
                 std::smatch var_match;
                 if (std::regex_search(line, var_match, member_var_pattern)) {
                     std::string var_name = var_match[1].str();
-                    std::cerr << "🎯 Found member variable: " << var_name << " in class " << clean_class_name << " at line " << line_number << std::endl;
-                    std::cerr << "    📝 Line content: '" << line << "'" << std::endl;
+                    // std::cerr << "🎯 Found member variable: " << var_name << " in class " << clean_class_name << " at line " << line_number << std::endl;
+                    // std::cerr << "    📝 Line content: '" << line << "'" << std::endl;
                     
                     // 関数宣言を除外（括弧がある場合）
                     if (line.find("(") != std::string::npos && line.find(")") != std::string::npos) {
@@ -861,43 +865,43 @@ private:
         // デバッグクラスを除外して実際の検出数を計算
         size_t actual_classes = 0;
         for (const auto& cls : result.classes) {
-            std::cerr << "🔍 Detected class: '" << cls.name << "'" << std::endl;
+            // std::cerr << "🔍 Detected class: '" << cls.name << "'" << std::endl;
             if (cls.name != "CPP_PEGTL_ANALYZER_CALLED") {
                 actual_classes++;
             }
         }
         
         // デバッグ出力
-        std::cerr << "🔍 Debug: complexity=" << complexity 
-                  << ", detected_classes=" << detected_classes
-                  << ", actual_classes=" << actual_classes
-                  << ", detected_functions=" << detected_functions << std::endl;
+        // std::cerr << "🔍 Debug: complexity=" << complexity 
+        //           << ", detected_classes=" << detected_classes
+        //           << ", actual_classes=" << actual_classes
+        //           << ", detected_functions=" << detected_functions << std::endl;
         bool has_class = content.find("class ") != std::string::npos;
         bool has_struct = content.find("struct ") != std::string::npos;
         bool has_namespace = content.find("namespace ") != std::string::npos;
-        std::cerr << "🔍 Debug: has_class=" << has_class 
-                  << ", has_struct=" << has_struct 
-                  << ", has_namespace=" << has_namespace << std::endl;
+        // std::cerr << "🔍 Debug: has_class=" << has_class 
+        //           << ", has_struct=" << has_struct 
+        //           << ", has_namespace=" << has_namespace << std::endl;
         
         // C++特化閾値: 複雑度が高いのに検出数が少ない場合は明らかにおかしい
         if (complexity > 50 && actual_classes == 0 && detected_functions < 5) {
-            std::cerr << "📊 Trigger reason: High complexity with low detection" << std::endl;
+            // std::cerr << "📊 Trigger reason: High complexity with low detection" << std::endl;
             return true;
         }
         
         // 複雑度200以上で関数検出0は絶対におかしい
         if (complexity > 200 && detected_functions == 0) {
-            std::cerr << "📊 Trigger reason: Very high complexity with no functions" << std::endl;
+            // std::cerr << "📊 Trigger reason: Very high complexity with no functions" << std::endl;
             return true;
         }
         
         // C++特有パターンがあるのに検出できていない場合
         if ((has_class || has_struct || has_namespace) && actual_classes == 0) {
-            std::cerr << "📊 Trigger reason: C++ patterns found but no classes detected" << std::endl;
+            // std::cerr << "📊 Trigger reason: C++ patterns found but no classes detected" << std::endl;
             return true;
         }
         
-        std::cerr << "❌ No trigger conditions met" << std::endl;
+        // std::cerr << "❌ No trigger conditions met" << std::endl;
         return false;
     }
     
@@ -921,7 +925,7 @@ private:
         const bool use_sampling_mode = false; // total_lines >= 15000 && total_lines < 40000;  // サンプリングモード
         const bool use_high_speed_mode = false; // total_lines >= 40000;  // 高速モード（基本検出のみ）
         
-        std::cerr << "📊 C++解析開始: " << total_lines << "行検出" << std::endl;
+        // std::cerr << "📊 C++解析開始: " << total_lines << "行検出" << std::endl;
         
         // 🔧 デバッグモードでのみ詳細情報表示
         if (g_debug_mode) {
@@ -949,7 +953,7 @@ private:
         size_t processed_lines = 0;
         
         if (use_parallel_mode) {
-            std::cerr << "⚡ 並列処理モード: std::execution::par_unseq で高速化！" << std::endl;
+            // std::cerr << "⚡ 並列処理モード: std::execution::par_unseq で高速化！" << std::endl;
             
             // 並列処理用のmutex
             std::mutex result_mutex;
@@ -1004,7 +1008,7 @@ private:
             processed_lines = processed_count.load();
             
         } else if (use_full_analysis) {
-            std::cerr << "🚀 通常モード: 全機能有効（C++最高精度）" << std::endl;
+            // std::cerr << "🚀 通常モード: 全機能有効（C++最高精度）" << std::endl;
             // 通常モード：全行処理
             for (size_t i = 0; i < all_lines.size(); i++) {
                 const std::string& current_line = all_lines[i];
@@ -1014,7 +1018,7 @@ private:
                 processed_lines++;
             }
         } else if (use_sampling_mode) {
-            std::cerr << "🎲 サンプリングモード: 10行に1行処理（効率重視）" << std::endl;
+            // std::cerr << "🎲 サンプリングモード: 10行に1行処理（効率重視）" << std::endl;
             // サンプリングモード：10行に1行だけ処理
             for (size_t i = 0; i < all_lines.size(); i += 10) {
                 const std::string& current_line = all_lines[i];
@@ -1024,7 +1028,7 @@ private:
                 processed_lines++;
             }
         } else {
-            std::cerr << "⚡ 高速モード: 基本検出のみ（大規模C++対応）" << std::endl;
+            // std::cerr << "⚡ 高速モード: 基本検出のみ（大規模C++対応）" << std::endl;
             // 高速モード：基本検出のみ
             for (size_t i = 0; i < all_lines.size(); i++) {
                 const std::string& current_line = all_lines[i];
@@ -1039,16 +1043,16 @@ private:
         auto analysis_end = std::chrono::high_resolution_clock::now();
         auto analysis_time = std::chrono::duration_cast<std::chrono::milliseconds>(analysis_end - analysis_start);
         
-        std::cerr << "✅ C++ハイブリッド戦略完了: " << processed_lines << "行処理 (" 
-                  << analysis_time.count() << "ms)" << std::endl;
+        // std::cerr << "✅ C++ハイブリッド戦略完了: " << processed_lines << "行処理 (" 
+        //           << analysis_time.count() << "ms)" << std::endl;
         
         // 🏁 処理戦略のサマリー
         if (use_high_speed_mode) {
-            std::cerr << "\n📊 処理戦略: 大規模C++ファイルモード（基本検出のみ）" << std::endl;
+            // std::cerr << "\n📊 処理戦略: 大規模C++ファイルモード（基本検出のみ）" << std::endl;
         } else if (use_sampling_mode) {
-            std::cerr << "\n📊 処理戦略: サンプリングモード（10%処理）" << std::endl;
+            // std::cerr << "\n📊 処理戦略: サンプリングモード（10%処理）" << std::endl;
         } else {
-            std::cerr << "\n📊 処理戦略: 通常モード（全機能有効）" << std::endl;
+            // std::cerr << "\n📊 処理戦略: 通常モード（全機能有効）" << std::endl;
         }
     }
     
@@ -1267,18 +1271,18 @@ private:
             return preprocess_content(content);  // 従来版にフォールバック
         }
         
-        std::cerr << "🔥 C++ preprocess_content called with comment collection!" << std::endl;
+        // std::cerr << "🔥 C++ preprocess_content called with comment collection!" << std::endl;
         
         // コメント除去処理と同時にコメント情報を収集
         std::string result = content;
         
         // 複数行コメント /* ... */ の除去と収集
         result = remove_multiline_comments(result, *out_comments);
-        std::cerr << "🔥 After multiline: " << out_comments->size() << " comments collected" << std::endl;
+        // std::cerr << "🔥 After multiline: " << out_comments->size() << " comments collected" << std::endl;
         
         // 単行コメント // の除去と収集
         result = remove_single_line_comments(result, *out_comments);
-        std::cerr << "🔥 After single line: " << out_comments->size() << " comments collected" << std::endl;
+        // std::cerr << "🔥 After single line: " << out_comments->size() << " comments collected" << std::endl;
         
         return result;
     }
