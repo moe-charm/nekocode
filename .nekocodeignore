@@ -1,0 +1,80 @@
+# NekoCode analyzer ignore patterns
+
+# Test projects (huge external codebases)
+test-projects/
+test-large-files/
+
+# Build artifacts
+build/
+cmake-build-*/
+out/
+.build/
+_deps/
+
+# Binary files
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.o
+*.obj
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.bak
+
+# Session data
+sessions/
+*.session
+ai_session_*
+
+# Documentation build
+docs/_build/
+
+# Version control
+.git/
+.svn/
+.hg/
+
+# Package managers
+node_modules/
+vendor/
+__pycache__/
+*.pyc
+
+# Large binary assets
+*.pdf
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+# Media files
+*.mp4
+*.avi
+*.mov
+*.mp3
+*.wav
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3

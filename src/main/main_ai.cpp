@@ -72,7 +72,7 @@ SESSION COMMANDS:
     stats                       統計表示
     complexity                  複雑度分析  
     structure                   構造解析
-    find <term>                 検索
+    find <term>                 シンボル検索（例: find preprocess_content）
     include-cycles              C++循環依存検出
     include-unused              C++不要include検出
     help                        詳細ヘルプ
