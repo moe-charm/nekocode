@@ -15,7 +15,7 @@ This directory contains practical examples demonstrating various features of Nek
 
 # Interactive analysis
 ./nekocode_ai session-create examples/
-./nekocode_ai session-cmd <session_id> complexity
+./nekocode_ai session-command <session_id> complexity
 ```
 
 ### 2. Project Analysis (`project_analysis/`)
@@ -61,7 +61,7 @@ This directory contains practical examples demonstrating various features of Nek
    ```bash
    ./build/nekocode_ai session-create examples/
    # Use the returned session_id for commands
-   ./build/nekocode_ai session-cmd <session_id> stats
+   ./build/nekocode_ai session-command <session_id> stats
    ```
 
 ## 📊 Expected Output
@@ -113,7 +113,7 @@ time ./build/nekocode_ai examples/
 
 # Compare with session mode
 ./build/nekocode_ai session-create examples/
-time ./build/nekocode_ai session-cmd <session_id> stats
+time ./build/nekocode_ai session-command <session_id> stats
 ```
 
 The session mode should be significantly faster for repeated operations!

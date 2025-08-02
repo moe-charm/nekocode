@@ -167,45 +167,45 @@ make -j
 # 出力: session_id: ai_session_20250727_123456
 
 # コマンドを実行
-./nekocode_ai session-cmd ai_session_20250727_123456 stats
-./nekocode_ai session-cmd ai_session_20250727_123456 complexity
-./nekocode_ai session-cmd ai_session_20250727_123456 "find manager"
+./nekocode_ai session-command ai_session_20250727_123456 stats
+./nekocode_ai session-command ai_session_20250727_123456 complexity
+./nekocode_ai session-command ai_session_20250727_123456 "find manager"
 
 # 新機能: テンプレート＆マクロ解析
-./nekocode_ai session-cmd ai_session_20250727_123456 template-analysis
-./nekocode_ai session-cmd ai_session_20250727_123456 macro-analysis
+./nekocode_ai session-command ai_session_20250727_123456 template-analysis
+./nekocode_ai session-command ai_session_20250727_123456 macro-analysis
 ```
 
 ### インクルード依存関係解析（C++専用）
 
 ```bash
 # 依存関係グラフを表示
-./nekocode_ai session-cmd <session_id> include-graph
+./nekocode_ai session-command <session_id> include-graph
 
 # 循環依存を検出
-./nekocode_ai session-cmd <session_id> include-cycles
+./nekocode_ai session-command <session_id> include-cycles
 
 # 不要なincludeを検出
-./nekocode_ai session-cmd <session_id> include-unused
+./nekocode_ai session-command <session_id> include-unused
 
 # 最適化提案
-./nekocode_ai session-cmd <session_id> include-optimize
+./nekocode_ai session-command <session_id> include-optimize
 ```
 
 ### テンプレート＆マクロ解析（C++専用）
 
 ```bash
 # テンプレート特殊化検出
-./nekocode_ai session-cmd <session_id> template-analysis
+./nekocode_ai session-command <session_id> template-analysis
 
 # マクロ展開追跡
-./nekocode_ai session-cmd <session_id> macro-analysis
+./nekocode_ai session-command <session_id> macro-analysis
 
 # メタプログラミングパターン検出
-./nekocode_ai session-cmd <session_id> metaprogramming
+./nekocode_ai session-command <session_id> metaprogramming
 
 # コンパイル時計算最適化提案
-./nekocode_ai session-cmd <session_id> compile-time-optimization
+./nekocode_ai session-command <session_id> compile-time-optimization
 ```
 
 ## 📋 利用可能なコマンド

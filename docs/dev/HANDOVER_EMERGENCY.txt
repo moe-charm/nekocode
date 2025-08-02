@@ -26,9 +26,9 @@ src/core/session_manager.cpp          # セッション統合済み
 ./build/nekocode_ai session-create test-projects/javascript/lodash
 
 # シンボル検索
-./build/nekocode_ai session-cmd ai_session_20250728_230914 "find map"
-./build/nekocode_ai session-cmd SESSION_ID "find forEach -f"
-./build/nekocode_ai session-cmd SESSION_ID "find symbol path/"
+./build/nekocode_ai session-command ai_session_20250728_230914 "find map"
+./build/nekocode_ai session-command SESSION_ID "find forEach -f"
+./build/nekocode_ai session-command SESSION_ID "find symbol path/"
 
 📊 動作中セッション
 ===================
@@ -65,13 +65,13 @@ ai_session_20250728_230914  # lodashプロジェクト（軽量・動作確認�
 🎮 テストコマンド
 =================
 # 基本テスト
-./build/nekocode_ai session-cmd ai_session_20250728_230914 "find map"
+./build/nekocode_ai session-command ai_session_20250728_230914 "find map"
 
 # 関数検索
-./build/nekocode_ai session-cmd ai_session_20250728_230914 "find forEach -f"
+./build/nekocode_ai session-command ai_session_20250728_230914 "find forEach -f"
 
 # 統計確認
-./build/nekocode_ai session-cmd ai_session_20250728_230914 "stats"
+./build/nekocode_ai session-command ai_session_20250728_230914 "stats"
 
 🏗️ ビルド状況
 ==============
@@ -88,7 +88,7 @@ ai_session_20250728_230914  # lodashプロジェクト（軽量・動作確認�
 🔄 再開手順
 ===========
 1. cd /mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github
-2. ./build/nekocode_ai session-cmd ai_session_20250728_230914 "help"
+2. ./build/nekocode_ai session-command ai_session_20250728_230914 "help"
 3. プログレス表示機能実装検討
 
 🌟 大成功ポイント

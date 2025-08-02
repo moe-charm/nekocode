@@ -19,7 +19,7 @@ A large C++ project with:
 
 ### Step 2: Basic Statistics
 ```bash
-./build/nekocode_ai session-cmd ai_session_20250727_134555 stats
+./build/nekocode_ai session-command ai_session_20250727_134555 stats
 ```
 
 **Result:**
@@ -35,7 +35,7 @@ A large C++ project with:
 ### Step 3: Complexity Analysis - The Shocking Discovery
 
 ```bash
-./build/nekocode_ai session-cmd ai_session_20250727_134555 complexity
+./build/nekocode_ai session-command ai_session_20250727_134555 complexity
 ```
 
 **🔥 Critical Findings:**
@@ -51,7 +51,7 @@ A large C++ project with:
 ### Step 4: File-by-File Analysis
 
 ```bash
-./build/nekocode_ai session-cmd ai_session_20250727_134555 files
+./build/nekocode_ai session-command ai_session_20250727_134555 files
 ```
 
 **Key Discoveries:**

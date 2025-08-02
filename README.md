@@ -231,45 +231,45 @@ make -j
 # Output: session_id: ai_session_20250727_123456
 
 # Execute commands
-./nekocode_ai session-cmd ai_session_20250727_123456 stats
-./nekocode_ai session-cmd ai_session_20250727_123456 complexity
-./nekocode_ai session-cmd ai_session_20250727_123456 "find manager"
+./nekocode_ai session-command ai_session_20250727_123456 stats
+./nekocode_ai session-command ai_session_20250727_123456 complexity
+./nekocode_ai session-command ai_session_20250727_123456 "find manager"
 
 # NEW: Template & Macro Analysis
-./nekocode_ai session-cmd ai_session_20250727_123456 template-analysis
-./nekocode_ai session-cmd ai_session_20250727_123456 macro-analysis
+./nekocode_ai session-command ai_session_20250727_123456 template-analysis
+./nekocode_ai session-command ai_session_20250727_123456 macro-analysis
 ```
 
 ### Include Dependency Analysis (C++ Specific)
 
 ```bash
 # Show dependency graph
-./nekocode_ai session-cmd <session_id> include-graph
+./nekocode_ai session-command <session_id> include-graph
 
 # Detect circular dependencies
-./nekocode_ai session-cmd <session_id> include-cycles
+./nekocode_ai session-command <session_id> include-cycles
 
 # 不要include検出
-./nekocode_ai session-cmd <session_id> include-unused
+./nekocode_ai session-command <session_id> include-unused
 
 # 最適化提案
-./nekocode_ai session-cmd <session_id> include-optimize
+./nekocode_ai session-command <session_id> include-optimize
 ```
 
 ### Template & Macro Analysis (C++ Specific)
 
 ```bash
 # テンプレート特殊化検出
-./nekocode_ai session-cmd <session_id> template-analysis
+./nekocode_ai session-command <session_id> template-analysis
 
 # マクロ展開追跡
-./nekocode_ai session-cmd <session_id> macro-analysis
+./nekocode_ai session-command <session_id> macro-analysis
 
 # メタプログラミングパターン検出
-./nekocode_ai session-cmd <session_id> metaprogramming
+./nekocode_ai session-command <session_id> metaprogramming
 
 # コンパイル時計算最適化提案
-./nekocode_ai session-cmd <session_id> compile-time-optimization
+./nekocode_ai session-command <session_id> compile-time-optimization
 ```
 
 ### 🎯 Advanced Member Variable Detection (**NEW!**)
@@ -305,13 +305,13 @@ NekoCode now provides comprehensive member variable analysis across all supporte
 
 ```bash
 # Detailed class structure analysis
-./nekocode_ai session-cmd <session_id> "analyze MyClass.cpp --detailed"
+./nekocode_ai session-command <session_id> "analyze MyClass.cpp --detailed"
 
 # Member variable responsibility analysis
-./nekocode_ai session-cmd <session_id> "analyze --member-responsibility"
+./nekocode_ai session-command <session_id> "analyze --member-responsibility"
 
 # Cross-language member variable comparison
-./nekocode_ai session-cmd <session_id> "analyze --compare-languages"
+./nekocode_ai session-command <session_id> "analyze --compare-languages"
 ```
 
 ## 📋 利用可能なコマンド

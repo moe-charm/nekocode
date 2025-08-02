@@ -73,7 +73,7 @@ Claude Code使用時のトラブルシューティング
 nekocode_ai session-create project/
 
 # 検索
-nekocode_ai session-cmd [session_id] "find interface --limit 20"
+nekocode_ai session-command [session_id] "find interface --limit 20"
 ```
 
 ### 大規模プロジェクト（1,000ファイル以上）
@@ -83,7 +83,7 @@ nekocode_ai analyze large_project/ --stats-only --io-threads 16
 
 # 詳細解析が必要な場合はセッション作成
 nekocode_ai session-create large_project/
-nekocode_ai session-cmd [session_id] stats
+nekocode_ai session-command [session_id] stats
 ```
 
 ## 💡 よくある質問
