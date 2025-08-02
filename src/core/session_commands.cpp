@@ -846,11 +846,86 @@ nlohmann::json SessionCommands::cmd_find_symbols(const SessionData& session,
                                 const std::string& symbol,
                                 const std::vector<std::string>& options,
                                 bool debug) const {
-    return {
-        {"command", "find-symbols"},
-        {"result", "Not implemented yet - moved to SessionCommands"},
-        {"summary", "Find symbols feature pending implementation"}
-    };
+    
+    if (debug) {
+        std::cerr << "[DEBUG] cmd_find_symbols called with symbol: " << symbol << std::endl;
+        std::cerr << "[DEBUG] options count: " << options.size() << std::endl;
+    }
+    
+    // SymbolFinderの設定
+    SymbolFinder finder;
+    SymbolFinder::FindOptions find_opts;
+    find_opts.debug = debug;
+    
+    // オプション解析
+    for (const auto& opt : options) {
+        if (opt == "--debug") {
+            find_opts.debug = true;
+        } else if (opt == "--functions") {
+            find_opts.type = SymbolFinder::SymbolType::FUNCTION;
+        } else if (opt == "--variables") {
+            find_opts.type = SymbolFinder::SymbolType::VARIABLE;
+        }
+    }
+    
+    // セッションデータからファイル情報を抽出
+    std::vector<FileInfo> files;
+    
+    if (session.is_directory) {
+        for (const auto& file : session.directory_result.files) {
+            FileInfo file_info;
+            file_info.path = file.file_info.path;
+            files.push_back(file_info);
+        }
+    } else {
+        FileInfo file_info;
+        file_info.path = session.single_file_result.file_info.path;
+        files.push_back(file_info);
+    }
+    
+    finder.setFiles(files);
+    
+    // 検索実行
+    auto results = finder.find(symbol, find_opts);
+    
+    if (debug) {
+        std::cerr << "[DEBUG] Search completed. Found " << results.total_count << " matches" << std::endl;
+    }
+    
+    // JSON結果を構築
+    nlohmann::json json_results;
+    json_results["command"] = "find-symbols";
+    json_results["symbol"] = symbol;
+    json_results["total_matches"] = results.total_count;
+    json_results["function_matches"] = results.function_count;
+    json_results["variable_matches"] = results.variable_count;
+    json_results["files_affected"] = results.file_counts.size();
+    
+    // 結果詳細
+    nlohmann::json matches = nlohmann::json::array();
+    for (const auto& loc : results.locations) {
+        nlohmann::json match;
+        match["file"] = loc.file_path;
+        match["line"] = loc.line_number;
+        match["content"] = loc.line_content;
+        match["symbol_type"] = (loc.symbol_type == SymbolFinder::SymbolType::FUNCTION) ? "function" : "variable";
+        match["use_type"] = [&]() {
+            switch(loc.use_type) {
+                case SymbolFinder::UseType::DECLARATION: return "declaration";
+                case SymbolFinder::UseType::ASSIGNMENT: return "assignment";
+                case SymbolFinder::UseType::CALL: return "call";
+                case SymbolFinder::UseType::REFERENCE: return "reference";
+                default: return "unknown";
+            }
+        }();
+        matches.push_back(match);
+    }
+    json_results["matches"] = matches;
+    
+    // サマリー
+    json_results["summary"] = "Found " + std::to_string(results.total_count) + " matches for '" + symbol + "'";
+    
+    return json_results;
 }
 
 nlohmann::json SessionCommands::cmd_dependency_analyze(const SessionData& session, const std::string& filename) const {
