@@ -8,6 +8,7 @@
 #include "nekocode/pegtl_analyzer.hpp"
 // #include "nekocode/analyzers/csharp_analyzer.hpp" // regex版は削除済み
 #include "../analyzers/base_analyzer.hpp"
+#include "../utils/file_size_reporter.hpp"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -164,6 +165,17 @@ Result<FileInfo> NekoCodeCore::get_file_info(const FilePath& file_path) {
 Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_file_multilang(const FilePath& file_path) {
     auto [result, duration] = utils::measure_time([&]() -> Result<MultiLanguageAnalysisResult> {
         try {
+            // 🎯 大ファイル進捗表示（Claude Code向け）
+            size_t file_size = 0;
+            try {
+                file_size = std::filesystem::file_size(file_path);
+                if (FileSizeReporter::is_large_file(file_size)) {
+                    FileSizeReporter::report_large_file_start(file_path.filename().string(), file_size);
+                }
+            } catch (...) {
+                // ファイルサイズ取得失敗は無視して続行
+            }
+            
             // UTF-8 safe file reading
             auto safe_content = utf8::read_file_safe_utf8(file_path.string());
             if (!safe_content.conversion_success) {
@@ -174,7 +186,14 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_file_multilang(const F
             // 言語自動検出
             Language detected_lang = impl_->language_detector_->detect_language(file_path, safe_content.content);
             
-            return analyze_content_multilang(safe_content.content, file_path.string(), detected_lang);
+            auto analysis_result = analyze_content_multilang(safe_content.content, file_path.string(), detected_lang);
+            
+            // 🎯 大ファイル処理完了通知
+            if (FileSizeReporter::is_large_file(file_size)) {
+                FileSizeReporter::report_large_file_complete(file_path.filename().string());
+            }
+            
+            return analysis_result;
             
         } catch (const std::exception& e) {
             return Result<MultiLanguageAnalysisResult>(
