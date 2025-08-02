@@ -83,14 +83,10 @@ INTERACTIVE COMMANDS:
     files                       ファイル一覧
     complexity                  複雑度分析
     complexity --methods [file] ファイル別メソッド複雑度ランキング
-    large-files [--threshold N] 大きいファイル一覧（デフォルト500行以上）
-    duplicates                  重複・バックアップファイル検出
-    todo                        TODO/FIXME/BUGコメント検出
     complexity-ranking          関数複雑度ランキング（トップ50）
     structure                   構造解析（クラス・関数）
     structure --detailed [file] 詳細構造解析（クラス・メソッド情報）
     calls                       関数呼び出し分析
-    calls --detailed <function> 特定関数の詳細呼び出し関係
     find <term> [options]       検索（--debug --limit N --function --variable）
     help                        コマンドヘルプ
 
@@ -101,10 +97,6 @@ INTERACTIVE COMMANDS:
                                  A→B→C→A のような依存を発見
     include-unused              🗑️  不要include検出（コンパイル高速化）
                                  実際に使われていないincludeを特定
-    include-impact <file>       💥 ファイル変更時の影響範囲解析
-                                 変更が波及するファイル一覧表示
-    include-optimize            🚀 Include最適化提案（前方宣言・PIMPL等）
-                                 コンパイル時間を劇的に改善
 
 OPTIONS:
     -h, --help          このヘルプを表示
@@ -143,10 +135,9 @@ EXAMPLES:
     nekocode_ai session-create charmflow_v5/
     nekocode_ai session-command ai_session_20250727_123456 stats
     nekocode_ai session-command ai_session_20250727_123456 complexity
-    nekocode_ai session-command ai_session_20250727_123456 large-files
-    nekocode_ai session-command ai_session_20250727_123456 "large-files --threshold 1000"
-    nekocode_ai session-command ai_session_20250727_123456 duplicates
-    nekocode_ai session-command ai_session_20250727_123456 todo
+    nekocode_ai session-command ai_session_20250727_123456 include-graph
+    nekocode_ai session-command ai_session_20250727_123456 include-cycles
+    nekocode_ai session-command ai_session_20250727_123456 include-unused
     nekocode_ai session-command ai_session_20250727_123456 complexity-ranking
     nekocode_ai session-command ai_session_20250727_123456 "find nyamesh --debug"
     nekocode_ai session-command ai_session_20250727_123456 "find std::cout --limit 10"
