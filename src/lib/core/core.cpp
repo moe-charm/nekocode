@@ -8,7 +8,7 @@
 #include "nekocode/pegtl_analyzer.hpp"
 // #include "nekocode/analyzers/csharp_analyzer.hpp" // regex版は削除済み
 #include "../analyzers/base_analyzer.hpp"
-#include "../utils/file_size_reporter.hpp"
+#include "../../utils/file_size_reporter.hpp"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
