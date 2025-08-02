@@ -399,6 +399,21 @@ NekoCode is rapidly becoming the tool of choice for AI developers worldwide. Joi
 - 🐛 **Report issues** to help us improve
 - 🚀 **Share** your analysis results
 
+## 💖 Support NekoCode Development
+
+NekoCode is developed with ❤️ and significant monthly costs for AI tools.  
+If this tool saves you time, please consider supporting its development:
+
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-pink.svg)](https://github.com/sponsors/moe-charm)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-☕-yellow.svg)](https://coff.ee/moecharmde6)
+
+Your support helps cover:
+- 🤖 AI development tools ($350/month)
+- 🚀 Continuous improvements and new features
+- 📚 Documentation and community support
+
+Every coffee keeps the cat purring! 🐱
+
 ## 📝 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
