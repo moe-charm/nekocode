@@ -22,6 +22,10 @@
 #include <atomic>
 #include <iomanip>
 
+// 🔧 グローバルフラグ（ユーザー制御可能）
+extern bool g_debug_mode;
+extern bool g_quiet_mode;
+
 namespace nekocode {
 
 //=============================================================================
@@ -875,7 +879,9 @@ private:
         const bool use_full_analysis = total_lines < 15000;     // JavaScript特化調整: 15K行未満で全機能
         const bool use_sampling_mode = total_lines >= 15000 && total_lines < 40000;  // サンプリングモード
         
-        std::cerr << "📊 JavaScript解析開始: " << total_lines << "行検出" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "📊 JavaScript解析開始: " << total_lines << "行検出" << std::endl;
+        }
         
         // 既存の関数名を記録（重複検出を防ぐ）
         std::set<std::string> existing_functions;
@@ -908,7 +914,9 @@ private:
                 processed_lines++;
             }
         } else {
-            std::cerr << "⚡ 高速モード: 基本検出のみ（大規模JS対応）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "⚡ 高速モード: 基本検出のみ（大規模JS対応）" << std::endl;
+            }
             // 高速モード：基本検出のみ
             for (size_t i = 0; i < all_lines.size(); i++) {
                 const std::string& current_line = all_lines[i];
@@ -923,31 +931,45 @@ private:
         auto analysis_end = std::chrono::high_resolution_clock::now();
         auto analysis_time = std::chrono::duration_cast<std::chrono::milliseconds>(analysis_end - analysis_start);
         
-        std::cerr << "✅ JavaScript第1段階完了: " << processed_lines << "行処理 (" 
-                  << analysis_time.count() << "ms)" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "✅ JavaScript第1段階完了: " << processed_lines << "行処理 (" 
+                      << analysis_time.count() << "ms)" << std::endl;
+        }
         
         // 🚀 【JavaScriptコールバック地獄専用】無限ネスト掘削アタック開始！
         if (use_full_analysis || use_sampling_mode) {
-            std::cerr << "🚀 【JavaScript専用】無限ネスト掘削アタック開始！（コールバック地獄対応版）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "🚀 【JavaScript専用】無限ネスト掘削アタック開始！（コールバック地獄対応版）" << std::endl;
+            }
             size_t initial_function_count = result.functions.size();
             
             // 関数範囲を特定してネスト検索
             extract_nested_functions_recursively(result, all_lines, existing_functions);
             
             size_t nested_functions_found = result.functions.size() - initial_function_count;
-            std::cerr << "🏆 JavaScript無限ネスト掘削アタック最終結果：" << nested_functions_found 
-                      << "個のネスト関数を発見！" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "🏆 JavaScript無限ネスト掘削アタック最終結果：" << nested_functions_found 
+                          << "個のネスト関数を発見！" << std::endl;
+            }
         } else {
-            std::cerr << "⚡ 高速モード: ネスト掘削スキップ（大規模JS対応）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "⚡ 高速モード: ネスト掘削スキップ（大規模JS対応）" << std::endl;
+            }
         }
         
         // 🏁 処理戦略のサマリー
         if (!use_full_analysis && !use_sampling_mode) {
-            std::cerr << "\n📊 処理戦略: 大規模JSファイルモード（基本検出のみ）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "\n📊 処理戦略: 大規模JSファイルモード（基本検出のみ）" << std::endl;
+            }
         } else if (use_sampling_mode) {
-            std::cerr << "\n📊 処理戦略: サンプリングモード（10%処理）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "\n📊 処理戦略: サンプリングモード（10%処理）" << std::endl;
+            }
         } else {
-            std::cerr << "\n📊 処理戦略: 通常モード（全機能有効）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "\n📊 処理戦略: 通常モード（全機能有効）" << std::endl;
+            }
         }
     }
     
@@ -1166,8 +1188,10 @@ private:
             std::mutex ranges_mutex;
             std::mutex output_mutex;
             
-            std::cerr << "🎯 JavaScript第" << round_count << "回ネスト掘削攻撃開始！（検索範囲: " 
-                      << current_ranges.size() << "個）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "🎯 JavaScript第" << round_count << "回ネスト掘削攻撃開始！（検索範囲: " 
+                          << current_ranges.size() << "個）" << std::endl;
+            }
             
             // 🔥 並列処理でコールバック地獄を高速攻略！
             std::for_each(std::execution::par_unseq,
@@ -1238,38 +1262,50 @@ private:
             total_processing_time += round_time.count();
             total_scanned_lines += round_lines;
             
-            std::cerr << "🎯 JavaScript第" << round_count << "回攻撃完了！新規検出: " << round_detections 
-                      << "個 (処理時間: " << round_time.count() << "ms, 処理行数: " << round_lines << "行)" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "🎯 JavaScript第" << round_count << "回攻撃完了！新規検出: " << round_detections 
+                          << "個 (処理時間: " << round_time.count() << "ms, 処理行数: " << round_lines << "行)" << std::endl;
+            }
             
             current_ranges = std::move(next_ranges);
             
             if (round_detections == 0) {
-                std::cerr << "🎉 JavaScript無限ネスト掘削アタック完了！検索範囲が空になりました" << std::endl;
+                if (!g_quiet_mode) {
+                    std::cerr << "🎉 JavaScript無限ネスト掘削アタック完了！検索範囲が空になりました" << std::endl;
+                }
                 break;
             }
         }
         
-        std::cerr << "⏱️  JavaScript総処理時間: " << total_processing_time << "ms, 総スキャン行数: " 
-                  << total_scanned_lines << "行 (ラウンド数: " << round_count << "回)" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "⏱️  JavaScript総処理時間: " << total_processing_time << "ms, 総スキャン行数: " 
+                      << total_scanned_lines << "行 (ラウンド数: " << round_count << "回)" << std::endl;
+        }
         
         // 📊 詳細プロファイリング出力
-        std::cerr << "\n📊 === JavaScript層ごとの詳細プロファイリング ===" << std::endl;
-        for (size_t i = 0; i < layer_times.size(); i++) {
-            double ms_per_line = layer_lines[i] > 0 ? static_cast<double>(layer_times[i].count()) / layer_lines[i] : 0.0;
-            std::cerr << "📈 JavaScript第" << (i+1) << "層: " << layer_times[i].count() << "ms, " 
-                      << layer_ranges[i] << "範囲, " << layer_detections[i] << "個検出, " 
-                      << layer_lines[i] << "行処理 (1行あたり: " 
-                      << std::fixed << std::setprecision(3) << ms_per_line << "ms)" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "\n📊 === JavaScript層ごとの詳細プロファイリング ===" << std::endl;
+        }
+        if (!g_quiet_mode) {
+            for (size_t i = 0; i < layer_times.size(); i++) {
+                double ms_per_line = layer_lines[i] > 0 ? static_cast<double>(layer_times[i].count()) / layer_lines[i] : 0.0;
+                std::cerr << "📈 JavaScript第" << (i+1) << "層: " << layer_times[i].count() << "ms, " 
+                          << layer_ranges[i] << "範囲, " << layer_detections[i] << "個検出, " 
+                          << layer_lines[i] << "行処理 (1行あたり: " 
+                          << std::fixed << std::setprecision(3) << ms_per_line << "ms)" << std::endl;
+            }
         }
         
         // 📊 累積処理時間
-        std::cerr << "\n📊 === JavaScript累積処理時間 ===" << std::endl;
-        size_t cumulative_time = 0;
-        for (size_t i = 0; i < layer_times.size(); i++) {
-            cumulative_time += layer_times[i].count();
-            std::cerr << "🏃 JavaScript第1層〜第" << (i+1) << "層までの累積: " << cumulative_time << "ms" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "\n📊 === JavaScript累積処理時間 ===" << std::endl;
+            size_t cumulative_time = 0;
+            for (size_t i = 0; i < layer_times.size(); i++) {
+                cumulative_time += layer_times[i].count();
+                std::cerr << "🏃 JavaScript第1層〜第" << (i+1) << "層までの累積: " << cumulative_time << "ms" << std::endl;
+            }
+            std::cerr << "===================================" << std::endl;
         }
-        std::cerr << "===================================" << std::endl;
     }
     
     // 🎯 JavaScriptネスト関数検出（コールバック地獄専用）

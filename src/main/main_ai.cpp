@@ -94,6 +94,18 @@ INTERACTIVE COMMANDS:
     find <term> [options]       検索（--debug --limit N --function --variable）
     help                        コマンドヘルプ
 
+🔍 C++ INCLUDE ANALYSIS (C++プロジェクト専用):
+    include-graph               📊 Include依存グラフ全体を可視化
+                                 各ファイルの依存関係を完全把握
+    include-cycles              🔄 循環依存（相互include）検出
+                                 A→B→C→A のような依存を発見
+    include-unused              🗑️  不要include検出（コンパイル高速化）
+                                 実際に使われていないincludeを特定
+    include-impact <file>       💥 ファイル変更時の影響範囲解析
+                                 変更が波及するファイル一覧表示
+    include-optimize            🚀 Include最適化提案（前方宣言・PIMPL等）
+                                 コンパイル時間を劇的に改善
+
 OPTIONS:
     -h, --help          このヘルプを表示
     --compact           コンパクトJSON出力（改行なし）
@@ -143,6 +155,13 @@ EXAMPLES:
     nekocode_ai session-command ai_session_20250727_123456 "structure --detailed UICore.cpp"
     nekocode_ai session-command ai_session_20250727_123456 "complexity --methods UICore.cpp"
     nekocode_ai session-command ai_session_20250727_123456 "calls --detailed createElement"
+    
+    # 🔍 C++ Include依存解析（コンパイル高速化）
+    nekocode_ai session-command ai_session_20250727_123456 include-graph
+    nekocode_ai session-command ai_session_20250727_123456 include-cycles
+    nekocode_ai session-command ai_session_20250727_123456 include-unused
+    nekocode_ai session-command ai_session_20250727_123456 "include-impact core.hpp"
+    nekocode_ai session-command ai_session_20250727_123456 include-optimize
     
     # 🔍 事前チェック機能
     nekocode_ai session-create typescript/TypeScript/ --check-only  # サイズ確認のみ

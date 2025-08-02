@@ -12,6 +12,7 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <set>
 
 namespace nekocode {
 
@@ -86,6 +87,16 @@ CppAnalysisResult CppAnalyzer::analyze_cpp_file(const std::string& content, cons
     
     // 🔧 ファイル全体の複雑度も計算
     result.complexity = calculate_cpp_complexity(content);
+    
+    // 🔗 依存関係分析を追加（にゃー方式）
+    if (config_.analyze_includes) {
+        result.includes = extract_includes_simple(content);
+    }
+    
+    // 🔗 クラス解析も追加（シンプル版）
+    if (config_.analyze_classes) {
+        result.cpp_classes = analyze_classes(clean_content);
+    }
     
     return result;
 }
@@ -1038,6 +1049,254 @@ TemplateAnalysisResult CppAnalyzer::analyze_templates_and_macros(const std::stri
     // 5. 統計カウント
     result.template_instantiation_count = static_cast<uint32_t>(result.templates.size());
     result.macro_expansion_count = static_cast<uint32_t>(result.macros.size());
+    
+    return result;
+}
+
+//=============================================================================
+// 🔗 依存関係分析実装（にゃー方式）
+//=============================================================================
+
+std::vector<CppInclude> CppAnalyzer::extract_includes_simple(const std::string& content) {
+    std::vector<CppInclude> includes;
+    std::istringstream stream(content);
+    std::string line;
+    uint32_t line_number = 1;
+    
+    while (std::getline(stream, line)) {
+        // 先頭の空白をスキップ
+        size_t pos = line.find_first_not_of(" \t");
+        if (pos == std::string::npos) {
+            line_number++;
+            continue;
+        }
+        
+        // #includeで始まるか確認
+        if (line.substr(pos).find("#include") == 0) {
+            pos += 8; // "#include"の長さ
+            
+            // 空白をスキップ
+            while (pos < line.length() && (line[pos] == ' ' || line[pos] == '\t')) {
+                pos++;
+            }
+            
+            if (pos < line.length()) {
+                CppInclude inc;
+                inc.line_number = line_number;
+                
+                // システムヘッダー <...> の場合
+                if (line[pos] == '<') {
+                    inc.is_system_include = true;
+                    size_t end_pos = line.find('>', pos + 1);
+                    if (end_pos != std::string::npos) {
+                        inc.path = line.substr(pos + 1, end_pos - pos - 1);
+                        includes.push_back(inc);
+                    }
+                }
+                // ローカルヘッダー "..." の場合
+                else if (line[pos] == '"') {
+                    inc.is_system_include = false;
+                    size_t end_pos = line.find('"', pos + 1);
+                    if (end_pos != std::string::npos) {
+                        inc.path = line.substr(pos + 1, end_pos - pos - 1);
+                        includes.push_back(inc);
+                    }
+                }
+            }
+        }
+        
+        line_number++;
+    }
+    
+    return includes;
+}
+
+std::string CppAnalyzer::remove_includes(const std::string& content) {
+    std::ostringstream result;
+    std::istringstream stream(content);
+    std::string line;
+    
+    while (std::getline(stream, line)) {
+        // 先頭の空白をスキップ
+        size_t pos = line.find_first_not_of(" \t");
+        
+        // #includeで始まる行をスキップ
+        if (pos != std::string::npos && line.substr(pos).find("#include") == 0) {
+            continue;
+        }
+        
+        result << line << '\n';
+    }
+    
+    return result.str();
+}
+
+std::vector<std::string> CppAnalyzer::find_used_types(const CppClass& cls) {
+    std::vector<std::string> used_types;
+    std::set<std::string> unique_types; // 重複除去用
+    
+    // メンバ変数の型を収集
+    for (const auto& member : cls.member_variables) {
+        // メンバ変数の文字列から型を抽出
+        // 例: "std::vector<Node*> nodes;" → "std::vector<Node*>"
+        std::string type = member;
+        
+        // セミコロンと変数名を除去するため、最後の識別子を探す
+        // まずセミコロンを除去
+        size_t semicolon_pos = type.find(';');
+        if (semicolon_pos != std::string::npos) {
+            type = type.substr(0, semicolon_pos);
+        }
+        
+        // 末尾の空白を除去
+        while (!type.empty() && std::isspace(type.back())) {
+            type.pop_back();
+        }
+        
+        // 最後の識別子（変数名）を除去
+        size_t last_space = type.find_last_of(" \t");
+        if (last_space != std::string::npos) {
+            type = type.substr(0, last_space);
+        }
+        
+        // テンプレート引数を除去
+        size_t template_pos = type.find('<');
+        if (template_pos != std::string::npos) {
+            // テンプレート引数内の型も抽出
+            size_t end_pos = type.rfind('>');
+            if (end_pos != std::string::npos && end_pos > template_pos) {
+                std::string inner = type.substr(template_pos + 1, end_pos - template_pos - 1);
+                // 簡易的に識別子を抽出
+                std::istringstream inner_stream(inner);
+                std::string token;
+                while (inner_stream >> token) {
+                    if (!token.empty() && std::isupper(token[0])) {
+                        unique_types.insert(token);
+                    }
+                }
+            }
+            type = type.substr(0, template_pos);
+        }
+        
+        // スコープ解決演算子で分割
+        size_t scope_pos = type.rfind("::");
+        if (scope_pos != std::string::npos) {
+            type = type.substr(scope_pos + 2);
+        }
+        
+        // ポインタや参照を除去
+        type.erase(std::remove_if(type.begin(), type.end(), 
+                  [](char c) { return c == '*' || c == '&'; }), type.end());
+        
+        // 空白を除去
+        type.erase(std::remove_if(type.begin(), type.end(), ::isspace), type.end());
+        
+        // 基本型やstd::を除外
+        if (!type.empty() && 
+            type != "int" && type != "float" && type != "double" && 
+            type != "char" && type != "bool" && type != "void" &&
+            type != "auto" && type != "const" &&
+            type.find("std::") != 0) {
+            unique_types.insert(type);
+        }
+    }
+    
+    // メソッドのパラメータと戻り値の型も収集（簡易版）
+    for (const auto& method : cls.methods) {
+        // パラメータから型を抽出
+        for (const auto& param : method.parameters) {
+            // パラメータ文字列から型名を抽出（簡易版）
+            std::istringstream param_stream(param);
+            std::string first_word;
+            if (param_stream >> first_word) {
+                if (!first_word.empty() && std::isupper(first_word[0])) {
+                    unique_types.insert(first_word);
+                }
+            }
+        }
+    }
+    
+    // setからvectorに変換
+    used_types.assign(unique_types.begin(), unique_types.end());
+    return used_types;
+}
+
+CppAnalyzer::DependencyAnalysisResult CppAnalyzer::analyze_dependencies(const std::string& content) {
+    DependencyAnalysisResult result;
+    
+    // Step 1: コメント削除
+    std::string clean_content = remove_cpp_comments(content, false);
+    
+    // Step 2: include抽出
+    result.includes = extract_includes_simple(clean_content);
+    
+    // Step 3: include削除
+    result.content_without_includes = remove_includes(clean_content);
+    
+    // Step 4: クラス解析（既存のシンプル版を使用）
+    auto classes = analyze_classes(result.content_without_includes);
+    
+    // Step 5: 各クラスの依存関係を分析
+    for (const auto& cls : classes) {
+        DependencyInfo dep_info;
+        dep_info.class_name = cls.name;
+        dep_info.used_types = find_used_types(cls);
+        
+        // 使用される型に対応するincludeを推定
+        for (const auto& type : dep_info.used_types) {
+            // 簡易的なマッピング（実際のプロジェクトでは設定ファイルなどから読み込む）
+            for (const auto& inc : result.includes) {
+                // ヘッダーファイル名から型名を推定
+                std::string header_name = inc.path;
+                size_t slash_pos = header_name.rfind('/');
+                if (slash_pos != std::string::npos) {
+                    header_name = header_name.substr(slash_pos + 1);
+                }
+                size_t dot_pos = header_name.rfind('.');
+                if (dot_pos != std::string::npos) {
+                    header_name = header_name.substr(0, dot_pos);
+                }
+                
+                // 型名とヘッダー名が一致するか確認
+                if (header_name == type || 
+                    header_name + "Adapter" == type ||
+                    header_name + "Transport" == type ||
+                    "I" + header_name == type) {
+                    dep_info.required_includes.push_back(inc.path);
+                    break;
+                }
+            }
+        }
+        
+        // 不要なincludeを検出
+        for (const auto& inc : result.includes) {
+            if (std::find(dep_info.required_includes.begin(), 
+                         dep_info.required_includes.end(), 
+                         inc.path) == dep_info.required_includes.end()) {
+                // このincludeは必要リストにない
+                bool is_used = false;
+                
+                // システムヘッダーは一旦保留
+                if (inc.is_system_include) {
+                    continue;
+                }
+                
+                // 実際に使われているか再確認
+                for (const auto& type : dep_info.used_types) {
+                    if (inc.path.find(type) != std::string::npos) {
+                        is_used = true;
+                        break;
+                    }
+                }
+                
+                if (!is_used) {
+                    dep_info.unused_includes.push_back(inc.path);
+                }
+            }
+        }
+        
+        result.class_dependencies[cls.name] = dep_info;
+    }
     
     return result;
 }

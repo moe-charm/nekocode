@@ -60,6 +60,11 @@ Should I help you clean these up?"
 
 # 🔍 Large projects (add --progress)
 ./nekocode_ai analyze <large_folder>/ --stats-only --io-threads 16 --progress
+
+# 🚀 C++ Include Analysis (reduce compile time!)
+./nekocode_ai session-create <cpp_project>/
+./nekocode_ai session-command <session_id> include-cycles
+./nekocode_ai session-command <session_id> include-unused
 ```
 
 **That's literally it!** Claude Code will:
@@ -83,6 +88,11 @@ No manual setup, no configuration files, no learning curve!
 - **🌍 Multi-Language Support**: JavaScript, TypeScript, C++, C, Python, C# (PEGTL-powered)
 - **🎮 Interactive Mode**: Session management with instant results (180x speedup)
 - **🔍 Advanced C++ Analysis**: Complex dependency visualization, circular dependency detection
+- **📊 Include Dependency Analysis**: Reduce C++ compile time by 50-90% with include optimization (**NEW!**)
+  - Circular include detection (`include-cycles`)
+  - Unused include detection (`include-unused`)
+  - Change impact analysis (`include-impact`)
+  - Optimization suggestions (`include-optimize`)
 - **🧬 Template & Macro Analysis**: C++ template specialization, variadic templates, macro expansion tracking
 - **🎯 ASCII Quality Check**: Simple and practical code quality checking
 - **📊 Comprehensive Statistics**: Classes, functions, complexity analysis, member variables, commented lines

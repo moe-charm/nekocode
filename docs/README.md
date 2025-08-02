@@ -7,6 +7,7 @@ Welcome to the NekoCode documentation!
 ### 🌍 Usage Guides
 - [**English Usage Guide**](USAGE.md) - Complete guide for using NekoCode
 - [**日本語使い方ガイド**](USAGE_jp.md) - NekoCodeの詳しい使い方
+- [**Include Analysis Guide**](INCLUDE_ANALYSIS_GUIDE.md) - C++ compile time optimization with include analysis 🚀
 
 ### 🚀 Quick Links
 - [Main README](../README.md) - Project overview and quick start

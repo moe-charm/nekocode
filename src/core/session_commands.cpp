@@ -8,9 +8,13 @@
 #include "nekocode/session_commands.hpp"
 #include "nekocode/include_analyzer.hpp"
 #include "nekocode/symbol_finder.hpp"
+#include "nekocode/cpp_analyzer.hpp"
 #include <algorithm>
 #include <iostream>
 #include <numeric>
+#include <fstream>
+#include <set>
+#include <filesystem>
 
 namespace nekocode {
 
@@ -136,8 +140,9 @@ nlohmann::json SessionCommands::cmd_help() const {
                 "calls - Function call analysis",
                 "find <term> - Search for symbols",
                 "large-files [threshold] - Find large files",
-                "duplicates - Find duplicate files",
+                "duplicates - Find duplicate files", 
                 "todo - Find TODO/FIXME comments",
+                "dependency-analyze [file] - Analyze dependencies",
                 "help - Show this help"
             }},
             {"cpp_specific", {
@@ -846,6 +851,163 @@ nlohmann::json SessionCommands::cmd_find_symbols(const SessionData& session,
         {"result", "Not implemented yet - moved to SessionCommands"},
         {"summary", "Find symbols feature pending implementation"}
     };
+}
+
+nlohmann::json SessionCommands::cmd_dependency_analyze(const SessionData& session, const std::string& filename) const {
+    nlohmann::json result = {
+        {"command", "dependency-analyze"},
+        {"analysis", nlohmann::json::object()}
+    };
+    
+    // C++ファイルのみ対応
+    auto process_cpp_file = [&](const AnalysisResult& file) -> nlohmann::json {
+        // C++/Cファイルかどうかを拡張子でチェック（一時的な対処）
+        std::string ext = std::filesystem::path(file.file_info.name).extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+        
+        if (ext != ".cpp" && ext != ".cxx" && ext != ".cc" && ext != ".c" && 
+            ext != ".hpp" && ext != ".hxx" && ext != ".h") {
+            return nlohmann::json::object();
+        }
+        
+        // CppAnalyzerを使用して詳細な依存関係を分析
+        CppAnalyzer analyzer;
+        std::string content; // 実際にはファイルを読み込む必要がある
+        
+        // ファイル内容を取得（セッションのターゲットパスを使用）
+        std::filesystem::path full_path;
+        if (session.is_directory) {
+            // file.file_info.pathには余分なパスが含まれるので、ファイル名だけ使用
+            std::filesystem::path file_path(file.file_info.path);
+            // pathから最後のディレクトリ部分とファイル名を取得
+            auto relative_path = file_path.filename();
+            if (file_path.has_parent_path()) {
+                auto parent = file_path.parent_path();
+                // 親のディレクトリ名を取得（例：messages/）
+                if (parent.filename() != "nyamesh-cpp") {
+                    relative_path = parent.filename() / relative_path;
+                }
+            }
+            full_path = session.target_path / relative_path;
+        } else {
+            // 単一ファイルの場合は、target_pathがそのファイルのパス
+            full_path = session.target_path;
+        }
+        std::ifstream ifs(full_path);
+        if (!ifs) {
+            return {
+                {"error", "Failed to read file: " + full_path.string()},
+                {"file", file.file_info.name}
+            };
+        }
+        content.assign((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+        
+        // 依存関係分析実行
+        auto dep_result = analyzer.analyze_dependencies(content);
+        
+        nlohmann::json file_analysis = {
+            {"filename", file.file_info.name},
+            {"total_includes", dep_result.includes.size()},
+            {"system_includes", 0},
+            {"local_includes", 0},
+            {"classes", nlohmann::json::array()}
+        };
+        
+        // includeの分類
+        for (const auto& inc : dep_result.includes) {
+            if (inc.is_system_include) {
+                file_analysis["system_includes"] = file_analysis["system_includes"].get<int>() + 1;
+            } else {
+                file_analysis["local_includes"] = file_analysis["local_includes"].get<int>() + 1;
+            }
+        }
+        
+        // クラスごとの依存関係
+        for (const auto& [class_name, dep_info] : dep_result.class_dependencies) {
+            nlohmann::json class_dep = {
+                {"name", class_name},
+                {"used_types", dep_info.used_types},
+                {"required_includes", dep_info.required_includes},
+                {"unused_includes", dep_info.unused_includes}
+            };
+            file_analysis["classes"].push_back(class_dep);
+        }
+        
+        // 不要なincludeの総数
+        std::set<std::string> all_unused;
+        for (const auto& [_, dep_info] : dep_result.class_dependencies) {
+            all_unused.insert(dep_info.unused_includes.begin(), dep_info.unused_includes.end());
+        }
+        file_analysis["total_unused_includes"] = all_unused.size();
+        
+        return file_analysis;
+    };
+    
+    // 特定ファイルまたは全ファイルを処理
+    nlohmann::json files_analysis = nlohmann::json::array();
+    
+    if (!filename.empty()) {
+        // 特定のファイルのみ
+        if (session.is_directory) {
+            for (const auto& file : session.directory_result.files) {
+                if (file.file_info.name.find(filename) != std::string::npos) {
+                    auto analysis = process_cpp_file(file);
+                    if (!analysis.empty()) {
+                        files_analysis.push_back(analysis);
+                    }
+                }
+            }
+        } else {
+            if (session.single_file_result.file_info.name.find(filename) != std::string::npos) {
+                auto analysis = process_cpp_file(session.single_file_result);
+                if (!analysis.empty()) {
+                    files_analysis.push_back(analysis);
+                }
+            }
+        }
+    } else {
+        // 全C++/Cファイル（拡張子でフィルタ）
+        if (session.is_directory) {
+            for (const auto& file : session.directory_result.files) {
+                auto analysis = process_cpp_file(file);
+                if (!analysis.empty()) {
+                    files_analysis.push_back(analysis);
+                }
+            }
+        } else {
+            auto analysis = process_cpp_file(session.single_file_result);
+            if (!analysis.empty()) {
+                files_analysis.push_back(analysis);
+            }
+        }
+    }
+    
+    result["analysis"] = files_analysis;
+    
+    // サマリー統計
+    int total_files = files_analysis.size();
+    int total_includes = 0;
+    int total_unused = 0;
+    
+    for (const auto& file_analysis : files_analysis) {
+        if (file_analysis.contains("total_includes")) {
+            total_includes += file_analysis["total_includes"].get<int>();
+        }
+        if (file_analysis.contains("total_unused_includes")) {
+            total_unused += file_analysis["total_unused_includes"].get<int>();
+        }
+    }
+    
+    result["summary"] = {
+        {"total_files_analyzed", total_files},
+        {"total_includes", total_includes},
+        {"total_unused_includes", total_unused},
+        {"recommendation", total_unused > 0 ? 
+            "Found " + std::to_string(total_unused) + " potentially unused includes" : 
+            "No unused includes detected"}
+    };
+    
+    return result;
 }
 
 } // namespace nekocode
