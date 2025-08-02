@@ -200,7 +200,7 @@ Specific Breakthroughs:
 - **Self-Awareness**: NyaMesh-cpp → Self-diagnostic capability confirmed
 - **Foundation Wisdom**: core.cpp → Smart regex exception implemented
 - **Legacy Management**: Old analyzers → Safely isolated architecture
-- [Watch the victory unfold →](CHANGELOG_PEGTL.md)
+- [Watch the victory unfold →](docs/dev/CHANGELOG_PEGTL.md)
 
 ## 📦 Build Instructions
 
