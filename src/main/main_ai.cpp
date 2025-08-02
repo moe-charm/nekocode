@@ -56,160 +56,34 @@ void show_supported_languages() {
 }
 
 void show_help() {
-    std::cout << R"(🤖 NekoCode AI Tool - 多言語対応Claude Code最適化版
+    std::cout << R"(🤖 NekoCode AI Tool - Claude Code最適化版
 
-🤖 CLAUDE CODE QUICK START:
-    # フォルダ全体の高速統計（推奨）
-    nekocode_ai <folder> --stats-only --io-threads 16
-    
-    # 単一ファイル詳細解析
-    nekocode_ai <file> --io-threads 8
-    
-    # 大規模プロジェクト（1000+ファイル）
-    nekocode_ai <folder> --stats-only --io-threads 16 --progress
-
-USAGE:
-    nekocode_ai <action> [args] [options]
+🚀 QUICK START:
+    nekocode_ai <folder> --stats-only --io-threads 16    # 高速統計
+    nekocode_ai <file> --io-threads 8                    # 単一ファイル
+    nekocode_ai session-create <path>                     # 詳細解析モード
 
 ACTIONS:
-    analyze <path>              単発解析（旧形式互換）
-    session-create <path>       対話式セッション作成
-    session-status <id>         📊 セッション状態確認
-    session-command <id> <cmd>      セッションコマンド実行
-    <path>                      単発解析（後方互換）
+    analyze <path>              単発解析
+    session-create <path>       セッション作成
+    session-command <id> <cmd>  セッションコマンド実行
 
-INTERACTIVE COMMANDS:
-    stats                       統計情報表示
-    files                       ファイル一覧
-    complexity                  複雑度分析
-    complexity --methods [file] ファイル別メソッド複雑度ランキング
-    complexity-ranking          関数複雑度ランキング（トップ50）
-    structure                   構造解析（クラス・関数）
-    structure --detailed [file] 詳細構造解析（クラス・メソッド情報）
-    calls                       関数呼び出し分析
-    find <term> [options]       検索（--debug --limit N --function --variable）
-    help                        コマンドヘルプ
-
-🔍 C++ INCLUDE ANALYSIS (C++プロジェクト専用):
-    include-graph               📊 Include依存グラフ全体を可視化
-                                 各ファイルの依存関係を完全把握
-    include-cycles              🔄 循環依存（相互include）検出
-                                 A→B→C→A のような依存を発見
-    include-unused              🗑️  不要include検出（コンパイル高速化）
-                                 実際に使われていないincludeを特定
+SESSION COMMANDS:
+    stats                       統計表示
+    complexity                  複雑度分析  
+    structure                   構造解析
+    find <term>                 検索
+    include-cycles              C++循環依存検出
+    include-unused              C++不要include検出
+    help                        詳細ヘルプ
 
 OPTIONS:
-    -h, --help          このヘルプを表示
-    --compact           コンパクトJSON出力（改行なし）
-    --stats-only        統計情報のみ出力（高速）
-    --no-parallel       並列処理無効化
-    --io-threads <N>    同時ファイル読み込み数
-                        📁 フォルダ解析: 16推奨（SSD環境）
-                        📄 単一ファイル: 8推奨
-    --cpu-threads <N>   解析スレッド数（デフォルト: CPUコア数）
-    --performance       パフォーマンス統計表示
-    --format <type>     出力フォーマット (json|compact|stats)
-    --lang <language>   言語指定 (auto|js|ts|cpp|c|python|csharp)
-    --list-languages    サポート言語一覧表示
-    --progress          進捗表示有効化（30,000ファイル対応）
-    --debug             デバッグログ表示モード（詳細情報を表示）
-    --no-check          事前チェックをスキップ（上級者向け）
-    --force             確認なしで強制実行
-    --check-only        プロジェクト規模のチェックのみ実行
+    --stats-only        高速統計のみ
+    --io-threads <N>    並列読み込み数（推奨:16）
+    --progress          進捗表示
+    --debug             詳細ログ
 
-SUPPORTED LANGUAGES:
-    🟨 JavaScript       (.js, .mjs, .jsx)
-    🔵 TypeScript       (.ts, .tsx, .mts, .cts)
-    🔴 C++              (.cpp, .cxx, .cc, .hpp, .hxx, .hh, .h)
-    ⚫ C                (.c, .h)
-    🐍 Python           (.py, .pyw, .pyi)
-    🟣 C#               (.cs, .csx)
-
-EXAMPLES:
-    # 🤖 Claude Code向け（即座に結果）
-    nekocode_ai src/ --stats-only --io-threads 16
-    nekocode_ai MyApp.cpp --io-threads 8
-    nekocode_ai large_project/ --stats-only --io-threads 16 --progress
-
-    # 👨‍💻 Human向け（詳細分析）
-    nekocode_ai session-create charmflow_v5/
-    nekocode_ai session-command ai_session_20250727_123456 stats
-    nekocode_ai session-command ai_session_20250727_123456 complexity
-    nekocode_ai session-command ai_session_20250727_123456 include-graph
-    nekocode_ai session-command ai_session_20250727_123456 include-cycles
-    nekocode_ai session-command ai_session_20250727_123456 include-unused
-    nekocode_ai session-command ai_session_20250727_123456 complexity-ranking
-    nekocode_ai session-command ai_session_20250727_123456 "find nyamesh --debug"
-    nekocode_ai session-command ai_session_20250727_123456 "find std::cout --limit 10"
-    
-    # 🔍 Claude Code君向け詳細解析
-    nekocode_ai session-command ai_session_20250727_123456 "structure --detailed UICore.cpp"
-    nekocode_ai session-command ai_session_20250727_123456 "complexity --methods UICore.cpp"
-    nekocode_ai session-command ai_session_20250727_123456 "calls --detailed createElement"
-    
-    # 🔍 C++ Include依存解析（コンパイル高速化）
-    nekocode_ai session-command ai_session_20250727_123456 include-graph
-    nekocode_ai session-command ai_session_20250727_123456 include-cycles
-    nekocode_ai session-command ai_session_20250727_123456 include-unused
-    nekocode_ai session-command ai_session_20250727_123456 "include-impact core.hpp"
-    nekocode_ai session-command ai_session_20250727_123456 include-optimize
-    
-    # 🔍 事前チェック機能
-    nekocode_ai session-create typescript/TypeScript/ --check-only  # サイズ確認のみ
-    nekocode_ai session-create huge_project/ --force               # 確認なしで実行
-    nekocode_ai session-create auto_script/ --no-check             # チェックスキップ
-
-    # 🌍 多言語プロジェクト自動検出
-    nekocode_ai src/ --cpu-threads 8
-
-    # 📊 サポート言語確認
-    nekocode_ai --list-languages
-
-OUTPUT:
-    マルチ言語対応構造化JSON - Claude Codeでの解析に最適化
-
-🆕 COMMENT EXTRACTION FEATURES (コメント抽出機能):
-    📝 コメントアウトされたコードを自動検出
-    🔍 各言語のコメント形式に対応:
-        • JavaScript/TypeScript: // と /* */
-        • C/C++: // と /* */  
-        • Python: #
-        • C#: // と /* */ と ///
-    🤖 AIコード判定機能:
-        • コメント内のコードらしさを自動判定
-        • 変数代入、関数定義、制御構文を検出
-    📊 JSON出力フィールド:
-        "commented_lines": [
-            {
-                "line_start": 行番号,
-                "line_end": 終了行,
-                "type": "single_line" | "multi_line",
-                "content": "コメント内容",
-                "looks_like_code": true/false
-            }
-        ]
-
-🎯 CLAUDE CODE向けコメント活用例:
-    # コメントアウトされたコードを発見
-    nekocode_ai src/legacy_code.py --io-threads 8
-    → JSON出力の"commented_lines"をチェック
-    
-    # 大規模プロジェクトのコメント統計
-    nekocode_ai large_project/ --stats-only --io-threads 16
-    → "total_commented_lines"で全体把握
-    
-    # セッション内でコメント分析
-    nekocode_ai session-command ai_session_xxx "analyze main.cpp"
-    → 詳細なコメント情報付き解析結果
-
-MULTI-LANGUAGE FEATURES:
-    🌍 UTF-8完全対応 (日本語・Unicode)
-    🔥 C++大規模プロジェクト対応
-    ⚡ 言語別最適化エンジン
-    💬 コメント抽出・コード判定機能
-    🎯 実行ファイル２個大作戦 - AI専用
-
-革命的多言語解析エンジン 🚀✨
+LANGUAGES: JS/TS/C++/C/Python/C#
 )";
 }
 
