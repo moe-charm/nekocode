@@ -94,6 +94,9 @@ public:
     
     /// インクルード最適化提案
     nlohmann::json cmd_include_optimize(const SessionData& session) const;
+    
+    /// 依存関係分析（にゃー方式）
+    nlohmann::json cmd_dependency_analyze(const SessionData& session, const std::string& filename = "") const;
 
     //=========================================================================
     // 🔍 シンボル検索（高度版）

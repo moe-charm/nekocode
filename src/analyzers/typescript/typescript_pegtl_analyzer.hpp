@@ -17,8 +17,9 @@
 #include <atomic>
 #include <iomanip>
 
-// 🔧 グローバルデバッグフラグ（ユーザー制御可能）
+// 🔧 グローバルフラグ（ユーザー制御可能）
 extern bool g_debug_mode;
+extern bool g_quiet_mode;
 
 namespace nekocode {
 
@@ -59,14 +60,18 @@ public:
         
         // 安全な削減量計算（アンダーフロー防止）
         long long size_diff = static_cast<long long>(content.length()) - static_cast<long long>(preprocessed_content.length());
-        std::cerr << "🧹 前処理完了: " << content.length() << " → " << preprocessed_content.length() 
-                  << " bytes (削減: " << size_diff << ")" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "🧹 前処理完了: " << content.length() << " → " << preprocessed_content.length() 
+                      << " bytes (削減: " << size_diff << ")" << std::endl;
+        }
         
         // 基本的にJavaScript PEGTLの解析を使用（ハイブリッド戦略含む）
         auto result = JavaScriptPEGTLAnalyzer::analyze(preprocessed_content, filename);
         
-        std::cerr << "📜 TypeScript analyzer: Base JS detected classes=" << result.classes.size() 
-                  << ", functions=" << result.functions.size() << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "📜 TypeScript analyzer: Base JS detected classes=" << result.classes.size() 
+                      << ", functions=" << result.functions.size() << std::endl;
+        }
         
         // 🔥 コメントアウト行情報を結果に追加（JavaScriptAnalyzer結果の上書き前に実行）
         result.commented_lines = std::move(comments);
@@ -74,7 +79,9 @@ public:
         
         // 🚀 TypeScript特有のハイブリッド戦略追加
         if (needs_typescript_specific_analysis(result, preprocessed_content)) {
-            std::cerr << "📜 TypeScript specific analysis triggered!" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "📜 TypeScript specific analysis triggered!" << std::endl;
+            }
             apply_typescript_line_based_analysis(result, preprocessed_content, filename);
         }
         
@@ -150,7 +157,9 @@ private:
         const bool use_sampling_mode = total_lines >= 15000 && total_lines < 40000;  // サンプリングモード（JavaScript戦略移植）
         const bool use_high_speed_mode = total_lines >= 40000;  // 🚀 【JavaScript逆輸入】40K行超で高速モード
         
-        std::cerr << "📊 ファイル情報: " << total_lines << "行検出" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "📊 ファイル情報: " << total_lines << "行検出" << std::endl;
+        }
         
         // 🔧 デバッグモードでのみ詳細情報表示
         if (g_debug_mode) {
@@ -176,7 +185,9 @@ private:
                 processed_lines++;
             }
         } else if (use_sampling_mode) {
-            std::cerr << "🎲 サンプリングモード: 10行に1行処理（JavaScript戦略移植）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "🎲 サンプリングモード: 10行に1行処理（JavaScript戦略移植）" << std::endl;
+            }
             // サンプリングモード：10行に1行だけ処理
             for (size_t i = 0; i < all_lines.size(); i += 10) {
                 const std::string& current_line = all_lines[i];
@@ -186,7 +197,9 @@ private:
                 processed_lines++;
             }
         } else if (use_high_speed_mode) {
-            std::cerr << "⚡ 高速モード: 基本検出のみ（JavaScript戦略移植・Geminiスキップ）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "⚡ 高速モード: 基本検出のみ（JavaScript戦略移植・Geminiスキップ）" << std::endl;
+            }
             // 高速モード：基本検出のみ
             for (size_t i = 0; i < all_lines.size(); i++) {
                 const std::string& current_line = all_lines[i];
@@ -202,7 +215,9 @@ private:
                 // gemini_line_level_double_attack - 停止
             }
         } else if (use_sampling_mode) {
-            std::cerr << "🎲 サンプリングモード: 10行に1行処理（JavaScript戦略移植）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "🎲 サンプリングモード: 10行に1行処理（JavaScript戦略移植）" << std::endl;
+            }
             // サンプリングモード：10行に1行だけ処理
             for (size_t i = 0; i < all_lines.size(); i += 10) {
                 const std::string& current_line = all_lines[i];
@@ -219,7 +234,9 @@ private:
                 // gemini_line_level_double_attack - 停止
             }
         } else if (use_high_speed_mode) {
-            std::cerr << "⚡ 高速モード: 基本検出のみ（JavaScript戦略移植・Geminiスキップ）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "⚡ 高速モード: 基本検出のみ（JavaScript戦略移植・Geminiスキップ）" << std::endl;
+            }
             // 高速モード：基本検出のみ
             for (size_t i = 0; i < all_lines.size(); i++) {
                 const std::string& current_line = all_lines[i];
@@ -233,16 +250,22 @@ private:
         
         auto analysis_end = std::chrono::high_resolution_clock::now();
         auto analysis_duration = std::chrono::duration_cast<std::chrono::milliseconds>(analysis_end - analysis_start).count();
-        std::cerr << "✅ 第1段階完了: " << processed_lines 
-                  << "行処理 (" << analysis_duration << "ms)" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "✅ 第1段階完了: " << processed_lines 
+                      << "行処理 (" << analysis_duration << "ms)" << std::endl;
+        }
         
         // 🚀 【JavaScript逆輸入】高速モードではネスト掘削スキップ！
         if (use_high_speed_mode) {
-            std::cerr << "⚡ 高速モード: ネスト掘削スキップ（JavaScript戦略移植）" << std::endl;
-            std::cerr << "\n📊 処理戦略: 大規模TSファイルモード（基本検出のみ）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "⚡ 高速モード: ネスト掘削スキップ（JavaScript戦略移植）" << std::endl;
+                std::cerr << "\n📊 処理戦略: 大規模TSファイルモード（基本検出のみ）" << std::endl;
+            }
         } else {
             // 第2段階: 二重正規表現アタック！クラス全体を捕獲してメソッド検出
-            std::cerr << "🎯 二重正規表現アタック開始！" << std::endl;
+            if (!g_quiet_mode) { 
+                std::cerr << "🎯 二重正規表現アタック開始！" << std::endl;
+            }
             double_regex_attack_for_class_methods(content, result, existing_functions);
             
             // 🚀 第3段階: 【ユーザー天才アイデア】無限ネスト掘削アタック！
@@ -472,13 +495,17 @@ private:
             std::string class_name = class_match[1].str();
             size_t class_start_pos = class_match.position() + class_match.length() - 1; // '{' の位置
             
-            std::cerr << "🎯 クラス捕獲: " << class_name << " at position " << class_start_pos << std::endl;
+            if (!g_quiet_mode) { 
+                std::cerr << "🎯 クラス捕獲: " << class_name << " at position " << class_start_pos << std::endl;
+            }
             
             // クラス内容を中括弧バランスで抽出
             std::string class_content = extract_balanced_braces_content(content, class_start_pos);
             
             if (!class_content.empty()) {
-                std::cerr << "📦 クラス内容長: " << class_content.length() << " bytes" << std::endl;
+                if (!g_quiet_mode) { 
+                    std::cerr << "📦 クラス内容長: " << class_content.length() << " bytes" << std::endl;
+                }
                 
                 // 第2段階：クラス内容に集中メソッド検出アタック！
                 second_stage_method_attack(class_content, result, existing_functions, class_start_pos);
@@ -535,7 +562,9 @@ private:
             }
             
             if (existing_functions.find(method_name) == existing_functions.end()) {
-                std::cerr << "🎯 第2段階基本形抽出成功: " << method_name << std::endl;
+                if (!g_quiet_mode) { 
+                    std::cerr << "🎯 第2段階基本形抽出成功: " << method_name << std::endl;
+                }
                 
                 // 第3段階：詳細情報狙い撃ち（にゃーのアイデア）
                 FunctionInfo func_info = triple_regex_attack_for_details(class_content, method_match, method_name);
@@ -546,7 +575,9 @@ private:
             }
         }
         
-        std::cerr << "🎯 三重攻撃完了: " << method_count << "個のメソッドを高精度検出" << std::endl;
+        if (!g_quiet_mode) { 
+            std::cerr << "🎯 三重攻撃完了: " << method_count << "個のメソッドを高精度検出" << std::endl;
+        }
     }
     
     // 🎯 第3段階：詳細情報狙い撃ち（にゃーのアイデア）
@@ -557,11 +588,15 @@ private:
         func_info.name = method_name;
         func_info.start_line = calculate_line_number(class_content, method_match.position());
         
-        std::cerr << "💥 第3段階開始: " << method_name << " の詳細情報を狙い撃ち" << std::endl;
+        if (!g_quiet_mode) { 
+            std::cerr << "💥 第3段階開始: " << method_name << " の詳細情報を狙い撃ち" << std::endl;
+        }
         
         // マッチした位置の行を抽出
         std::string matched_line = extract_line_from_position(class_content, method_match.position());
-        std::cerr << "🎯 攻撃対象行: " << matched_line.substr(0, 100) << "..." << std::endl;
+        if (!g_quiet_mode) { 
+            std::cerr << "🎯 攻撃対象行: " << matched_line.substr(0, 100) << "..." << std::endl;
+        }
         
         // 第3段階：同一行に対して複数の正規表現攻撃！
         
@@ -606,7 +641,9 @@ private:
         std::smatch return_match;
         if (std::regex_search(matched_line, return_match, return_type_pattern)) {
             std::string return_type = trim_whitespace(return_match[1].str());
-            std::cerr << "🎯 戻り値型検出: " << return_type << std::endl;
+            if (!g_quiet_mode) { 
+                std::cerr << "🎯 戻り値型検出: " << return_type << std::endl;
+            }
         }
         
         // 🧬 ジェネリクス攻撃
@@ -617,7 +654,9 @@ private:
             std::cerr << "🧬 ジェネリクス検出: <" << generic_params << ">" << std::endl;
         }
         
-        std::cerr << "💥 第3段階完了: " << method_name << " の詳細分析成功" << std::endl;
+        if (!g_quiet_mode) { 
+            std::cerr << "💥 第3段階完了: " << method_name << " の詳細分析成功" << std::endl;
+        }
         return func_info;
     }
     
@@ -688,8 +727,10 @@ private:
             
             if (existing_functions.find(method_name) == existing_functions.end()) {
                 if (g_debug_mode) {
-                    std::cerr << "🎯 【LOGGER仕込み】Geminiオブジェクトメソッド発見: " << method_name 
-                              << " ← 呼び出し元: gemini_attack_object_methods()" << std::endl;
+                    if (!g_quiet_mode) { 
+                        std::cerr << "🎯 【LOGGER仕込み】Geminiオブジェクトメソッド発見: " << method_name 
+                                  << " ← 呼び出し元: gemini_attack_object_methods()" << std::endl;
+                    }
                 }
                 
                 FunctionInfo func_info;
@@ -719,8 +760,10 @@ private:
             
             if (existing_functions.find(prop_name) == existing_functions.end()) {
                 if (g_debug_mode) {
-                    std::cerr << "🎯 【LOGGER仕込み】Geminiプロパティ関数発見: " << prop_name 
-                              << " ← 呼び出し元: gemini_attack_property_functions()" << std::endl;
+                    if (!g_quiet_mode) { 
+                        std::cerr << "🎯 【LOGGER仕込み】Geminiプロパティ関数発見: " << prop_name 
+                                  << " ← 呼び出し元: gemini_attack_property_functions()" << std::endl;
+                    }
                 }
                 
                 FunctionInfo func_info;
@@ -749,8 +792,10 @@ private:
             
             if (existing_functions.find(prop_name) == existing_functions.end()) {
                 if (g_debug_mode) {
-                    std::cerr << "🎯 【LOGGER仕込み】Geminiアロー関数プロパティ発見: " << prop_name 
-                              << " ← 呼び出し元: gemini_attack_arrow_properties()" << std::endl;
+                    if (!g_quiet_mode) { 
+                        std::cerr << "🎯 【LOGGER仕込み】Geminiアロー関数プロパティ発見: " << prop_name 
+                                  << " ← 呼び出し元: gemini_attack_arrow_properties()" << std::endl;
+                    }
                 }
                 
                 FunctionInfo func_info;
@@ -776,8 +821,10 @@ private:
             
             if (existing_functions.find(method_name) == existing_functions.end()) {
                 if (g_debug_mode) {
-                    std::cerr << "🎯 【LOGGER仕込み】Geminiインターフェースメソッド発見: " << method_name 
-                              << " ← 呼び出し元: gemini_attack_interface_methods()" << std::endl;
+                    if (!g_quiet_mode) { 
+                        std::cerr << "🎯 【LOGGER仕込み】Geminiインターフェースメソッド発見: " << method_name 
+                                  << " ← 呼び出し元: gemini_attack_interface_methods()" << std::endl;
+                    }
                 }
                 
                 FunctionInfo func_info;
@@ -841,7 +888,9 @@ private:
     // 🎯 【ユーザー天才アイデア】無限ネスト掘削アタック！（並列化版）
     void infinite_nested_function_attack(const std::string& content, AnalysisResult& result, 
                                        std::set<std::string>& existing_functions) {
-        std::cerr << "🚀 【ユーザー天才アイデア】無限ネスト掘削アタック開始！（並列化版）" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "🚀 【ユーザー天才アイデア】無限ネスト掘削アタック開始！（並列化版）" << std::endl;
+        }
         
         // 🕐 性能測定追加
         auto total_start = std::chrono::high_resolution_clock::now();
@@ -873,8 +922,10 @@ private:
         // 0個になるまで繰り返し攻撃！
         while (!search_ranges.empty()) {
             auto round_start = std::chrono::high_resolution_clock::now();
-            std::cerr << "🎯 第" << attack_round << "回ネスト掘削攻撃開始！（検索範囲: " 
-                      << search_ranges.size() << "個）" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "🎯 第" << attack_round << "回ネスト掘削攻撃開始！（検索範囲: " 
+                          << search_ranges.size() << "個）" << std::endl;
+            }
             
             std::vector<FunctionRange> next_search_ranges;  // 次回の検索範囲
             std::atomic<size_t> round_detections{0};
@@ -916,8 +967,10 @@ private:
                         if (should_add) {
                             {
                                 std::lock_guard<std::mutex> lock(output_mutex);
-                                std::cerr << "🎯 第" << attack_round << "回でネスト関数発見: " << func_name 
-                                          << " (行:" << line_number << ")" << std::endl;
+                                if (!g_quiet_mode) { 
+                                    std::cerr << "🎯 第" << attack_round << "回でネスト関数発見: " << func_name 
+                                              << " (行:" << line_number << ")" << std::endl;
+                                }
                             }
                             
                             FunctionInfo func_info;
@@ -977,8 +1030,10 @@ private:
                     if (should_add_arrow) {
                         {
                             std::lock_guard<std::mutex> lock(output_mutex);
-                            std::cerr << "🎯 第" << attack_round << "回でネストアロー関数発見: " << arrow_name 
-                                      << " (行:" << line_number << ")" << std::endl;
+                            if (!g_quiet_mode) { 
+                                std::cerr << "🎯 第" << attack_round << "回でネストアロー関数発見: " << arrow_name 
+                                          << " (行:" << line_number << ")" << std::endl;
+                            }
                         }
                         
                         FunctionInfo func_info;
@@ -1032,8 +1087,10 @@ private:
                     if (should_add_assign) {
                         {
                             std::lock_guard<std::mutex> lock(output_mutex);
-                            std::cerr << "🎯 第" << attack_round << "回でネスト関数式発見: " << assign_name 
-                                      << " (行:" << line_number << ")" << std::endl;
+                            if (!g_quiet_mode) { 
+                                std::cerr << "🎯 第" << attack_round << "回でネスト関数式発見: " << assign_name 
+                                          << " (行:" << line_number << ")" << std::endl;
+                            }
                         }
                         
                         FunctionInfo func_info;
@@ -1076,15 +1133,19 @@ private:
             layer_detections.push_back(round_detections.load());
             layer_lines.push_back(round_lines_scanned.load());
             
-            std::cerr << "🎯 第" << attack_round << "回攻撃完了！新規検出: " << round_detections.load() << "個"
-                      << " (処理時間: " << round_duration.count() << "ms, 処理行数: " << round_lines_scanned.load() << "行)" << std::endl;
+            if (!g_quiet_mode) {
+                std::cerr << "🎯 第" << attack_round << "回攻撃完了！新規検出: " << round_detections.load() << "個"
+                          << " (処理時間: " << round_duration.count() << "ms, 処理行数: " << round_lines_scanned.load() << "行)" << std::endl;
+            }
             
             // 次回の検索範囲を更新
             search_ranges = std::move(next_search_ranges);
             
             // 検索範囲が空になったら終了！
             if (search_ranges.empty()) {
-                std::cerr << "🎉 無限ネスト掘削アタック完了！検索範囲が空になりました" << std::endl;
+                if (!g_quiet_mode) {
+                    std::cerr << "🎉 無限ネスト掘削アタック完了！検索範囲が空になりました" << std::endl;
+                }
                 break;
             }
             
@@ -1092,7 +1153,9 @@ private:
             
             // 無限ループ防止（最大20回まで - 深いネストに対応）
             if (attack_round > 20) {
-                std::cerr << "⚠️ 安全装置発動：20回で強制終了" << std::endl;
+                if (!g_quiet_mode) {
+                    std::cerr << "⚠️ 安全装置発動：20回で強制終了" << std::endl;
+                }
                 break;
             }
         }
@@ -1102,41 +1165,51 @@ private:
         auto total_end = std::chrono::high_resolution_clock::now();
         auto total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(total_end - total_start).count();
         
-        std::cerr << "🏆 無限ネスト掘削アタック最終結果：" << total_nested << "個のネスト関数を発見！" << std::endl;
-        std::cerr << "⏱️  総処理時間: " << total_duration << "ms, 総スキャン行数: " << total_lines_scanned.load() 
-                  << "行 (ラウンド数: " << (attack_round - 1) << "回)" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "🏆 無限ネスト掘削アタック最終結果：" << total_nested << "個のネスト関数を発見！" << std::endl;
+            std::cerr << "⏱️  総処理時間: " << total_duration << "ms, 総スキャン行数: " << total_lines_scanned.load() 
+                      << "行 (ラウンド数: " << (attack_round - 1) << "回)" << std::endl;
+        }
         
         // 🕐 層ごとの詳細プロファイリング結果
-        std::cerr << "\n📊 === 層ごとの詳細プロファイリング ===" << std::endl;
-        for (size_t i = 0; i < layer_times.size(); i++) {
-            std::cerr << "📈 第" << (i + 1) << "層: "
-                      << layer_times[i].count() << "ms, "
-                      << layer_ranges[i] << "範囲, "
-                      << layer_detections[i] << "個検出, "
-                      << layer_lines[i] << "行処理";
-            
-            // 1行あたりの処理時間を計算
-            if (layer_lines[i] > 0) {
-                double ms_per_line = static_cast<double>(layer_times[i].count()) / layer_lines[i];
-                std::cerr << " (1行あたり: " << std::fixed << std::setprecision(3) << ms_per_line << "ms)";
+        if (!g_quiet_mode) {
+            std::cerr << "\n📊 === 層ごとの詳細プロファイリング ===" << std::endl;
+        }
+        if (!g_quiet_mode) {
+            for (size_t i = 0; i < layer_times.size(); i++) {
+                std::cerr << "📈 第" << (i + 1) << "層: "
+                          << layer_times[i].count() << "ms, "
+                          << layer_ranges[i] << "範囲, "
+                          << layer_detections[i] << "個検出, "
+                          << layer_lines[i] << "行処理";
+                
+                // 1行あたりの処理時間を計算
+                if (layer_lines[i] > 0) {
+                    double ms_per_line = static_cast<double>(layer_times[i].count()) / layer_lines[i];
+                    std::cerr << " (1行あたり: " << std::fixed << std::setprecision(3) << ms_per_line << "ms)";
+                }
+                std::cerr << std::endl;
             }
-            std::cerr << std::endl;
         }
         
         // 🕐 累積時間も表示
-        std::cerr << "\n📊 === 累積処理時間 ===" << std::endl;
-        std::chrono::milliseconds cumulative_time{0};
-        for (size_t i = 0; i < layer_times.size(); i++) {
-            cumulative_time += layer_times[i];
-            std::cerr << "🏃 第1層〜第" << (i + 1) << "層までの累積: " << cumulative_time.count() << "ms" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "\n📊 === 累積処理時間 ===" << std::endl;
+            std::chrono::milliseconds cumulative_time{0};
+            for (size_t i = 0; i < layer_times.size(); i++) {
+                cumulative_time += layer_times[i];
+                std::cerr << "🏃 第1層〜第" << (i + 1) << "層までの累積: " << cumulative_time.count() << "ms" << std::endl;
+            }
+            std::cerr << "===================================\n" << std::endl;
         }
-        std::cerr << "===================================\n" << std::endl;
     }
     
     // 🔥 前処理革命：コメント・文字列除去システム（Gemini先生の知恵！）
     std::string preprocess_content(const std::string& content) {
         std::string result = content;
-        std::cerr << "🧹 前処理開始: コメント・文字列除去システム起動" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "🧹 前処理開始: コメント・文字列除去システム起動" << std::endl;
+        }
         
         // 1. 複数行コメント /* ... */ を除去
         result = remove_multiline_comments(result);
@@ -1147,7 +1220,9 @@ private:
         // 3. 文字列リテラル "...", '...', `...` を除去
         result = remove_string_literals(result);
         
-        std::cerr << "🧹 前処理完了: 全てのコメント・文字列を無害化" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "🧹 前処理完了: 全てのコメント・文字列を無害化" << std::endl;
+        }
         return result;
     }
     
@@ -1158,7 +1233,9 @@ private:
         }
         
         std::string result = content;
-        std::cerr << "🧹 前処理開始: コメント収集付きシステム起動" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "🧹 前処理開始: コメント収集付きシステム起動" << std::endl;
+        }
         
         // 1. 複数行コメント /* ... */ を除去・収集
         result = remove_multiline_comments(result, out_comments);
@@ -1169,7 +1246,9 @@ private:
         // 3. 文字列リテラル "...", '...', `...` を除去
         result = remove_string_literals(result);
         
-        std::cerr << "🧹 前処理完了: " << out_comments->size() << "個のコメント収集" << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "🧹 前処理完了: " << out_comments->size() << "個のコメント収集" << std::endl;
+        }
         return result;
     }
     
