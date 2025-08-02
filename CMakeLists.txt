@@ -114,44 +114,39 @@ find_package(Threads REQUIRED)
 # 🧠 NekoCode Core Library
 #=============================================================================
 
-# 🎯 コアライブラリソース（新構造対応）
-set(NEKOCODE_SOURCES
+# 🎯 コアライブラリソース（シンプル構造）
+set(NEKOCODE_LIB_SOURCES
     # Core機能
-    ${SRC_DIR}/core/core.cpp
-    ${SRC_DIR}/core/language_detection.cpp
-    ${SRC_DIR}/core/session_manager.cpp
-    ${SRC_DIR}/core/session_data.cpp
-    ${SRC_DIR}/core/session_commands.cpp
+    ${SRC_DIR}/lib/core/core.cpp
+    ${SRC_DIR}/lib/core/language_detection.cpp
+    ${SRC_DIR}/lib/core/session_manager.cpp
+    ${SRC_DIR}/lib/core/session_data.cpp
+    ${SRC_DIR}/lib/core/session_commands.cpp
     
     # フォーマッター
-    ${SRC_DIR}/formatters/formatters.cpp
+    ${SRC_DIR}/lib/formatters/formatters.cpp
     
-    # ユーティリティ
+    # ユーティリティ（そのまま）
     ${SRC_DIR}/utils/utf8_utils.cpp
     ${SRC_DIR}/utils/include_analyzer.cpp
     ${SRC_DIR}/utils/progress_tracker.cpp
     
     # ファインダー機能
-    ${SRC_DIR}/finders/symbol_finder.cpp
+    ${SRC_DIR}/lib/finders/symbol_finder.cpp
     
-    # コマンド
-    ${SRC_DIR}/commands/find_command.cpp
-    
-    # レガシー（必要に応じて削除予定）
+    # レガシー（そのまま）
     ${SRC_DIR}/legacy/tree_sitter_analyzer.cpp
     ${SRC_DIR}/legacy/pegtl_analyzer.cpp
     
-    # 言語別アナライザー（新構造）
-    ${SRC_DIR}/analyzers/analyzer_factory.cpp
-    ${SRC_DIR}/analyzers/python/python_analyzer.cpp
-    # ${SRC_DIR}/analyzers/javascript/javascript_analyzer.cpp # regex版は削除済み
-    ${SRC_DIR}/analyzers/cpp/cpp_language_analyzer.cpp
-    ${SRC_DIR}/analyzers/cpp/cpp_analyzer.cpp
-    # ${SRC_DIR}/analyzers/csharp/csharp_analyzer.cpp # regex版は削除済み
-    ${SRC_DIR}/analyzers/csharp/csharp_pegtl_analyzer.cpp
-    ${SRC_DIR}/analyzers/unity/unity_analyzer.cpp
-    ${SRC_DIR}/analyzers/go/go_analyzer.cpp
-    ${SRC_DIR}/analyzers/rust/rust_analyzer.cpp
+    # 言語別アナライザー
+    ${SRC_DIR}/lib/analyzers/analyzer_factory.cpp
+    ${SRC_DIR}/lib/analyzers/python/python_analyzer.cpp
+    ${SRC_DIR}/lib/analyzers/cpp/cpp_language_analyzer.cpp
+    ${SRC_DIR}/lib/analyzers/cpp/cpp_analyzer.cpp
+    ${SRC_DIR}/lib/analyzers/csharp/csharp_pegtl_analyzer.cpp
+    ${SRC_DIR}/lib/analyzers/unity/unity_analyzer.cpp
+    ${SRC_DIR}/lib/analyzers/go/go_analyzer.cpp
+    ${SRC_DIR}/lib/analyzers/rust/rust_analyzer.cpp
 )
 
 # ヘッダーファイル
@@ -169,9 +164,10 @@ set(NEKOCODE_HEADERS
     ${INCLUDE_DIR}/nekocode/symbol_finder.hpp
     ${INCLUDE_DIR}/nekocode/progress_tracker.hpp
     # 言語別アナライザーヘッダー（新構造対応）
-    ${SRC_DIR}/analyzers/base_analyzer.hpp
-    ${SRC_DIR}/analyzers/javascript/javascript_pegtl_analyzer.hpp
-    ${SRC_DIR}/analyzers/javascript/javascript_minimal_grammar.hpp
+    ${SRC_DIR}/lib/analyzers/base_analyzer.hpp
+    ${SRC_DIR}/lib/analyzers/javascript/javascript_pegtl_analyzer.hpp
+    ${SRC_DIR}/lib/analyzers/javascript/javascript_minimal_grammar.hpp
+    ${SRC_DIR}/lib/analyzers/typescript/typescript_pegtl_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/python_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/cpp_language_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/unity_analyzer.hpp
@@ -181,15 +177,15 @@ set(NEKOCODE_HEADERS
     ${INCLUDE_DIR}/nekocode/analyzers/rust_analyzer.hpp
 )
 
-# 静的ライブラリ作成
-add_library(nekocode_static STATIC ${NEKOCODE_SOURCES} ${NEKOCODE_HEADERS})
-target_include_directories(nekocode_static PUBLIC 
+# 静的ライブラリ作成（シンプル構造）
+add_library(nekocode_lib STATIC ${NEKOCODE_LIB_SOURCES} ${NEKOCODE_HEADERS})
+target_include_directories(nekocode_lib PUBLIC 
     ${INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${SRC_DIR}/analyzers
+    ${SRC_DIR}/lib/analyzers
     ${SRC_DIR}/include
 )
-target_link_libraries(nekocode_static 
+target_link_libraries(nekocode_lib 
     nlohmann_json::nlohmann_json 
     utf8::cpp
     tree-sitter-core
@@ -199,18 +195,19 @@ target_link_libraries(nekocode_static
 )
 
 # C++17 features
-target_compile_features(nekocode_static PUBLIC cxx_std_17)
+target_compile_features(nekocode_lib PUBLIC cxx_std_17)
 
 #=============================================================================
 # 🤖 AI Tool - Claude Code最適化実行ファイル
 #=============================================================================
 
 add_executable(nekocode_ai 
-    ${SRC_DIR}/main/main_ai.cpp
-    ${SRC_DIR}/main/command_dispatcher.cpp
-    ${SRC_DIR}/main/command_line_args.cpp
+    ${SRC_DIR}/apps/cli/main_ai.cpp
+    ${SRC_DIR}/apps/cli/command_dispatcher.cpp
+    ${SRC_DIR}/apps/cli/command_line_args.cpp
+    ${SRC_DIR}/apps/commands/find_command.cpp
 )
-target_link_libraries(nekocode_ai nekocode_static)
+target_link_libraries(nekocode_ai nekocode_lib)
 
 # AI用特別最適化
 target_compile_definitions(nekocode_ai PRIVATE 
@@ -222,8 +219,8 @@ target_compile_definitions(nekocode_ai PRIVATE
 # 👨‍💻 Human Tool - 美しい出力実行ファイル
 #=============================================================================
 
-add_executable(nekocode_human ${SRC_DIR}/main/main_human.cpp)
-target_link_libraries(nekocode_human nekocode_static)
+add_executable(nekocode_human ${SRC_DIR}/apps/cli/main_human.cpp)
+target_link_libraries(nekocode_human nekocode_lib)
 
 # Human用見た目重視
 target_compile_definitions(nekocode_human PRIVATE 
@@ -241,11 +238,11 @@ if(BUILD_TESTS)
     
     # 簡易テスト
     add_executable(test_core ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_core.cpp)
-    target_link_libraries(test_core nekocode_static)
+    target_link_libraries(test_core nekocode_lib)
     add_test(NAME CoreTest COMMAND test_core)
     
     add_executable(test_performance ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_performance.cpp)
-    target_link_libraries(test_performance nekocode_static)
+    target_link_libraries(test_performance nekocode_lib)
     add_test(NAME PerformanceTest COMMAND test_performance)
 endif()
 
@@ -267,7 +264,7 @@ if(ENABLE_INSTALL)
     )
     
     # ライブラリインストール
-    install(TARGETS nekocode_static
+    install(TARGETS nekocode_lib
         ARCHIVE DESTINATION lib
     )
 endif()
