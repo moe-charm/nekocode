@@ -155,16 +155,16 @@ NekoCodeは超高速なストレージ最適化機能を搭載！
 SESSION_ID=ai_session_20250727_180532
 
 # プロジェクト統計
-./nekocode_ai session-cmd $SESSION_ID stats
+./nekocode_ai session-command $SESSION_ID stats
 
 # 複雑度ランキング（最重要！）
-./nekocode_ai session-cmd $SESSION_ID complexity
+./nekocode_ai session-command $SESSION_ID complexity
 
 # ファイル検索
-./nekocode_ai session-cmd $SESSION_ID "find manager"
+./nekocode_ai session-command $SESSION_ID "find manager"
 
 # 関数構造解析
-./nekocode_ai session-cmd $SESSION_ID structure
+./nekocode_ai session-command $SESSION_ID structure
 ```
 
 ### C++専用の高度な解析
@@ -173,26 +173,26 @@ SESSION_ID=ai_session_20250727_180532
 
 ```bash
 # 依存関係グラフを生成
-./nekocode_ai session-cmd $SESSION_ID include-graph
+./nekocode_ai session-command $SESSION_ID include-graph
 
 # 循環依存を検出（重要！）
-./nekocode_ai session-cmd $SESSION_ID include-cycles
+./nekocode_ai session-command $SESSION_ID include-cycles
 
 # 不要なincludeを検出
-./nekocode_ai session-cmd $SESSION_ID include-unused
+./nekocode_ai session-command $SESSION_ID include-unused
 ```
 
 #### テンプレート・マクロ解析
 
 ```bash
 # テンプレート特殊化を検出
-./nekocode_ai session-cmd $SESSION_ID template-analysis
+./nekocode_ai session-command $SESSION_ID template-analysis
 
 # マクロ展開を追跡
-./nekocode_ai session-cmd $SESSION_ID macro-analysis
+./nekocode_ai session-command $SESSION_ID macro-analysis
 
 # メタプログラミングパターンを検出
-./nekocode_ai session-cmd $SESSION_ID metaprogramming
+./nekocode_ai session-command $SESSION_ID metaprogramming
 ```
 
 #### 🎯 メンバ変数検出機能（新機能！）
@@ -235,10 +235,10 @@ NekoCodeの革新的なメンバ変数検出機能により、全ての言語で
 
 ```bash
 # 詳細なクラス構造解析
-./nekocode_ai session-cmd $SESSION_ID "analyze --detailed MyClass.cpp"
+./nekocode_ai session-command $SESSION_ID "analyze --detailed MyClass.cpp"
 
 # メンバ変数統計
-./nekocode_ai session-cmd $SESSION_ID "stats --member-variables"
+./nekocode_ai session-command $SESSION_ID "stats --member-variables"
 ```
 
 ## AI開発者向けガイド
@@ -268,7 +268,7 @@ NekoCodeの革新的なメンバ変数検出機能により、全ての言語で
 
 ```bash
 # 1. 現在の複雑度を測定
-./nekocode_ai session-cmd $SESSION_ID complexity
+./nekocode_ai session-command $SESSION_ID complexity
 
 # 出力例:
 # FileA.cpp: Complexity 156 (Very Complex)
@@ -277,7 +277,7 @@ NekoCodeの革新的なメンバ変数検出機能により、全ての言語で
 # 2. リファクタリング実施
 
 # 3. 改善を確認
-./nekocode_ai session-cmd $SESSION_ID complexity
+./nekocode_ai session-command $SESSION_ID complexity
 # FileA.cpp: Complexity 23 (Simple)  ← 85%削減！
 ```
 
@@ -298,7 +298,7 @@ NekoCodeには強力なデバッグ機能が搭載されています！
 
 # 📊 セッション用デバッグ - 解析戦略の詳細確認
 ./nekocode_ai session-create --debug project/
-./nekocode_ai session-cmd $SESSION_ID "find function --debug"
+./nekocode_ai session-command $SESSION_ID "find function --debug"
 ```
 
 **デバッグ機能の活用法**:

@@ -25,19 +25,19 @@ Claude Code #3: "10-100x faster than Python?! And it can analyze our nyamesh_v23
 # Output: session_id: ai_session_20250727_180532
 
 # Step 2: Complexity analysis (0.004 seconds!)
-./nekocode_ai session-cmd ai_session_20250727_180532 complexity
+./nekocode_ai session-command ai_session_20250727_180532 complexity
 # Instantly identifies the most complex cores
 
 # Step 3: Circular dependency detection
-./nekocode_ai session-cmd ai_session_20250727_180532 include-cycles
+./nekocode_ai session-command ai_session_20250727_180532 include-cycles
 # Reveals the 7Core architecture bottlenecks
 
 # Step 4: Template/Macro analysis
-./nekocode_ai session-cmd ai_session_20250727_180532 template-analysis
+./nekocode_ai session-command ai_session_20250727_180532 template-analysis
 # Detects over-abstraction patterns
 
 # Step 5: Optimization suggestions
-./nekocode_ai session-cmd ai_session_20250727_180532 include-optimize
+./nekocode_ai session-command ai_session_20250727_180532 include-optimize
 # Provides actionable refactoring steps
 ```
 

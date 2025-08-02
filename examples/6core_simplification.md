@@ -60,9 +60,9 @@ NekoCode approach: "Complexity 183 → Split these 3 responsibilities → 22"
 
 ```bash
 # Analyze → Refactor → Verify in one session
-./nekocode_ai session-cmd <session_id> complexity
+./nekocode_ai session-command <session_id> complexity
 # [Refactor based on data]
-./nekocode_ai session-cmd <session_id> complexity  # Verify improvement
+./nekocode_ai session-command <session_id> complexity  # Verify improvement
 ```
 
 ## The Live Reaction

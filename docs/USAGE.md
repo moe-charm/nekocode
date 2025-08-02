@@ -104,16 +104,16 @@ The most powerful feature of NekoCode!
 SESSION_ID=ai_session_20250727_180532
 
 # Project statistics
-./nekocode_ai session-cmd $SESSION_ID stats
+./nekocode_ai session-command $SESSION_ID stats
 
 # Complexity ranking (most important!)
-./nekocode_ai session-cmd $SESSION_ID complexity
+./nekocode_ai session-command $SESSION_ID complexity
 
 # File search
-./nekocode_ai session-cmd $SESSION_ID "find manager"
+./nekocode_ai session-command $SESSION_ID "find manager"
 
 # Function structure analysis
-./nekocode_ai session-cmd $SESSION_ID structure
+./nekocode_ai session-command $SESSION_ID structure
 ```
 
 ### C++ Specific Analysis
@@ -122,26 +122,26 @@ SESSION_ID=ai_session_20250727_180532
 
 ```bash
 # Generate dependency graph
-./nekocode_ai session-cmd $SESSION_ID include-graph
+./nekocode_ai session-command $SESSION_ID include-graph
 
 # Detect circular dependencies (critical!)
-./nekocode_ai session-cmd $SESSION_ID include-cycles
+./nekocode_ai session-command $SESSION_ID include-cycles
 
 # Find unused includes
-./nekocode_ai session-cmd $SESSION_ID include-unused
+./nekocode_ai session-command $SESSION_ID include-unused
 ```
 
 #### Template & Macro Analysis
 
 ```bash
 # Detect template specializations
-./nekocode_ai session-cmd $SESSION_ID template-analysis
+./nekocode_ai session-command $SESSION_ID template-analysis
 
 # Track macro expansions
-./nekocode_ai session-cmd $SESSION_ID macro-analysis
+./nekocode_ai session-command $SESSION_ID macro-analysis
 
 # Detect metaprogramming patterns
-./nekocode_ai session-cmd $SESSION_ID metaprogramming
+./nekocode_ai session-command $SESSION_ID metaprogramming
 ```
 
 ## AI Developer Guide
@@ -171,7 +171,7 @@ SESSION_ID=ai_session_20250727_180532
 
 ```bash
 # 1. Measure current complexity
-./nekocode_ai session-cmd $SESSION_ID complexity
+./nekocode_ai session-command $SESSION_ID complexity
 
 # Output example:
 # FileA.cpp: Complexity 156 (Very Complex)
@@ -180,7 +180,7 @@ SESSION_ID=ai_session_20250727_180532
 # 2. Perform refactoring
 
 # 3. Verify improvements
-./nekocode_ai session-cmd $SESSION_ID complexity
+./nekocode_ai session-command $SESSION_ID complexity
 # FileA.cpp: Complexity 23 (Simple)  ← 85% reduction!
 ```
 
