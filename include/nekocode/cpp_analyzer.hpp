@@ -79,6 +79,30 @@ public:
     std::vector<std::pair<std::string, std::vector<std::string>>> analyze_enums(const std::string& content);
     
     //=========================================================================
+    // 🔗 依存関係分析（新規追加）
+    //=========================================================================
+    
+    /// include情報と使用型の紐付け
+    struct DependencyInfo {
+        std::string class_name;
+        std::vector<std::string> used_types;          // このクラスが使用する型
+        std::vector<std::string> required_includes;   // 必要なinclude
+        std::vector<std::string> unused_includes;     // 不要なinclude
+    };
+    
+    /// 依存関係分析結果
+    struct DependencyAnalysisResult {
+        std::vector<CppInclude> includes;
+        std::string content_without_includes;
+        std::map<std::string, DependencyInfo> class_dependencies;
+        int max_include_depth = 0;
+        std::vector<std::vector<std::string>> circular_dependencies;
+    };
+    
+    /// 依存関係分析（にゃー方式）
+    DependencyAnalysisResult analyze_dependencies(const std::string& content);
+    
+    //=========================================================================
     // 🧮 C++ Complexity Analysis
     //=========================================================================
     
@@ -137,6 +161,15 @@ private:
     
     /// C++キーワード初期化
     void initialize_cpp_keywords();
+    
+    /// include抽出（シンプル版）
+    std::vector<CppInclude> extract_includes_simple(const std::string& content);
+    
+    /// include削除
+    std::string remove_includes(const std::string& content);
+    
+    /// 使用型検出
+    std::vector<std::string> find_used_types(const CppClass& cls);
     
     //=========================================================================
     // 🎯 Parsing Helpers

@@ -360,6 +360,19 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
             }
             
             result = session_commands_.cmd_analyze(session, filename, deep);
+        } else if (command.substr(0, 18) == "dependency-analyze") {
+            // dependency-analyze [filename]
+            std::string args = command.substr(18);
+            std::string filename;
+            
+            // ファイル名を抽出（先頭と末尾の空白を除去）
+            size_t start = args.find_first_not_of(" \t");
+            if (start != std::string::npos) {
+                size_t end = args.find_last_not_of(" \t");
+                filename = args.substr(start, end - start + 1);
+            }
+            
+            result = session_commands_.cmd_dependency_analyze(session, filename);
         } else if (command == "help") {
             result = session_commands_.cmd_help();
         } else {
@@ -370,7 +383,7 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                                         "include-graph", "include-cycles", "include-impact",
                                         "include-unused", "include-optimize", "duplicates", 
                                         "large-files", "todo", "complexity-ranking", 
-                                        "analyze", "help"}}
+                                        "analyze", "dependency-analyze", "help"}}
             };
         }
         
