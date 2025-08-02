@@ -41,23 +41,23 @@ NekoCode v2.0 では、find コマンドに `--debug` フラグが追加され�
 nekocode_ai session-create myproject/
 
 # デバッグ情報付きで検索
-nekocode_ai session-cmd <session_id> "find std::cout --debug"
+nekocode_ai session-command <session_id> "find std::cout --debug"
 ```
 
 ### コマンドオプション組み合わせ
 
 ```bash
 # デバッグ + 表示制限
-nekocode_ai session-cmd <session_id> "find MyClass --debug --limit 10"
+nekocode_ai session-command <session_id> "find MyClass --debug --limit 10"
 
 # デバッグ + 関数のみ検索
-nekocode_ai session-cmd <session_id> "find handleClick --debug --function"
+nekocode_ai session-command <session_id> "find handleClick --debug --function"
 
 # デバッグ + 特定パス指定
-nekocode_ai session-cmd <session_id> "find error --debug src/"
+nekocode_ai session-command <session_id> "find error --debug src/"
 
 # デバッグ + ファイル出力
-nekocode_ai session-cmd <session_id> "find namespace --debug --output debug_results.txt"
+nekocode_ai session-command <session_id> "find namespace --debug --output debug_results.txt"
 ```
 
 ## トラブルシューティング
@@ -92,7 +92,7 @@ nekocode_ai session-cmd <session_id> "find namespace --debug --output debug_resu
 #### 4. 大量の出力でパフォーマンス低下
 ```bash
 # ファイル数が多い場合は出力リダイレクトを推奨
-nekocode_ai session-cmd <session_id> "find term --debug" 2>debug.log
+nekocode_ai session-command <session_id> "find term --debug" 2>debug.log
 ```
 
 ## Claude Code との連携
@@ -102,7 +102,7 @@ nekocode_ai session-cmd <session_id> "find term --debug" 2>debug.log
 
 ```bash
 # Claude Code でも安全に使用可能
-nekocode_ai session-cmd <session_id> "find MyClass --debug" > results.json 2>debug.log
+nekocode_ai session-command <session_id> "find MyClass --debug" > results.json 2>debug.log
 ```
 
 ### AI 分析での活用

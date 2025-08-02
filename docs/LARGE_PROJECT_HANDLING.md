@@ -101,15 +101,15 @@ nekocode_ai session-create large_project/
 #### ステップ3: 対話的解析
 ```bash
 # セッション利用
-nekocode_ai session-cmd ai_session_20250729_123456 stats
-nekocode_ai session-cmd ai_session_20250729_123456 "find interface --limit 20"
-nekocode_ai session-cmd ai_session_20250729_123456 complexity
+nekocode_ai session-command ai_session_20250729_123456 stats
+nekocode_ai session-command ai_session_20250729_123456 "find interface --limit 20"
+nekocode_ai session-command ai_session_20250729_123456 complexity
 ```
 
 ### Claude Code最適化のメリット
 - ✅ **超高速レスポンス**: --stats-onlyで秒単位の結果取得
 - ✅ **並列処理**: --io-threads 16で大幅高速化
-- ✅ **完全な互換性**: 従来のsession-cmdがそのまま利用可能
+- ✅ **完全な互換性**: 従来のsession-commandがそのまま利用可能
 - ✅ **メモリ効率**: 統計のみなので軽量処理
 
 ## ⚡ パフォーマンス最適化
@@ -182,9 +182,9 @@ nekocode_ai session-create project/ --progress --ssd
 ### 3. Claude Code連携フェーズ
 ```bash
 # セッション作成後の対話的解析
-nekocode_ai session-cmd ai_session_20250729_123456 stats
-nekocode_ai session-cmd ai_session_20250729_123456 "find interface --limit 20"
-nekocode_ai session-cmd ai_session_20250729_123456 complexity
+nekocode_ai session-command ai_session_20250729_123456 stats
+nekocode_ai session-command ai_session_20250729_123456 "find interface --limit 20"
+nekocode_ai session-command ai_session_20250729_123456 complexity
 ```
 
 ## 🚨 トラブルシューティング
@@ -205,7 +205,7 @@ ps aux | grep nekocode_ai
 ls -t sessions/*_progress.txt | head -1 | xargs tail
 
 # 🔄 セッション復旧
-nekocode_ai session-cmd [session_id] stats
+nekocode_ai session-command [session_id] stats
 ```
 
 ## 📈 パフォーマンス統計

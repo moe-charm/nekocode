@@ -17,7 +17,7 @@
 ### 2. コピペしやすい出力
 ```bash
 # 実行例を常に含める
-./nekocode_ai session-cmd ai_session_xxx "find main"
+./nekocode_ai session-command ai_session_xxx "find main"
 ```
 
 ### 3. 段階的詳細化

@@ -109,10 +109,10 @@ int main() {
  * 
  * 2. Session Mode:
  *    ./nekocode_ai session-create examples/
- *    ./nekocode_ai session-cmd <session_id> stats
- *    ./nekocode_ai session-cmd <session_id> complexity
- *    ./nekocode_ai session-cmd <session_id> template-analysis
- *    ./nekocode_ai session-cmd <session_id> macro-analysis
+ *    ./nekocode_ai session-command <session_id> stats
+ *    ./nekocode_ai session-command <session_id> complexity
+ *    ./nekocode_ai session-command <session_id> template-analysis
+ *    ./nekocode_ai session-command <session_id> macro-analysis
  * 
  * Expected metrics:
  * - Lines of code: ~100
