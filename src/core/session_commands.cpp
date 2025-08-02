@@ -613,16 +613,25 @@ nlohmann::json SessionCommands::cmd_structure_detailed(const SessionData& sessio
     
     if (!filename.empty()) {
         // 指定されたファイルのみ処理
+        // 🔧 絶対パス vs 相対パス対応: ファイル名のみで比較
+        std::string target_filename = std::filesystem::path(filename).filename().string();
+        
         if (session.is_directory) {
             for (const auto& file : session.directory_result.files) {
-                if (file.file_info.name.find(filename) != std::string::npos ||
+                std::string current_filename = std::filesystem::path(file.file_info.name).filename().string();
+                if (current_filename.find(target_filename) != std::string::npos ||
+                    current_filename == target_filename ||
+                    file.file_info.name.find(filename) != std::string::npos ||
                     file.file_info.name == filename) {
                     process_file(file);
                     break;
                 }
             }
         } else {
-            if (session.single_file_result.file_info.name.find(filename) != std::string::npos ||
+            std::string current_filename = std::filesystem::path(session.single_file_result.file_info.name).filename().string();
+            if (current_filename.find(target_filename) != std::string::npos ||
+                current_filename == target_filename ||
+                session.single_file_result.file_info.name.find(filename) != std::string::npos ||
                 session.single_file_result.file_info.name == filename) {
                 process_file(session.single_file_result);
             }
@@ -673,10 +682,16 @@ nlohmann::json SessionCommands::cmd_complexity_methods(const SessionData& sessio
     
     // ファイル名が指定されている場合、該当ファイルのみ処理
     if (!filename.empty()) {
+        // 🔧 絶対パス vs 相対パス対応: ファイル名のみで比較
+        std::string target_filename = std::filesystem::path(filename).filename().string();
+        
         if (session.is_directory) {
             // ディレクトリ内から指定ファイルを検索
             for (const auto& file : session.directory_result.files) {
-                if (file.file_info.name.find(filename) != std::string::npos ||
+                std::string current_filename = std::filesystem::path(file.file_info.name).filename().string();
+                if (current_filename.find(target_filename) != std::string::npos ||
+                    current_filename == target_filename ||
+                    file.file_info.name.find(filename) != std::string::npos ||
                     file.file_info.name == filename) {
                     
                     // クラスメソッドの複雑度
@@ -710,7 +725,10 @@ nlohmann::json SessionCommands::cmd_complexity_methods(const SessionData& sessio
         } else {
             // 単一ファイルの場合
             const auto& file = session.single_file_result;
-            if (file.file_info.name.find(filename) != std::string::npos ||
+            std::string current_filename = std::filesystem::path(file.file_info.name).filename().string();
+            if (current_filename.find(target_filename) != std::string::npos ||
+                current_filename == target_filename ||
+                file.file_info.name.find(filename) != std::string::npos ||
                 file.file_info.name == filename) {
                 
                 // クラスメソッドの複雑度
@@ -1023,9 +1041,15 @@ nlohmann::json SessionCommands::cmd_dependency_analyze(const SessionData& sessio
     
     if (!filename.empty()) {
         // 特定のファイルのみ
+        // 🔧 絶対パス vs 相対パス対応: ファイル名のみで比較
+        std::string target_filename = std::filesystem::path(filename).filename().string();
+        
         if (session.is_directory) {
             for (const auto& file : session.directory_result.files) {
-                if (file.file_info.name.find(filename) != std::string::npos) {
+                std::string current_filename = std::filesystem::path(file.file_info.name).filename().string();
+                if (current_filename.find(target_filename) != std::string::npos ||
+                    current_filename == target_filename ||
+                    file.file_info.name.find(filename) != std::string::npos) {
                     auto analysis = process_cpp_file(file);
                     if (!analysis.empty()) {
                         files_analysis.push_back(analysis);
@@ -1033,7 +1057,10 @@ nlohmann::json SessionCommands::cmd_dependency_analyze(const SessionData& sessio
                 }
             }
         } else {
-            if (session.single_file_result.file_info.name.find(filename) != std::string::npos) {
+            std::string current_filename = std::filesystem::path(session.single_file_result.file_info.name).filename().string();
+            if (current_filename.find(target_filename) != std::string::npos ||
+                current_filename == target_filename ||
+                session.single_file_result.file_info.name.find(filename) != std::string::npos) {
                 auto analysis = process_cpp_file(session.single_file_result);
                 if (!analysis.empty()) {
                     files_analysis.push_back(analysis);
