@@ -208,6 +208,19 @@ public:
 
 class CppTraits : public BaseLanguageTraits<CppTraits> {
 public:
+    /// 言語識別
+    static Language get_language_enum() {
+        return Language::CPP;
+    }
+    
+    static std::string get_language_name() {
+        return "C++";
+    }
+    
+    static std::vector<std::string> get_supported_extensions() {
+        return {".cpp", ".cxx", ".cc", ".hpp", ".hxx", ".h"};
+    }
+    
     /// C++関数・メソッドパターン（複雑）
     static const std::unordered_set<std::string>& function_keywords() {
         static const std::unordered_set<std::string> keywords = {
@@ -263,10 +276,25 @@ public:
 
 class CSharpTraits : public BaseLanguageTraits<CSharpTraits> {
 public:
-    /// C#メソッドキーワード
+    /// 言語識別
+    static Language get_language_enum() {
+        return Language::CSHARP;
+    }
+    
+    static std::string get_language_name() {
+        return "C#";
+    }
+    
+    static std::vector<std::string> get_supported_extensions() {
+        return {".cs"};
+    }
+    
+    /// C#メソッドキーワード（拡張版）
     static const std::unordered_set<std::string>& function_keywords() {
         static const std::unordered_set<std::string> keywords = {
-            "void", "int", "string", "public", "private", "static", "async", "override"
+            "void", "int", "string", "bool", "float", "double", "decimal", "object",
+            "public", "private", "protected", "internal", "static", "virtual", 
+            "override", "abstract", "async", "extern", "unsafe"
         };
         return keywords;
     }
@@ -274,7 +302,7 @@ public:
     /// C#クラスキーワード
     static const std::unordered_set<std::string>& class_keywords() {
         static const std::unordered_set<std::string> keywords = {
-            "class", "struct", "interface", "enum"
+            "class", "struct", "interface", "enum", "record"
         };
         return keywords;
     }
@@ -282,7 +310,16 @@ public:
     /// C#制御構造キーワード
     static const std::unordered_set<std::string>& control_keywords() {
         static const std::unordered_set<std::string> keywords = {
-            "if", "else", "for", "foreach", "while", "switch", "case", "try", "catch", "return"
+            "if", "else", "for", "foreach", "while", "do", "switch", "case", 
+            "try", "catch", "finally", "return", "yield", "break", "continue"
+        };
+        return keywords;
+    }
+    
+    /// C#プロパティキーワード
+    static const std::unordered_set<std::string>& property_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "get", "set", "init", "value"
         };
         return keywords;
     }
@@ -290,9 +327,41 @@ public:
     /// Unity特殊クラス検出
     static bool is_unity_class(const std::string& name) {
         static const std::unordered_set<std::string> unity_bases = {
-            "MonoBehaviour", "ScriptableObject", "Component"
+            "MonoBehaviour", "ScriptableObject", "Component", "Behaviour", 
+            "MonoBehaviourInterface", "StateMachineBehaviour"
         };
         return unity_bases.count(name) > 0;
+    }
+    
+    /// Unity特殊メソッド検出
+    static bool is_unity_method(const std::string& name) {
+        static const std::unordered_set<std::string> unity_methods = {
+            "Awake", "Start", "Update", "FixedUpdate", "LateUpdate", 
+            "OnEnable", "OnDisable", "OnDestroy", "OnTriggerEnter",
+            "OnCollisionEnter", "OnGUI"
+        };
+        return unity_methods.count(name) > 0;
+    }
+    
+    /// ノード作成（C#特殊処理）
+    static std::unique_ptr<ASTNode> create_node(ASTNodeType type, const std::string& name) {
+        auto node = std::make_unique<ASTNode>(type, name);
+        
+        // Unity特有の処理
+        if (type == ASTNodeType::CLASS && is_unity_class(name)) {
+            node->attributes["unity_class"] = "true";
+        }
+        
+        if (type == ASTNodeType::FUNCTION && is_unity_method(name)) {
+            node->attributes["unity_method"] = "true";
+        }
+        
+        // プロパティ検出
+        if (name.find("get_") == 0 || name.find("set_") == 0) {
+            node->attributes["property"] = "true";
+        }
+        
+        return node;
     }
 };
 
