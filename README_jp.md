@@ -53,16 +53,26 @@ mkdir build && cd build
 cmake .. && make -j$(nproc)
 cd ..
 
-# 3. セットアップスクリプトを実行 - 正確なコマンドが表示される！
+# 3. セットアップスクリプトを実行してコマンドを取得（nekocodeディレクトリ内で）
 python3 bin/setup.py
+# 絶対パスを含むコマンドが表示されます - コピーしてください！
 
-# 4. 表示されたコマンドをコピペ：
+# 4. 重要：あなたのプロジェクトディレクトリに移動
+cd /path/to/your/project  # ← あなたのプロジェクト、nekocodeではない！
+# 例: cd ~/my-awesome-project
+
+# 5. ステップ3でコピーしたコマンドを貼り付け
 # claude mcp add nekocode \
-#   -e NEKOCODE_BINARY_PATH=/your/path/bin/nekocode_ai \
-#   -- python3 /your/path/mcp-nekocode-server/mcp_server_real.py
+#   -e NEKOCODE_BINARY_PATH=/absolute/path/bin/nekocode_ai \
+#   -- python3 /absolute/path/mcp-nekocode-server/mcp_server_real.py
 
-# 5. Claude Codeを再起動 - 完了！ 🎉
+# 6. Claude Codeを再起動 - 完了！ 🎉
 ```
+
+**⚠️ コマンドを実行する場所が重要です！**
+- `setup.py`はnekocodeディレクトリで実行（絶対パスを取得するため）
+- `claude mcp add`はあなたのプロジェクトディレクトリで実行（NekoCodeを使いたい場所）
+- MCPサーバーはそのプロジェクトディレクトリでのみ利用可能になります
 
 ### Claude CodeでMCPサーバーを使用
 

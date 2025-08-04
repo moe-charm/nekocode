@@ -106,16 +106,26 @@ mkdir build && cd build
 cmake .. && make -j$(nproc)
 cd ..
 
-# 3. Run setup script - it shows the exact command!
+# 3. Run setup script to get the command (in nekocode directory)
 python3 bin/setup.py
+# This will display a command with ABSOLUTE PATHS - copy it!
 
-# 4. Copy & paste the displayed command:
+# 4. IMPORTANT: Navigate to YOUR project directory
+cd /path/to/your/project  # ← YOUR project, not nekocode!
+# Example: cd ~/my-awesome-project
+
+# 5. Paste the command from step 3
 # claude mcp add nekocode \
-#   -e NEKOCODE_BINARY_PATH=/your/path/bin/nekocode_ai \
-#   -- python3 /your/path/mcp-nekocode-server/mcp_server_real.py
+#   -e NEKOCODE_BINARY_PATH=/absolute/path/bin/nekocode_ai \
+#   -- python3 /absolute/path/mcp-nekocode-server/mcp_server_real.py
 
-# 5. Restart Claude Code - Done! 🎉
+# 6. Restart Claude Code - Done! 🎉
 ```
+
+**⚠️ Where you run the command matters!**
+- Run `setup.py` in the nekocode directory to get absolute paths
+- Run `claude mcp add` in YOUR project directory where you want to use NekoCode
+- The MCP server will only be available in that project directory
 
 ### Using MCP Server in Claude Code
 
