@@ -11,6 +11,9 @@
 #include <iostream>
 #include <iomanip>
 
+// 🔧 グローバルデバッグフラグ（analyzer_factory.cppで定義済み）
+extern bool g_quiet_mode;
+
 namespace nekocode {
 
 class FileSizeReporter {
@@ -44,15 +47,19 @@ public:
         const double estimated_time = estimate_processing_time(size_bytes);
         
         // Claude Code向け：処理継続中であることを明確に示す
-        std::cerr << "📄 Processing large file: " << filename 
-                  << " (" << size_str << ")" << std::endl;
-        std::cerr << "⏱️  Estimated time: ~" << std::fixed << std::setprecision(1) 
-                  << estimated_time << " seconds. Processing..." << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "📄 Processing large file: " << filename 
+                      << " (" << size_str << ")" << std::endl;
+            std::cerr << "⏱️  Estimated time: ~" << std::fixed << std::setprecision(1) 
+                      << estimated_time << " seconds. Processing..." << std::endl;
+        }
     }
     
     // 大ファイル処理完了メッセージ
     static void report_large_file_complete(const std::string& filename) {
-        std::cerr << "✅ Large file processed: " << filename << std::endl;
+        if (!g_quiet_mode) {
+            std::cerr << "✅ Large file processed: " << filename << std::endl;
+        }
     }
     
     // 大ファイルかどうかの判定（500KB以上）
