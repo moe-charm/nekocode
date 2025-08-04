@@ -466,5 +466,116 @@ public:
     }
 };
 
+//=============================================================================
+// 🦀 Rust Traits - 最新言語の統一化
+//=============================================================================
+
+class RustTraits : public BaseLanguageTraits<RustTraits> {
+public:
+    /// 言語識別
+    static Language get_language_enum() {
+        return Language::RUST;
+    }
+    
+    static std::string get_language_name() {
+        return "Rust";
+    }
+    
+    static std::vector<std::string> get_supported_extensions() {
+        return {".rs"};
+    }
+    
+    /// Rust関数キーワード
+    static const std::unordered_set<std::string>& function_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "fn", "async", "const", "unsafe", "extern"
+        };
+        return keywords;
+    }
+    
+    /// Rust型定義キーワード
+    static const std::unordered_set<std::string>& class_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "struct", "enum", "trait", "impl", "type"
+        };
+        return keywords;
+    }
+    
+    /// Rust制御構造キーワード
+    static const std::unordered_set<std::string>& control_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "if", "else", "match", "loop", "while", "for", "return", 
+            "break", "continue", "await", "yield"
+        };
+        return keywords;
+    }
+    
+    /// Rust変数宣言キーワード
+    static const std::unordered_set<std::string>& variable_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "let", "const", "static", "mut"
+        };
+        return keywords;
+    }
+    
+    /// Rustモジュールキーワード
+    static const std::unordered_set<std::string>& module_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "mod", "use", "pub", "crate", "super", "self"
+        };
+        return keywords;
+    }
+    
+    /// Rust所有権キーワード
+    static const std::unordered_set<std::string>& ownership_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "move", "mut", "ref", "&", "&mut"
+        };
+        return keywords;
+    }
+    
+    /// マクロ検出
+    static bool is_macro(const std::string& name) {
+        return name.find('!') != std::string::npos;
+    }
+    
+    /// derive属性検出
+    static bool is_derive_attribute(const std::string& line) {
+        return line.find("#[derive(") != std::string::npos;
+    }
+    
+    /// test属性検出
+    static bool is_test_attribute(const std::string& line) {
+        return line.find("#[test]") != std::string::npos || 
+               line.find("#[cfg(test)]") != std::string::npos;
+    }
+    
+    /// ノード作成（Rust特殊処理）
+    static std::unique_ptr<ASTNode> create_node(ASTNodeType type, const std::string& name) {
+        auto node = std::make_unique<ASTNode>(type, name);
+        
+        // Rust特有の処理
+        if (type == ASTNodeType::FUNCTION && name.find("test_") == 0) {
+            node->attributes["test_function"] = "true";
+        }
+        
+        if (type == ASTNodeType::FUNCTION && name.find("bench_") == 0) {
+            node->attributes["benchmark_function"] = "true";
+        }
+        
+        // async関数検出
+        if (type == ASTNodeType::FUNCTION && name.find("async") != std::string::npos) {
+            node->attributes["async_function"] = "true";
+        }
+        
+        // マクロ検出
+        if (is_macro(name)) {
+            node->attributes["macro"] = "true";
+        }
+        
+        return node;
+    }
+};
+
 } // namespace universal
 } // namespace nekocode
