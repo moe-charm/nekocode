@@ -84,9 +84,27 @@ graph = await mcp__nekocode__include_graph(session["session_id"])
 # セッションを使わない単発解析
 result = await mcp__nekocode__analyze("/path/to/project")
 # → 毎回フル解析するため遅い
+
+# 高速統計のみ取得（stats_only=True）
+result = await mcp__nekocode__analyze("/path/to/project", stats_only=True)
+# → 複雑度解析をスキップして高速化
 ```
 
 **💡 ヒント**: 複数回の操作を行う場合は、必ず最初に `session_create` を使ってください！
+
+## ⚙️ コマンドラインオプション
+
+NekoCode AIが内部で使用する主なオプション：
+
+- `--stats-only` - 高速統計のみ（複雑度解析スキップ）
+- `--io-threads <N>` - 並列読み込み数（推奨:16）  
+- `--cpu-threads <N>` - 解析スレッド数（デフォルト:CPU数）
+- `--progress` - 進捗表示
+- `--debug` - 詳細ログ表示
+- `--performance` - パフォーマンス統計表示
+- `--no-check` - 大規模プロジェクトの事前チェックスキップ
+- `--force` - 確認なしで強制実行  
+- `--check-only` - サイズチェックのみ（解析しない）
 
 ## 🔧 他のツールとの使い分け
 

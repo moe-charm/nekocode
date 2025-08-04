@@ -67,6 +67,7 @@ ACTIONS:
     analyze <path>              単発解析
     session-create <path>       セッション作成
     session-command <id> <cmd>  セッションコマンド実行
+    languages                   サポート言語一覧表示
 
 SESSION COMMANDS:
     stats                       統計表示
@@ -78,10 +79,15 @@ SESSION COMMANDS:
     help                        詳細ヘルプ
 
 OPTIONS:
-    --stats-only        高速統計のみ
+    --stats-only        高速統計のみ（複雑度解析スキップ）
     --io-threads <N>    並列読み込み数（推奨:16）
+    --cpu-threads <N>   解析スレッド数（デフォルト:CPU数）
     --progress          進捗表示
     --debug             詳細ログ
+    --performance       パフォーマンス統計表示
+    --no-check          大規模プロジェクトの事前チェックスキップ
+    --force             確認なしで強制実行
+    --check-only        サイズチェックのみ（解析しない）
 
 LANGUAGES: JS/TS/C++/C/Python/C#
 )";
@@ -145,20 +151,26 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
         // 🔧 グローバルデバッグフラグ設定
         g_debug_mode = args.debug_mode;
         
-        // 🔇 Claude Code用：quiet modeはデフォルトでtrue（Geminiクラッシュ対策）
-        // コマンドライン引数でfalseが明示的に指定された場合のみ無効化
+        // 🔇 シンプルなログ制御
+        // - デフォルト: ログなし（g_quiet_mode = true）
+        // - --debug: ログあり（g_quiet_mode = false）
         if (args.debug_mode) {
-            g_quiet_mode = false;  // デバッグモード時はログ出力有効
-        } else if (args.quiet_mode) {
-            g_quiet_mode = true;   // --quietフラグでログ出力抑制
+            g_quiet_mode = false;  // デバッグ時のみログ出力
         }
-        // それ以外はanalyzer_factory.cppのデフォルト設定（true）を保持
         
-        // 設定作成（フルモード）
+        // 設定作成（--stats-onlyモードでは最小限の解析）
         AnalysisConfig config;
-        config.analyze_complexity = true;  // 正規表現問題解決済み
-        config.analyze_dependencies = true;
-        config.analyze_function_calls = true;
+        if (args.stats_only) {
+            // 🚀 高速統計モード：複雑な解析をスキップ
+            config.analyze_complexity = false;
+            config.analyze_dependencies = false;
+            config.analyze_function_calls = false;
+        } else {
+            // フルモード
+            config.analyze_complexity = true;  // 正規表現問題解決済み
+            config.analyze_dependencies = true;
+            config.analyze_function_calls = true;
+        }
         config.enable_parallel_processing = args.enable_parallel;
         
         // 新しい並列化設定

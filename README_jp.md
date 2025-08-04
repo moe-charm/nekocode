@@ -37,6 +37,52 @@ Claude: 「JSONライブラリに複雑度4717を発見！リファクタリン�
 
 🎯 **注目の使用例**: AI開発者が300以上のコンポーネントを持つ複雑なアーキテクチャを解析し、科学的精度でコード最適化を実現しています。
 
+## 🐱 MCPサーバーインストール（新機能！） - ワンコマンドセットアップ！
+
+**もっと統合したい？** NekoCodeをMCPサーバーとしてインストールして、Claude Codeとシームレスに統合！
+
+### 超簡単インストール
+
+```bash
+# 1. リポジトリをクローン
+git clone https://github.com/moe-charm/nekocode.git
+cd nekocode
+
+# 2. ビルド（まだの場合）
+mkdir build && cd build
+cmake .. && make -j$(nproc)
+cd ..
+
+# 3. セットアップスクリプトを実行 - 正確なコマンドが表示される！
+python3 bin/setup.py
+
+# 4. 表示されたコマンドをコピペ：
+# claude mcp add nekocode \
+#   -e NEKOCODE_BINARY_PATH=/your/path/bin/nekocode_ai \
+#   -- python3 /your/path/mcp-nekocode-server/mcp_server_real.py
+
+# 5. Claude Codeを再起動 - 完了！ 🎉
+```
+
+### Claude CodeでMCPサーバーを使用
+
+```python
+# これらのMCPツールが直接使えるようになります！
+await mcp__nekocode__analyze("/path/to/project", stats_only=True)
+await mcp__nekocode__session_create("/path/to/project")  # 超高速セッション！
+await mcp__nekocode__session_stats(session_id)          # 3ms応答！
+await mcp__nekocode__include_cycles(session_id)         # C++依存関係解析
+await mcp__nekocode__list_languages()                   # サポート言語確認
+```
+
+**それだけ！** MCPサーバーが提供するもの：
+- ✅ ネイティブClaude Code統合
+- ✅ セッション管理（初回解析後は3ms操作）
+- ✅ 高度なC++依存関係解析ツール
+- ✅ すべてのNekoCode機能がMCPツールとして
+
+📚 **完全なMCPドキュメント**: [mcp-nekocode-server/README.md](mcp-nekocode-server/README.md)
+
 ## 🌟 主な機能
 
 - **🚀 超高速パフォーマンス**: Python実装より10-100倍高速
