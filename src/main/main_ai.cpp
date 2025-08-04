@@ -149,6 +149,8 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
         // コマンドライン引数でfalseが明示的に指定された場合のみ無効化
         if (args.debug_mode) {
             g_quiet_mode = false;  // デバッグモード時はログ出力有効
+        } else if (args.quiet_mode) {
+            g_quiet_mode = true;   // --quietフラグでログ出力抑制
         }
         // それ以外はanalyzer_factory.cppのデフォルト設定（true）を保持
         

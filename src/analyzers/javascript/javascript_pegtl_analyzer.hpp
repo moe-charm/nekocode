@@ -918,6 +918,8 @@ private:
                 std::cerr << "⚡ 高速モード: 基本検出のみ（大規模JS対応）" << std::endl;
             }
             // 高速モード：基本検出のみ
+            
+            // 高速モード：基本検出のみ（全行処理）
             for (size_t i = 0; i < all_lines.size(); i++) {
                 const std::string& current_line = all_lines[i];
                 size_t current_line_number = i + 1;
@@ -1222,9 +1224,11 @@ private:
                                 round_detections++;
                                 total_nested_found++;
                                 
-                                std::cerr << "🎯 第" << round_count << "回でネスト" 
-                                          << (func.is_arrow_function ? "アロー" : "") 
-                                          << "関数発見: " << func.name << " (行:" << func.start_line << ")" << std::endl;
+                                if (!g_quiet_mode) {
+                                    std::cerr << "🎯 第" << round_count << "回でネスト" 
+                                              << (func.is_arrow_function ? "アロー" : "") 
+                                              << "関数発見: " << func.name << " (行:" << func.start_line << ")" << std::endl;
+                                }
                                 
                                 // 次回検索範囲の追加（コールバック地獄対応）
                                 if (range.indent_level < MAX_DEPTH - 1) {
@@ -1234,8 +1238,10 @@ private:
                                     if (next_start < next_end) {
                                         std::lock_guard<std::mutex> ranges_lock(ranges_mutex);
                                         next_ranges.push_back({next_start, next_end, range.indent_level + 1});
-                                        std::cerr << "  → 次回検索範囲追加: 行" << next_start << "-" << next_end 
-                                                  << " (深さ:" << (range.indent_level + 1) << ")" << std::endl;
+                                        if (!g_quiet_mode) {
+                                            std::cerr << "  → 次回検索範囲追加: 行" << next_start << "-" << next_end 
+                                                      << " (深さ:" << (range.indent_level + 1) << ")" << std::endl;
+                                        }
                                     }
                                 }
                             }
