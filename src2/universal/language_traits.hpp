@@ -365,5 +365,106 @@ public:
     }
 };
 
+//=============================================================================
+// 🟢 Go Traits - シンプル言語の統一化
+//=============================================================================
+
+class GoTraits : public BaseLanguageTraits<GoTraits> {
+public:
+    /// 言語識別
+    static Language get_language_enum() {
+        return Language::GO;
+    }
+    
+    static std::string get_language_name() {
+        return "Go";
+    }
+    
+    static std::vector<std::string> get_supported_extensions() {
+        return {".go"};
+    }
+    
+    /// Go関数キーワード
+    static const std::unordered_set<std::string>& function_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "func"
+        };
+        return keywords;
+    }
+    
+    /// Goクラスキーワード（struct/interfaceをクラスとして扱う）
+    static const std::unordered_set<std::string>& class_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "type", "struct", "interface"
+        };
+        return keywords;
+    }
+    
+    /// Go型定義キーワード
+    static const std::unordered_set<std::string>& type_keywords() {
+        return class_keywords(); // class_keywordsと同じ
+    }
+    
+    /// Go制御構造キーワード
+    static const std::unordered_set<std::string>& control_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "if", "else", "for", "range", "switch", "case", "default", 
+            "return", "break", "continue", "goto", "defer", "go", "select"
+        };
+        return keywords;
+    }
+    
+    /// Go変数宣言キーワード
+    static const std::unordered_set<std::string>& variable_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "var", "const"
+        };
+        return keywords;
+    }
+    
+    /// パッケージキーワード
+    static const std::unordered_set<std::string>& package_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "package", "import"
+        };
+        return keywords;
+    }
+    
+    /// Go並行処理キーワード
+    static const std::unordered_set<std::string>& concurrency_keywords() {
+        static const std::unordered_set<std::string> keywords = {
+            "go", "chan", "select"
+        };
+        return keywords;
+    }
+    
+    /// レシーバー付きメソッド検出
+    static bool is_method_with_receiver(const std::string& line) {
+        // (receiver Type) methodName パターンの簡易検出
+        return line.find("func (") != std::string::npos;
+    }
+    
+    /// ノード作成（Go特殊処理）
+    static std::unique_ptr<ASTNode> create_node(ASTNodeType type, const std::string& name) {
+        auto node = std::make_unique<ASTNode>(type, name);
+        
+        // Go特有の処理
+        if (type == ASTNodeType::FUNCTION && name.find("Test") == 0) {
+            node->attributes["test_function"] = "true";
+        }
+        
+        if (type == ASTNodeType::FUNCTION && name.find("Benchmark") == 0) {
+            node->attributes["benchmark_function"] = "true";
+        }
+        
+        // goroutine検出
+        if (name.find("go ") == 0) {
+            node->attributes["goroutine"] = "true";
+        }
+        
+        return node;
+    }
+};
+
 } // namespace universal
 } // namespace nekocode
