@@ -25,6 +25,13 @@ if(NEKOCODE_PREVENT_REGEX)
     message(STATUS "⚠️  std::regex prevention enabled - Use PEGTL instead!")
 endif()
 
+# 🌟 Universal AST Revolution オプション（6言語統一システム）
+option(NEKOCODE_ENABLE_UNIVERSAL_AST "Enable Universal AST system for all 6 languages" OFF)
+if(NEKOCODE_ENABLE_UNIVERSAL_AST)
+    add_compile_definitions(NEKOCODE_USE_UNIVERSAL_AST=1)
+    message(STATUS "🌟 Universal AST Revolution enabled - 6言語統一システム起動!")
+endif()
+
 # コンパイラー警告設定
 if(MSVC)
     add_compile_options(/W4)
@@ -152,6 +159,17 @@ set(NEKOCODE_SOURCES
     ${SRC_DIR}/analyzers/unity/unity_analyzer.cpp
     ${SRC_DIR}/analyzers/go/go_analyzer.cpp
     ${SRC_DIR}/analyzers/rust/rust_analyzer.cpp
+    
+    # 🌟 Universal AST Revolution - 6言語統一システム（条件付きコンパイル）
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/universal/universal_tree_builder.cpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/universal/language_traits.cpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/universal/universal_code_analyzer.cpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/javascript_universal_adapter.cpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/python_universal_adapter.cpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/cpp_universal_adapter.cpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/csharp_universal_adapter.cpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/go_universal_adapter.cpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/rust_universal_adapter.cpp>
 )
 
 # ヘッダーファイル
@@ -179,6 +197,17 @@ set(NEKOCODE_HEADERS
     ${INCLUDE_DIR}/nekocode/analyzers/unity_components.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/go_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/rust_analyzer.hpp
+    
+    # 🌟 Universal AST Revolution ヘッダー（条件付き）
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/universal/universal_tree_builder.hpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/universal/language_traits.hpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/universal/universal_code_analyzer.hpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/javascript_universal_adapter.hpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/python_universal_adapter.hpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/cpp_universal_adapter.hpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/csharp_universal_adapter.hpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/go_universal_adapter.hpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters/rust_universal_adapter.hpp>
 )
 
 # 静的ライブラリ作成
@@ -188,6 +217,9 @@ target_include_directories(nekocode_static PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${SRC_DIR}/analyzers
     ${SRC_DIR}/include
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/universal>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters>
+    $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}>
 )
 target_link_libraries(nekocode_static 
     nlohmann_json::nlohmann_json 

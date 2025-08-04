@@ -17,7 +17,17 @@
 #include "nekocode/analyzers/unity_analyzer.hpp"
 #include "nekocode/analyzers/go_analyzer.hpp"
 #include "nekocode/analyzers/rust_analyzer.hpp"
+
+// 🌟 Universal AST Adapters - 6言語統一システム
+#include "../adapters/javascript_universal_adapter.hpp"
+#include "../adapters/python_universal_adapter.hpp"
+#include "../adapters/cpp_universal_adapter.hpp"
+#include "../adapters/csharp_universal_adapter.hpp"
+#include "../adapters/go_universal_adapter.hpp"
+#include "../adapters/rust_universal_adapter.hpp"
+
 #include <algorithm>
+#include <cstdlib> // for std::getenv
 
 // 🔧 グローバルデバッグフラグ定義  
 bool g_debug_mode = false;
@@ -31,8 +41,15 @@ namespace nekocode {
 //=============================================================================
 
 std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer(Language language) {
+    // 🌟 Universal AST モード（環境変数 NEKOCODE_USE_UNIVERSAL_AST=1 で有効化）
+    static bool use_universal_ast = std::getenv("NEKOCODE_USE_UNIVERSAL_AST") != nullptr;
+    
     switch (language) {
         case Language::JAVASCRIPT:
+            if (use_universal_ast) {
+                // 🚀 Universal AST Adapter (6言語統一システム)
+                return std::make_unique<adapters::JavaScriptUniversalAdapter>();
+            }
             // PEGTL版を使用（std::regex版から移行）
             return std::make_unique<JavaScriptPEGTLAnalyzer>();
             
@@ -41,6 +58,10 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer(Language language
             return std::make_unique<TypeScriptPEGTLAnalyzer>();
             
         case Language::CPP:
+            if (use_universal_ast) {
+                // ⚙️ Universal AST Adapter (template/namespace対応)
+                return std::make_unique<adapters::CppUniversalAdapter>();
+            }
             // 🔧 修正済みAnalyzerを使用（関数複雑度計算対応）
             return std::make_unique<CppLanguageAnalyzer>();
             
@@ -48,18 +69,34 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer(Language language
             return std::make_unique<CLanguageAnalyzer>();
             
         case Language::PYTHON:
+            if (use_universal_ast) {
+                // 🐍 Universal AST Adapter (インデントスコープ対応)
+                return std::make_unique<adapters::PythonUniversalAdapter>();
+            }
             // PEGTL版を使用（メンバ変数検出対応）
             return std::make_unique<PythonPEGTLAnalyzer>();
             
         case Language::CSHARP:
+            if (use_universal_ast) {
+                // 💎 Universal AST Adapter (Unity/.NET特化)
+                return std::make_unique<adapters::CSharpUniversalAdapter>();
+            }
             // PEGTL版を使用（std::regex版から移行）
             return std::make_unique<CSharpPEGTLAnalyzer>();
             
         case Language::GO:
+            if (use_universal_ast) {
+                // 🟢 Universal AST Adapter (goroutine/channel対応)
+                return std::make_unique<adapters::GoUniversalAdapter>();
+            }
             // Go言語解析エンジン（Goroutine & Channel detection）
             return std::make_unique<GoAnalyzer>();
             
         case Language::RUST:
+            if (use_universal_ast) {
+                // 🦀 Universal AST Adapter (trait/ownership対応)
+                return std::make_unique<adapters::RustUniversalAdapter>();
+            }
             // Rust言語解析エンジン（trait, impl, macro detection）
             return std::make_unique<RustAnalyzer>();
             
