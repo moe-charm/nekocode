@@ -76,3 +76,11 @@ __pycache__/
 
 # Documentation build
 docs/_build/
+
+# Internal development files
+.serena/
+IMPORTANT_MCP_LOCATION.md
+battle_summary_serena.md
+nekocode_vs_serena_battle_results.txt
+current_task.md
+/setup.py

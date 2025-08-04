@@ -90,6 +90,52 @@ Should I help you clean these up?"
 
 🎯 **Featured Use Case**: AI developers are using NekoCode to analyze and refactor complex architectures with 300+ components, achieving scientific precision in code optimization.
 
+## 🐱 MCP Server Installation (NEW!) - One Command Setup!
+
+**Want even MORE integration?** Install NekoCode as an MCP server for seamless Claude Code integration!
+
+### Super Simple Installation
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/moe-charm/nekocode.git
+cd nekocode
+
+# 2. Build (if not already built)
+mkdir build && cd build
+cmake .. && make -j$(nproc)
+cd ..
+
+# 3. Run setup script - it shows the exact command!
+python3 bin/setup.py
+
+# 4. Copy & paste the displayed command:
+# claude mcp add nekocode \
+#   -e NEKOCODE_BINARY_PATH=/your/path/bin/nekocode_ai \
+#   -- python3 /your/path/mcp-nekocode-server/mcp_server_real.py
+
+# 5. Restart Claude Code - Done! 🎉
+```
+
+### Using MCP Server in Claude Code
+
+```python
+# Now you can use these MCP tools directly!
+await mcp__nekocode__analyze("/path/to/project", stats_only=True)
+await mcp__nekocode__session_create("/path/to/project")  # Ultra-fast session!
+await mcp__nekocode__session_stats(session_id)          # 3ms response!
+await mcp__nekocode__include_cycles(session_id)         # C++ dependency analysis
+await mcp__nekocode__list_languages()                   # Check supported languages
+```
+
+**That's it!** The MCP server provides:
+- ✅ Native Claude Code integration
+- ✅ Session management (3ms operations after initial analysis)
+- ✅ Advanced C++ dependency analysis tools
+- ✅ All NekoCode features as MCP tools
+
+📚 **Full MCP documentation**: [mcp-nekocode-server/README.md](mcp-nekocode-server/README.md)
+
 ## 🌟 Key Features
 
 - **🚀 Ultra-Fast Performance**: 10-100x faster than Python implementations
