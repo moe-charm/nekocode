@@ -42,6 +42,17 @@ struct var_keyword : seq<TAO_PEGTL_STRING("var"), not_at<sor<alnum, one<'_', '$'
 struct class_keyword : seq<TAO_PEGTL_STRING("class"), not_at<sor<alnum, one<'_', '$'>>>> {};
 struct export_keyword : seq<TAO_PEGTL_STRING("export"), not_at<sor<alnum, one<'_', '$'>>>> {};
 
+// 制御構造キーワード
+struct if_keyword : seq<TAO_PEGTL_STRING("if"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct else_keyword : seq<TAO_PEGTL_STRING("else"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct for_keyword : seq<TAO_PEGTL_STRING("for"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct while_keyword : seq<TAO_PEGTL_STRING("while"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct switch_keyword : seq<TAO_PEGTL_STRING("switch"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct case_keyword : seq<TAO_PEGTL_STRING("case"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct try_keyword : seq<TAO_PEGTL_STRING("try"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct catch_keyword : seq<TAO_PEGTL_STRING("catch"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct return_keyword : seq<TAO_PEGTL_STRING("return"), not_at<sor<alnum, one<'_', '$'>>>> {};
+
 // ブロックをスキップする汎用ルール
 struct block;
 struct block : seq<one<'{'>, star<sor<block, not_one<'}'>>>, one<'}'>> {};

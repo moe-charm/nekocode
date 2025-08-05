@@ -50,14 +50,14 @@ class NekoCodeMCPServer:
     def _find_nekocode_binary(self) -> str:
         """nekocode_ai バイナリの場所を特定"""
         possible_paths = [
-            "./build/nekocode_ai",
-            "../build/nekocode_ai", 
+            "./bin/nekocode_ai",  # Current correct path
+            "../bin/nekocode_ai", 
             "/usr/local/bin/nekocode_ai",
             "nekocode_ai"  # PATH上
         ]
         
         for path in possible_paths:
-            if os.path.exists(path) or subprocess.run(["which", path], capture_output=True).returncode == 0:
+            if os.path.exists(path) or subprocess.run(["which", path], capture_output=True, text=True).returncode == 0:
                 return path
         
         raise FileNotFoundError("nekocode_ai binary not found")
@@ -158,6 +158,84 @@ class NekoCodeMCPServer:
                     "session_id": {"type": "string", "description": "セッションID"}
                 },
                 "required": ["session_id"]
+            }
+        )
+        
+        # 🧠 Memory System - 時間軸Memory革命
+        self.server.add_tool(
+            "memory_save",
+            "💾 Memory保存 - 解析結果・メモ保存",
+            self.memory_save,
+            {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string", "description": "Memory種類: auto|memo|api|cache", "enum": ["auto", "memo", "api", "cache"]},
+                    "name": {"type": "string", "description": "Memory名"},
+                    "content": {"type": "string", "description": "保存内容 (オプション)", "default": ""}
+                },
+                "required": ["type", "name"]
+            }
+        )
+        
+        self.server.add_tool(
+            "memory_load",
+            "📖 Memory読み込み",
+            self.memory_load,
+            {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string", "description": "Memory種類: auto|memo|api|cache", "enum": ["auto", "memo", "api", "cache"]},
+                    "name": {"type": "string", "description": "Memory名"}
+                },
+                "required": ["type", "name"]
+            }
+        )
+        
+        self.server.add_tool(
+            "memory_list",
+            "📋 Memory一覧表示",
+            self.memory_list,
+            {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string", "description": "Memory種類: auto|memo|api|cache", "enum": ["auto", "memo", "api", "cache"], "default": "auto"}
+                }
+            }
+        )
+        
+        self.server.add_tool(
+            "memory_search",
+            "🔍 Memory検索",
+            self.memory_search,
+            {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "検索テキスト"}
+                },
+                "required": ["text"]
+            }
+        )
+        
+        self.server.add_tool(
+            "memory_stats",
+            "📊 Memory統計情報",
+            self.memory_stats,
+            {
+                "type": "object",
+                "properties": {}
+            }
+        )
+        
+        self.server.add_tool(
+            "memory_timeline",
+            "📅 Memory時系列表示",
+            self.memory_timeline,
+            {
+                "type": "object",
+                "properties": {
+                    "type": {"type": "string", "description": "Memory種類: auto|memo|api|cache", "enum": ["auto", "memo", "api", "cache"], "default": "auto"},
+                    "days": {"type": "number", "description": "過去日数", "default": 7}
+                }
             }
         )
         
@@ -325,15 +403,52 @@ class NekoCodeMCPServer:
         
         return await self._run_nekocode(["session-cmd", session_id, f"find {term}"])
     
+    # 🧠 Memory System Handlers - 時間軸Memory革命
+    async def memory_save(self, type: str, name: str, content: str = "") -> Dict:
+        """Memory保存"""
+        cmd = ["memory", "save", type, name]
+        if content:
+            cmd.append(content)
+        
+        result = await self._run_nekocode(cmd)
+        return result
+    
+    async def memory_load(self, type: str, name: str) -> Dict:
+        """Memory読み込み"""
+        return await self._run_nekocode(["memory", "load", type, name])
+    
+    async def memory_list(self, type: str = "auto") -> Dict:
+        """Memory一覧"""
+        return await self._run_nekocode(["memory", "list", type])
+    
+    async def memory_search(self, text: str) -> Dict:
+        """Memory検索"""
+        return await self._run_nekocode(["memory", "search", text])
+    
+    async def memory_stats(self) -> Dict:
+        """Memory統計"""
+        result = await self._run_nekocode(["memory", "stats"])
+        if "error" not in result:
+            result["memory_info"] = {
+                "message": "🧠 時間軸Memory革命",
+                "features": ["Auto解析結果保存", "Manual手動メモ", "API外部連携", "Cache一時保存"],
+                "advantage": "Serena差別化の時間軸管理"
+            }
+        return result
+    
+    async def memory_timeline(self, type: str = "auto", days: int = 7) -> Dict:
+        """Memory時系列"""
+        return await self._run_nekocode(["memory", "timeline", type, str(days)])
+
     async def list_supported_languages(self) -> Dict:
         """サポート言語一覧"""
-        result = await self._run_nekocode(["--list-languages"])
+        result = await self._run_nekocode(["languages"])
         
         if "error" not in result:
             result["nekocode_info"] = {
                 "message": "🌍 多言語対応エンジン",
-                "current_languages": ["JavaScript", "TypeScript", "C++", "C"],
-                "planned": ["C#", "Python", "Java", "Go", "Rust"],
+                "current_languages": ["JavaScript", "TypeScript", "C++", "C", "Python", "C#"],
+                "features": ["Universal AST Revolution", "Memory System", "1,512x Performance"],
                 "advantage": "各言語に最適化された高速解析"
             }
         

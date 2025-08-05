@@ -145,6 +145,12 @@ nlohmann::json SessionCommands::cmd_help() const {
                 "dependency-analyze [file] - Analyze dependencies",
                 "help - Show this help"
             }},
+            {"ast_revolution", {
+                "ast-query <path> - Query AST nodes by path (e.g. MyClass::myMethod)",
+                "scope-analysis <line> - Get scope information at specific line",
+                "ast-dump [format] - Dump AST structure (tree/json/compact)",
+                "ast-stats - AST-based statistics with structural analysis"
+            }},
             {"cpp_specific", {
                 "include-graph - Include dependency graph",
                 "include-cycles - Circular dependency detection",
@@ -588,19 +594,172 @@ nlohmann::json SessionCommands::cmd_duplicates(const SessionData& session) const
 }
 
 nlohmann::json SessionCommands::cmd_large_files(const SessionData& session, int threshold) const {
-    return {
+    nlohmann::json result = {
         {"command", "large-files"},
-        {"result", "Not implemented yet - moved to SessionCommands"},
-        {"summary", "Large files feature pending implementation"}
+        {"threshold", threshold},
+        {"large_files", nlohmann::json::array()}
     };
+    
+    std::vector<nlohmann::json> large_files;
+    int total_files = 0;
+    int large_count = 0;
+    
+    if (session.is_directory) {
+        // ディレクトリ解析の場合
+        for (const auto& file : session.directory_result.files) {
+            total_files++;
+            if (file.file_info.total_lines >= threshold) {
+                large_count++;
+                large_files.push_back({
+                    {"file", file.file_info.path.string()},
+                    {"lines", file.file_info.total_lines},
+                    {"size_bytes", file.file_info.size_bytes},
+                    {"complexity", file.complexity.cyclomatic_complexity},
+                    {"functions", file.stats.function_count},
+                    {"classes", file.stats.class_count}
+                });
+            }
+        }
+    } else {
+        // 単一ファイル解析の場合
+        total_files = 1;
+        if (session.single_file_result.file_info.total_lines >= threshold) {
+            large_count = 1;
+            const auto& file = session.single_file_result;
+            large_files.push_back({
+                {"file", file.file_info.path.string()},
+                {"lines", file.file_info.total_lines},
+                {"size_bytes", file.file_info.size_bytes},
+                {"complexity", file.complexity.cyclomatic_complexity},
+                {"functions", file.stats.function_count},
+                {"classes", file.stats.class_count}
+            });
+        }
+    }
+    
+    // 行数でソート（降順）
+    std::sort(large_files.begin(), large_files.end(), 
+        [](const nlohmann::json& a, const nlohmann::json& b) {
+            return a["lines"] > b["lines"];
+        });
+    
+    result["large_files"] = large_files;
+    result["summary"] = {
+        {"total_files", total_files},
+        {"large_files_count", large_count},
+        {"percentage", total_files > 0 ? (large_count * 100.0 / total_files) : 0.0},
+        {"threshold_lines", threshold}
+    };
+    
+    return result;
 }
 
 nlohmann::json SessionCommands::cmd_todo(const SessionData& session) const {
-    return {
+    nlohmann::json result = {
         {"command", "todo"},
-        {"result", "Not implemented yet - moved to SessionCommands"},
-        {"summary", "TODO feature pending implementation"}
+        {"todos", nlohmann::json::array()},
+        {"todo_patterns", {"TODO", "FIXME", "HACK", "BUG", "NOTE", "XXX"}}
     };
+    
+    std::vector<nlohmann::json> todos;
+    int total_todos = 0;
+    
+    // TODO検索パターン
+    std::vector<std::string> patterns = {"TODO", "FIXME", "HACK", "BUG", "NOTE", "XXX"};
+    
+    auto search_file = [&](const AnalysisResult& file) {
+        std::ifstream input(file.file_info.path);
+        if (!input.is_open()) return;
+        
+        std::string line;
+        int line_number = 1;
+        
+        while (std::getline(input, line)) {
+            for (const auto& pattern : patterns) {
+                // パターンを検索（大文字小文字区別なし）
+                std::string upper_line = line;
+                std::transform(upper_line.begin(), upper_line.end(), upper_line.begin(), ::toupper);
+                
+                size_t pos = upper_line.find(pattern);
+                if (pos != std::string::npos) {
+                    // コメント内かチェック
+                    bool is_comment = false;
+                    size_t comment_pos = line.find("//");
+                    size_t multicomment_pos = line.find("/*");
+                    size_t hash_pos = line.find("#");
+                    
+                    if ((comment_pos != std::string::npos && pos >= comment_pos) ||
+                        (multicomment_pos != std::string::npos && pos >= multicomment_pos) ||
+                        (hash_pos != std::string::npos && pos >= hash_pos)) {
+                        is_comment = true;
+                    }
+                    
+                    if (is_comment) {
+                        total_todos++;
+                        // TODOの内容を抽出
+                        std::string todo_content = line.substr(pos);
+                        // 先頭と末尾の空白を削除
+                        todo_content.erase(0, todo_content.find_first_not_of(" \t"));
+                        todo_content.erase(todo_content.find_last_not_of(" \t") + 1);
+                        
+                        todos.push_back({
+                            {"file", file.file_info.path.string()},
+                            {"line", line_number},
+                            {"type", pattern},
+                            {"content", todo_content},
+                            {"full_line", line},
+                            {"priority", pattern == "FIXME" || pattern == "BUG" ? "high" : 
+                                       pattern == "TODO" ? "medium" : "low"}
+                        });
+                    }
+                    break; // 一行につき一つのパターンのみ検出
+                }
+            }
+            line_number++;
+        }
+    };
+    
+    if (session.is_directory) {
+        // ディレクトリ解析の場合
+        for (const auto& file : session.directory_result.files) {
+            search_file(file);
+        }
+    } else {
+        // 単一ファイル解析の場合
+        search_file(session.single_file_result);
+    }
+    
+    // 優先度とファイル名でソート
+    std::sort(todos.begin(), todos.end(), 
+        [](const nlohmann::json& a, const nlohmann::json& b) {
+            std::string priority_a = a["priority"];
+            std::string priority_b = b["priority"];
+            if (priority_a != priority_b) {
+                if (priority_a == "high") return true;
+                if (priority_b == "high") return false;
+                if (priority_a == "medium") return true;
+                return false;
+            }
+            return a["file"].get<std::string>() < b["file"].get<std::string>();
+        });
+    
+    result["todos"] = todos;
+    result["summary"] = {
+        {"total_todos", total_todos},
+        {"high_priority", std::count_if(todos.begin(), todos.end(), 
+            [](const nlohmann::json& todo) { return todo["priority"] == "high"; })},
+        {"medium_priority", std::count_if(todos.begin(), todos.end(), 
+            [](const nlohmann::json& todo) { return todo["priority"] == "medium"; })},
+        {"files_with_todos", [&]() {
+            std::set<std::string> unique_files;
+            for (const auto& todo : todos) {
+                unique_files.insert(todo["file"].get<std::string>());
+            }
+            return unique_files.size();
+        }()}
+    };
+    
+    return result;
 }
 
 nlohmann::json SessionCommands::cmd_structure_detailed(const SessionData& session, const std::string& filename) const {
@@ -1215,6 +1374,362 @@ nlohmann::json SessionCommands::cmd_dependency_analyze(const SessionData& sessio
             "Found " + std::to_string(total_unused) + " potentially unused includes" : 
             "No unused includes detected"}
     };
+    
+    return result;
+}
+
+//=============================================================================
+// 🌳 AST革命: 新セッションコマンド群
+//=============================================================================
+
+nlohmann::json SessionCommands::cmd_ast_query(const SessionData& session, const std::string& query_path) const {
+    nlohmann::json result = {
+        {"command", "ast-query"},
+        {"query_path", query_path},
+        {"matches", nlohmann::json::array()}
+    };
+    
+    // Helper function to process Enhanced Analysis Result with AST
+    auto process_enhanced_file = [&](const EnhancedAnalysisResult* enhanced_file) {
+        if (!enhanced_file || !enhanced_file->has_ast || !enhanced_file->ast_root) {
+            return;
+        }
+        
+        // AST Query実行
+        auto nodes = enhanced_file->query_nodes(query_path);
+        
+        for (const ASTNode* node : nodes) {
+            nlohmann::json match = {
+                {"file", enhanced_file->file_info.name},
+                {"node_type", node->type_to_string()},
+                {"name", node->name},
+                {"scope_path", node->scope_path},
+                {"start_line", node->start_line},
+                {"end_line", node->end_line},
+                {"depth", node->depth},
+                {"children_count", node->children.size()}
+            };
+            
+            // 属性情報があれば追加
+            if (!node->attributes.empty()) {
+                match["attributes"] = node->attributes;
+            }
+            
+            // 子ノード情報（名前のみ）
+            if (!node->children.empty()) {
+                nlohmann::json children_names = nlohmann::json::array();
+                for (const auto& child : node->children) {
+                    children_names.push_back({
+                        {"name", child->name},
+                        {"type", child->type_to_string()},
+                        {"line", child->start_line}
+                    });
+                }
+                match["children"] = children_names;
+            }
+            
+            result["matches"].push_back(match);
+        }
+    };
+    
+    // ⚠️  现在的问题：SessionData中的结果是AnalysisResult，不是EnhancedAnalysisResult
+    // 这里需要检查是否有AST数据可用
+    
+    // 暂时返回提示信息，说明需要AST支持
+    if (session.is_directory) {
+        // TODO: 检查directory_result中是否有AST数据
+        result["error"] = "AST query requires Enhanced Analysis Results with AST data";
+        result["note"] = "Current session contains basic AnalysisResult. Need to update session creation to use EnhancedAnalysisResult.";
+    } else {
+        // TODO: 检查single_file_result中是否有AST数据
+        result["error"] = "AST query requires Enhanced Analysis Results with AST data";
+        result["note"] = "Current session contains basic AnalysisResult. Need to update session creation to use EnhancedAnalysisResult.";
+    }
+    
+    result["summary"] = "AST query for '" + query_path + "' - " + 
+                       std::to_string(result["matches"].size()) + " matches found";
+    
+    return result;
+}
+
+nlohmann::json SessionCommands::cmd_scope_analysis(const SessionData& session, uint32_t line_number) const {
+    nlohmann::json result = {
+        {"command", "scope-analysis"},
+        {"line_number", line_number},
+        {"scopes", nlohmann::json::array()}
+    };
+    
+    // Helper function to process Enhanced Analysis Result with AST
+    auto process_enhanced_file = [&](const EnhancedAnalysisResult* enhanced_file) {
+        if (!enhanced_file || !enhanced_file->has_ast || !enhanced_file->ast_root) {
+            return;
+        }
+        
+        // スコープ解析実行
+        std::string scope_path = enhanced_file->get_scope_at_line(line_number);
+        
+        nlohmann::json scope_info = {
+            {"file", enhanced_file->file_info.name},
+            {"line", line_number},
+            {"scope_path", scope_path}
+        };
+        
+        // 詳細なスコープ階層情報を取得
+        if (!scope_path.empty()) {
+            // スコープパスを分解して階層情報を構築
+            std::vector<std::string> scope_parts;
+            std::istringstream iss(scope_path);
+            std::string part;
+            while (std::getline(iss, part, ':')) {
+                if (!part.empty() && part != ":") {
+                    scope_parts.push_back(part);
+                }
+            }
+            
+            scope_info["scope_hierarchy"] = scope_parts;
+            scope_info["nesting_depth"] = scope_parts.size();
+        } else {
+            scope_info["scope_hierarchy"] = nlohmann::json::array();
+            scope_info["nesting_depth"] = 0;
+        }
+        
+        result["scopes"].push_back(scope_info);
+    };
+    
+    // 現在の実装では基本的なAnalysisResultのみ利用可能
+    result["error"] = "Scope analysis requires Enhanced Analysis Results with AST data";
+    result["note"] = "Current session contains basic AnalysisResult. AST-based scope analysis is not available.";
+    result["fallback_analysis"] = "Using basic structure analysis instead...";
+    
+    // フォールバック：基本的な構造情報から推測
+    if (!session.is_directory) {
+        const auto& file = session.single_file_result;
+        
+        nlohmann::json basic_scope = {
+            {"file", file.file_info.name},
+            {"line", line_number},
+            {"estimated_scope", "unknown"}
+        };
+        
+        // 関数・クラスの範囲から推測
+        for (const auto& cls : file.classes) {
+            if (line_number >= cls.start_line && line_number <= cls.end_line) {
+                basic_scope["estimated_scope"] = "class:" + cls.name;
+                
+                // メソッド内かチェック
+                for (const auto& method : cls.methods) {
+                    if (line_number >= method.start_line && line_number <= method.end_line) {
+                        basic_scope["estimated_scope"] = "class:" + cls.name + "::method:" + method.name;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        
+        for (const auto& func : file.functions) {
+            if (line_number >= func.start_line && line_number <= func.end_line) {
+                basic_scope["estimated_scope"] = "function:" + func.name;
+                break;
+            }
+        }
+        
+        result["scopes"].push_back(basic_scope);
+    }
+    
+    result["summary"] = "Scope analysis for line " + std::to_string(line_number) + 
+                       " (limited to basic structure analysis)";
+    
+    return result;
+}
+
+nlohmann::json SessionCommands::cmd_ast_dump(const SessionData& session, const std::string& format) const {
+    nlohmann::json result = {
+        {"command", "ast-dump"},
+        {"format", format.empty() ? "tree" : format},
+        {"ast_trees", nlohmann::json::array()}
+    };
+    
+    // サポートされるフォーマット
+    std::string dump_format = format.empty() ? "tree" : format;
+    if (dump_format != "tree" && dump_format != "json" && dump_format != "compact") {
+        result["error"] = "Unsupported format '" + format + "'. Use: tree, json, or compact";
+        return result;
+    }
+    
+    // Helper function to dump AST node recursively
+    std::function<nlohmann::json(const ASTNode*, int)> dump_node_recursive = 
+        [&](const ASTNode* node, int max_depth) -> nlohmann::json {
+        if (!node || max_depth < 0) return nlohmann::json::object();
+        
+        nlohmann::json node_info = {
+            {"name", node->name},
+            {"type", node->type_to_string()},
+            {"start_line", node->start_line},
+            {"end_line", node->end_line},
+            {"depth", node->depth}
+        };
+        
+        if (dump_format == "json" || dump_format == "compact") {
+            node_info["scope_path"] = node->scope_path;
+            if (!node->attributes.empty()) {
+                node_info["attributes"] = node->attributes;
+            }
+        }
+        
+        if (!node->children.empty() && max_depth > 0) {
+            nlohmann::json children = nlohmann::json::array();
+            for (const auto& child : node->children) {
+                children.push_back(dump_node_recursive(child.get(), max_depth - 1));
+            }
+            node_info["children"] = children;
+        } else if (!node->children.empty()) {
+            node_info["children_count"] = node->children.size();
+        }
+        
+        return node_info;
+    };
+    
+    // Helper function to create tree format string
+    std::function<std::string(const ASTNode*, int, std::string)> create_tree_string = 
+        [&](const ASTNode* node, int depth, std::string prefix) -> std::string {
+        if (!node) return "";
+        
+        std::string result_str;
+        std::string indent = std::string(depth * 2, ' ');
+        result_str += prefix + node->type_to_string() + ": " + node->name;
+        if (node->start_line > 0) {
+            result_str += " (line " + std::to_string(node->start_line) + ")";
+        }
+        result_str += "\n";
+        
+        for (size_t i = 0; i < node->children.size(); ++i) {
+            bool is_last = (i == node->children.size() - 1);
+            std::string child_prefix = prefix + (is_last ? "└── " : "├── ");
+            std::string next_prefix = prefix + (is_last ? "    " : "│   ");
+            result_str += create_tree_string(node->children[i].get(), depth + 1, child_prefix);
+        }
+        
+        return result_str;
+    };
+    
+    // 現在の実装制限
+    result["error"] = "AST dump requires Enhanced Analysis Results with AST data";
+    result["note"] = "Current session contains basic AnalysisResult. Full AST dump is not available.";
+    
+    // フォールバック：基本構造情報をツリー形式で表示
+    if (!session.is_directory) {
+        const auto& file = session.single_file_result;
+        
+        std::string basic_tree = "File: " + file.file_info.name + "\n";
+        
+        for (const auto& cls : file.classes) {
+            basic_tree += "├── class: " + cls.name + " (line " + std::to_string(cls.start_line) + ")\n";
+            for (size_t i = 0; i < cls.methods.size(); ++i) {
+                const auto& method = cls.methods[i];
+                bool is_last = (i == cls.methods.size() - 1);
+                basic_tree += std::string("│   ") + (is_last ? "└── " : "├── ") + 
+                             "method: " + method.name + " (line " + std::to_string(method.start_line) + ")\n";
+            }
+        }
+        
+        for (const auto& func : file.functions) {
+            basic_tree += "├── function: " + func.name + " (line " + std::to_string(func.start_line) + ")\n";
+        }
+        
+        result["fallback_tree"] = basic_tree;
+    }
+    
+    result["summary"] = "AST dump in " + dump_format + " format (basic structure fallback)";
+    
+    return result;
+}
+
+nlohmann::json SessionCommands::cmd_ast_stats(const SessionData& session) const {
+    nlohmann::json result = {
+        {"command", "ast-stats"},
+        {"files", nlohmann::json::array()}
+    };
+    
+    // Helper function to process Enhanced Analysis Result with AST
+    auto process_enhanced_file = [&](const EnhancedAnalysisResult* enhanced_file) {
+        if (!enhanced_file || !enhanced_file->has_ast || !enhanced_file->ast_root) {
+            return;
+        }
+        
+        nlohmann::json file_stats = {
+            {"filename", enhanced_file->file_info.name},
+            {"has_ast", true},
+            {"total_nodes", enhanced_file->ast_stats.total_nodes},
+            {"max_depth", enhanced_file->ast_stats.max_depth},
+            {"classes", enhanced_file->ast_stats.classes},
+            {"functions", enhanced_file->ast_stats.functions},
+            {"methods", enhanced_file->ast_stats.methods},
+            {"variables", enhanced_file->ast_stats.variables},
+            {"control_structures", enhanced_file->ast_stats.control_structures}
+        };
+        
+        // ノードタイプ別統計
+        nlohmann::json node_types = nlohmann::json::object();
+        for (const auto& [node_type, count] : enhanced_file->ast_stats.node_type_counts) {
+            // ASTNodeTypeをstringに変換（簡易版）
+            std::string type_name = "unknown";
+            // TODO: より詳細な型名変換が必要
+            node_types[type_name] = count;
+        }
+        file_stats["node_type_counts"] = node_types;
+        
+        result["files"].push_back(file_stats);
+    };
+    
+    // 現在の実装制限
+    result["error"] = "AST statistics require Enhanced Analysis Results with AST data";
+    result["note"] = "Current session contains basic AnalysisResult. Advanced AST statistics are not available.";
+    
+    // フォールバック：基本統計情報
+    if (session.is_directory) {
+        uint32_t total_classes = 0, total_functions = 0, total_imports = 0;
+        
+        for (const auto& file : session.directory_result.files) {
+            total_classes += file.classes.size();
+            total_functions += file.functions.size();
+            total_imports += file.imports.size();
+            
+            nlohmann::json basic_stats = {
+                {"filename", file.file_info.name},
+                {"has_ast", false},
+                {"classes", file.classes.size()},
+                {"functions", file.functions.size()},
+                {"imports", file.imports.size()},
+                {"complexity", file.complexity.cyclomatic_complexity}
+            };
+            
+            result["files"].push_back(basic_stats);
+        }
+        
+        result["summary_statistics"] = {
+            {"total_files", session.directory_result.files.size()},
+            {"total_classes", total_classes},
+            {"total_functions", total_functions},
+            {"total_imports", total_imports}
+        };
+    } else {
+        const auto& file = session.single_file_result;
+        
+        nlohmann::json basic_stats = {
+            {"filename", file.file_info.name},
+            {"has_ast", false},
+            {"classes", file.classes.size()},
+            {"functions", file.functions.size()},
+            {"imports", file.imports.size()},
+            {"complexity", file.complexity.cyclomatic_complexity}
+        };
+        
+        result["files"].push_back(basic_stats);
+        result["summary_statistics"] = basic_stats;
+    }
+    
+    result["summary"] = "AST-based statistics (currently showing basic fallback statistics)";
     
     return result;
 }

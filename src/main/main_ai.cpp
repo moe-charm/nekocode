@@ -67,6 +67,7 @@ ACTIONS:
     analyze <path>              単発解析
     session-create <path>       セッション作成
     session-command <id> <cmd>  セッションコマンド実行
+    memory <command>            Memory System（時間軸Memory革命）
     languages                   サポート言語一覧表示
 
 SESSION COMMANDS:
@@ -77,6 +78,24 @@ SESSION COMMANDS:
     include-cycles              C++循環依存検出
     include-unused              C++不要include検出
     help                        詳細ヘルプ
+
+🧠 MEMORY SYSTEM - 時間軸Memory革命（NEW!）:
+    memory save {type} {name} [content]  - メモリー保存
+    memory load {type} {name}            - メモリー読み込み
+    memory list [type]                   - メモリー一覧表示
+    memory search {text}                 - メモリー検索
+    memory timeline [type] [days]        - 時系列表示（デフォルト7日）
+    memory stats                         - 統計情報表示
+    memory cleanup [type] [days]         - 古いメモリー削除
+    memory help                          - Memory System詳細ヘルプ
+
+    Types: auto=🤖解析結果, memo=📝手動メモ, api=🌐外部連携, cache=💾一時保存
+
+🌳 AST REVOLUTION - リアルタイム構文解析（JavaScript/TypeScript）:
+    ast-stats                   AST基盤統計（ノード数・深度・複雑度）
+    ast-query <path>            AST検索（例: MyClass::myMethod）
+    scope-analysis <line>       行スコープ解析（変数・関数・クラス）
+    ast-dump [tree|json]        AST構造ダンプ（可視化・デバッグ）
 
 OPTIONS:
     --stats-only        高速統計のみ（複雑度解析スキップ）

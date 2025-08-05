@@ -5,6 +5,7 @@
 ## 🚀 特徴
 
 - **🎮 セッション機能**: 一度解析すれば、その後の操作は超高速（3ms）！
+- **🌳 AST Revolution**: リアルタイム構文解析（JavaScript/TypeScript）- ゼロコストAST構築
 - **高速解析**: 効率的なコード解析エンジン
 - **C++特化機能**: 循環依存検出、依存グラフ、最適化提案
 - **多言語対応**: JavaScript, TypeScript, C++, C, Python, C#
@@ -49,10 +50,32 @@ python3 --version  # Python 3.8+ 必要
 - `mcp__nekocode__session_complexity` - 🧮 複雑度分析（超高速3ms）
 - `mcp__nekocode__find_files` - 🔎 ファイル検索（超高速3ms）
 
+### 🌳 AST Revolution - リアルタイム構文解析（NEW！）
+**JavaScript/TypeScript向け高度解析機能**
+- `mcp__nekocode__session_ast_stats` - 📈 AST基盤統計（ノード数・深度・複雑度）
+- `mcp__nekocode__session_ast_query` - 🔍 AST検索（例: MyClass::myMethod）
+- `mcp__nekocode__session_scope_analysis` - 🎯 行スコープ解析（変数・関数・クラス）
+- `mcp__nekocode__session_ast_dump` - 📋 AST構造ダンプ（可視化・デバッグ）
+
 ### C++特化機能（セッション必須）
 - `mcp__nekocode__include_cycles` - 🔍 循環依存検出
 - `mcp__nekocode__include_graph` - 🌐 依存関係グラフ
 - `mcp__nekocode__include_optimize` - ⚡ 最適化提案
+
+### 🧠 Memory System - 時間軸Memory革命（NEW!）
+**解析結果・メモの永続化機能 - Serenaにない独自機能！**
+- `mcp__nekocode__memory_save` - 💾 Memory保存（auto|memo|api|cache）
+- `mcp__nekocode__memory_load` - 📖 Memory読み込み
+- `mcp__nekocode__memory_list` - 📋 Memory一覧表示
+- `mcp__nekocode__memory_search` - 🔍 Memory検索
+- `mcp__nekocode__memory_timeline` - 📅 時系列表示（7日間デフォルト）
+- `mcp__nekocode__memory_stats` - 📊 Memory統計情報
+
+**4種類のMemoryタイプ:**
+- `auto` - 🤖 解析結果自動保存
+- `memo` - 📝 手動メモ・計画
+- `api` - 🌐 外部システム連携
+- `cache` - 💾 一時保存（わからないやつもここ）
 
 ### 基本機能
 - `mcp__nekocode__analyze` - 🚀 高速プロジェクト解析（単発実行）
@@ -90,6 +113,31 @@ result = await mcp__nekocode__analyze("/path/to/project", stats_only=True)
 # → 複雑度解析をスキップして高速化
 ```
 
+### 🧠 Memory System - 解析結果の永続化（NEW!）
+```python
+# 解析結果の自動保存
+await mcp__nekocode__memory_save("auto", "project_analysis_jan15", "")
+# → 自動的に現在の解析結果を保存
+
+# 手動メモの保存
+await mcp__nekocode__memory_save("memo", "refactor_plan_phase2", "リファクタリング計画：core.cpp分割")
+
+# 保存されたMemory一覧表示
+result = await mcp__nekocode__memory_list("auto")  # 解析結果のみ
+result = await mcp__nekocode__memory_list("memo")  # メモのみ
+
+# Memory検索
+matches = await mcp__nekocode__memory_search("complexity")
+# → "complexity"を含むMemoryを検索
+
+# 時系列表示（過去7日間の変化）
+timeline = await mcp__nekocode__memory_timeline("auto", 7)
+
+# Memory統計情報
+stats = await mcp__nekocode__memory_stats()
+# → 各タイプのMemory数、使用状況を表示
+```
+
 **💡 ヒント**: 複数回の操作を行う場合は、必ず最初に `session_create` を使ってください！
 
 ## ⚙️ コマンドラインオプション
@@ -121,6 +169,7 @@ NekoCodeは**高速解析**に特化したツールです。
 - [x] 基本MCP統合
 - [x] 全機能ツール化
 - [x] セッション管理
+- [x] 🌳 **AST Revolution** - リアルタイム構文解析（ゼロコストAST構築）
 
 ### Phase 2 (予定)
 - [ ] 実際のMCPプロトコル実装

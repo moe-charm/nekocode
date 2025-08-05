@@ -1,0 +1,253 @@
+//=============================================================================
+// 🚀 Memory Transport Interface - nyamesh Transport抽象化パターン適用
+//=============================================================================
+
+#pragma once
+
+#include <string>
+#include <vector>
+#include <memory>
+#include <future>
+#include <chrono>
+#include <nlohmann/json.hpp>
+#include <filesystem>
+
+namespace nekocode {
+namespace memory {
+
+//=============================================================================
+// 📊 Memory Entry - Serena互換メモリーエントリ
+//=============================================================================
+
+struct MemoryEntry {
+    std::string key;                              // メモリーキー (ファイル名)
+    std::string content;                          // メモリー内容 (Markdown)
+    std::chrono::system_clock::time_point created_at;
+    std::chrono::system_clock::time_point updated_at;
+    nlohmann::json metadata;                      // 追加メタデータ
+    
+    // NekoCode拡張: 解析結果統合
+    struct AnalysisData {
+        std::string project_path;
+        nlohmann::json ast_results;               // Universal AST結果
+        nlohmann::json performance_stats;         // パフォーマンス統計
+        nlohmann::json complexity_metrics;        // 複雑度指標
+    } analysis_data;
+    
+    MemoryEntry() = default;
+    MemoryEntry(const std::string& k, const std::string& c) 
+        : key(k), content(c), 
+          created_at(std::chrono::system_clock::now()),
+          updated_at(std::chrono::system_clock::now()) {}
+};
+
+//=============================================================================
+// 🔍 Memory Query - 高度な検索クエリ
+//=============================================================================
+
+struct MemoryQuery {
+    std::string text_search;                      // テキスト検索
+    std::vector<std::string> tags;                // タグフィルター
+    std::chrono::system_clock::time_point after; // 日時フィルター
+    std::chrono::system_clock::time_point before;
+    
+    // NekoCode拡張: コード解析特化検索
+    struct CodeSearchCriteria {
+        std::vector<std::string> languages;       // 言語フィルター
+        std::string function_name_pattern;        // 関数名パターン
+        std::string class_name_pattern;           // クラス名パターン
+        int min_complexity = 0;                   // 最小複雑度
+        int max_complexity = std::numeric_limits<int>::max();
+    } code_criteria;
+};
+
+//=============================================================================
+// 🚀 Memory Transport Interface - nyameshパターン
+//=============================================================================
+
+class MemoryTransport {
+public:
+    virtual ~MemoryTransport() = default;
+    
+    // 基本CRUD操作
+    virtual std::future<bool> store(const MemoryEntry& entry) = 0;
+    virtual std::future<MemoryEntry> load(const std::string& key) = 0;
+    virtual std::future<bool> remove(const std::string& key) = 0;
+    virtual std::future<std::vector<std::string>> list() = 0;
+    
+    // 高度な検索・分析
+    virtual std::future<std::vector<std::string>> search(const MemoryQuery& query) = 0;
+    virtual std::future<nlohmann::json> get_statistics() = 0;
+    
+    // Transport情報
+    virtual std::string get_transport_type() const = 0;
+    virtual bool is_available() const = 0;
+    virtual std::future<void> initialize() = 0;
+    virtual std::future<void> cleanup() = 0;
+    
+    // NekoCode特化: 自動解析結果保存
+    virtual std::future<bool> store_analysis_result(
+        const std::string& project_path,
+        const nlohmann::json& analysis_result,
+        const std::string& memory_name = "") = 0;
+};
+
+//=============================================================================
+// 📁 FileSystem Transport - ローカルファイル保存
+//=============================================================================
+
+class FileSystemMemoryTransport : public MemoryTransport {
+private:
+    std::filesystem::path memory_dir_;
+    std::string format_;  // "markdown" or "json"
+    
+public:
+    explicit FileSystemMemoryTransport(
+        const std::filesystem::path& memory_dir = ".nekocode_memory",
+        const std::string& format = "markdown");
+    
+    // MemoryTransport interface
+    std::future<bool> store(const MemoryEntry& entry) override;
+    std::future<MemoryEntry> load(const std::string& key) override;
+    std::future<bool> remove(const std::string& key) override;
+    std::future<std::vector<std::string>> list() override;
+    std::future<std::vector<std::string>> search(const MemoryQuery& query) override;
+    std::future<nlohmann::json> get_statistics() override;
+    
+    std::string get_transport_type() const override { return "FileSystem"; }
+    bool is_available() const override;
+    std::future<void> initialize() override;
+    std::future<void> cleanup() override;
+    
+    std::future<bool> store_analysis_result(const std::string& project_path,
+                                           const nlohmann::json& analysis_result,
+                                           const std::string& memory_name = "") override;
+
+private:
+    std::filesystem::path get_memory_file_path(const std::string& key) const;
+    std::string generate_analysis_memory_name(const std::string& project_path) const;
+    std::string format_analysis_as_markdown(const nlohmann::json& analysis_result) const;
+};
+
+//=============================================================================
+// 🔗 P2P Memory Transport - nyamesh P2P共有
+//=============================================================================
+
+class P2PMemoryTransport : public MemoryTransport {
+private:
+    std::shared_ptr<FileSystemMemoryTransport> local_transport_;  // ローカルキャッシュ
+    // TODO: nyamesh P2P実装と連携
+    
+public:
+    explicit P2PMemoryTransport(const std::filesystem::path& cache_dir = ".nekocode_p2p_cache");
+    
+    // MemoryTransport interface - P2P経由で実装
+    std::future<bool> store(const MemoryEntry& entry) override;
+    std::future<MemoryEntry> load(const std::string& key) override;
+    std::future<bool> remove(const std::string& key) override;
+    std::future<std::vector<std::string>> list() override;
+    std::future<std::vector<std::string>> search(const MemoryQuery& query) override;
+    std::future<nlohmann::json> get_statistics() override;
+    
+    std::string get_transport_type() const override { return "P2P"; }
+    bool is_available() const override;
+    std::future<void> initialize() override;
+    std::future<void> cleanup() override;
+    
+    std::future<bool> store_analysis_result(const std::string& project_path,
+                                           const nlohmann::json& analysis_result,
+                                           const std::string& memory_name = "") override;
+    
+    // P2P特化機能
+    std::future<bool> sync_with_peers();
+    std::future<std::vector<std::string>> discover_shared_memories();
+};
+
+//=============================================================================
+// 💾 SQLite Memory Transport - 高速検索特化
+//=============================================================================
+
+class SQLiteMemoryTransport : public MemoryTransport {
+private:
+    std::filesystem::path db_path_;
+    // TODO: SQLite実装
+    
+public:
+    explicit SQLiteMemoryTransport(const std::filesystem::path& db_path = ".nekocode_memory.db");
+    
+    // MemoryTransport interface - SQLite最適化実装
+    std::future<bool> store(const MemoryEntry& entry) override;
+    std::future<MemoryEntry> load(const std::string& key) override;
+    std::future<bool> remove(const std::string& key) override;
+    std::future<std::vector<std::string>> list() override;
+    std::future<std::vector<std::string>> search(const MemoryQuery& query) override;
+    std::future<nlohmann::json> get_statistics() override;
+    
+    std::string get_transport_type() const override { return "SQLite"; }
+    bool is_available() const override;
+    std::future<void> initialize() override;
+    std::future<void> cleanup() override;
+    
+    std::future<bool> store_analysis_result(const std::string& project_path,
+                                           const nlohmann::json& analysis_result,
+                                           const std::string& memory_name = "") override;
+    
+    // SQLite特化機能
+    std::future<void> create_indexes();
+    std::future<void> optimize_database();
+    std::future<nlohmann::json> get_query_statistics();
+};
+
+//=============================================================================
+// 🏭 Memory Transport Factory
+//=============================================================================
+
+class MemoryTransportFactory {
+public:
+    enum class TransportType {
+        FileSystem,
+        SQLite,
+        P2P,
+        Auto  // 自動選択
+    };
+    
+    static std::unique_ptr<MemoryTransport> create(
+        TransportType type = TransportType::Auto,
+        const nlohmann::json& config = {});
+        
+    static std::vector<TransportType> get_available_transports();
+    static std::string transport_type_to_string(TransportType type);
+};
+
+} // namespace memory
+} // namespace nekocode
+
+//=============================================================================
+// 使用例 - Serena互換 + NekoCode特化
+//=============================================================================
+
+/*
+// 基本的なメモリー操作 (Serena互換)
+auto transport = MemoryTransportFactory::create(MemoryTransportFactory::TransportType::FileSystem);
+await transport->initialize();
+
+MemoryEntry entry("project_analysis", "# Amazing Project Analysis\n...");
+await transport->store(entry);
+
+auto loaded = await transport->load("project_analysis");
+auto all_memories = await transport->list();
+auto search_results = await transport->search(MemoryQuery{.text_search = "performance"});
+
+// NekoCode特化: 自動解析結果保存
+nlohmann::json analysis_result = {
+    {"files_analyzed", 47},
+    {"functions_found", 127},
+    {"complexity_score", 435}
+};
+await transport->store_analysis_result("/path/to/project", analysis_result, "project_deep_analysis");
+
+// P2P共有 (nyamesh統合)
+auto p2p_transport = MemoryTransportFactory::create(MemoryTransportFactory::TransportType::P2P);
+await p2p_transport->sync_with_peers();
+auto shared_memories = await p2p_transport->discover_shared_memories();
+*/

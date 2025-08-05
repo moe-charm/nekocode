@@ -7,6 +7,11 @@
 #include <iostream>
 #include <filesystem>
 
+// 🧠 Memory System Integration
+#ifdef NEKOCODE_USE_MEMORY_SYSTEM
+#include "nekocode/memory_command.hpp"
+#endif
+
 // main_ai.cpp からの外部関数宣言（リファクタリング後に整理予定）
 extern void show_help();
 extern void show_supported_languages();
@@ -66,6 +71,11 @@ int CommandDispatcher::dispatch(int argc, char* argv[]) {
         }
         return dispatch_session_command(argv[2], argv[3]);
     }
+#ifdef NEKOCODE_USE_MEMORY_SYSTEM
+    else if (action == "memory") {
+        return dispatch_memory(argc - 1, argv + 1);  // Skip "memory" and pass remaining args
+    }
+#endif
     
     return handle_unknown_command(action);
 }
@@ -136,5 +146,31 @@ int CommandDispatcher::handle_unknown_command(const std::string& command) {
     std::cerr << "Run 'nekocode_ai --help' for usage information." << std::endl;
     return 1;
 }
+
+//=============================================================================
+// 🧠 Memory System Integration
+//=============================================================================
+
+#ifdef NEKOCODE_USE_MEMORY_SYSTEM
+int CommandDispatcher::dispatch_memory(int argc, char* argv[]) {
+    try {
+        MemoryCommand memory_cmd;
+        
+        // Convert char* argv[] to vector<string>
+        // Skip argv[0] which is "memory", start from argv[1] which is the actual command
+        std::vector<std::string> args;
+        for (int i = 1; i < argc; ++i) {  // Start from index 1, not 0
+            args.push_back(std::string(argv[i]));
+        }
+        
+        bool success = memory_cmd.execute(args);
+        return success ? 0 : 1;
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Memory System Error: " << e.what() << std::endl;
+        return 1;
+    }
+}
+#endif
 
 } // namespace nekocode
