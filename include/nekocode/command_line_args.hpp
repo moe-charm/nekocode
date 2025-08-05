@@ -32,6 +32,9 @@ struct CommandLineArgs {
     bool debug_mode = false;                // --debug: デバッグログ表示モード
     bool quiet_mode = false;                // --quiet: stderr出力を抑制（Claude Code推奨）
     
+    // 完全解析モード
+    bool complete_analysis = false;         // --complete: デッドコード検出を含む完全解析
+    
     // 事前チェック関連
     bool skip_precheck = false;             // --no-check: 事前チェックスキップ
     bool force_execution = false;           // --force: 確認なしで強制実行

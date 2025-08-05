@@ -45,6 +45,8 @@ CommandLineArgs CommandLineArgs::parse(int argc, char* argv[]) {
             args.debug_mode = true;
         } else if (arg == "--quiet" || arg == "-q") {
             args.quiet_mode = true;  // 🔇 簡略化後は使用されない（デフォルトでquiet）
+        } else if (arg == "--complete") {
+            args.complete_analysis = true;
         } else if (arg == "--no-check") {
             args.skip_precheck = true;
         } else if (arg == "--force") {

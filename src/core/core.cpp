@@ -419,11 +419,63 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
             }
         }
         
+        // 🎯 完全解析モード: デッドコード検出を実行
+        if (impl_->config_.complete_analysis) {
+            perform_complete_analysis(result, filename);
+        }
+        
         return Result<MultiLanguageAnalysisResult>(std::move(result));
         
     } catch (const std::exception& e) {
         return Result<MultiLanguageAnalysisResult>(
             AnalysisError(ErrorCode::PARSING_ERROR, e.what()));
+    }
+}
+
+//=============================================================================
+// 🎯 Complete Analysis Implementation - 完全解析処理
+//=============================================================================
+
+void NekoCodeCore::perform_complete_analysis(MultiLanguageAnalysisResult& result, const std::string& filename) {
+    try {
+        // 🐍 Pythonスクリプトを呼び出してデッドコード検出
+        std::string command = "python3 universal_deadcode_analyzer.py \"" + filename + "\" --complete";
+        
+        // システムコマンド実行
+        FILE* pipe = popen(command.c_str(), "r");
+        if (!pipe) {
+            std::cerr << "⚠️ Failed to execute dead code analysis for: " << filename << std::endl;
+            return;
+        }
+        
+        // 結果読み取り
+        std::string output;
+        char buffer[128];
+        while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+            output += buffer;
+        }
+        pclose(pipe);
+        
+        // JSONレスポンス解析（簡易実装）
+        if (output.find("\"total_found\"") != std::string::npos && 
+            output.find("\"status\": \"success\"") != std::string::npos) {
+            
+            // デッドコード検出情報をメタデータとして保存
+            if (result.detected_language == Language::CPP && result.cpp_result.has_value()) {
+                result.cpp_result->file_info.metadata["dead_code_analysis"] = "completed";
+            } else if (result.detected_language == Language::JAVASCRIPT && result.js_result.has_value()) {
+                result.js_result->file_info.metadata["dead_code_analysis"] = "completed";
+            } else if (result.detected_language == Language::CSHARP && result.csharp_result.has_value()) {
+                result.csharp_result->file_info.metadata["dead_code_analysis"] = "completed";
+            }
+            
+            std::cerr << "✅ Dead code analysis completed for: " << filename << std::endl;
+        } else {
+            std::cerr << "⚠️ Dead code analysis failed or found no issues for: " << filename << std::endl;
+        }
+        
+    } catch (const std::exception& e) {
+        std::cerr << "❌ Complete analysis error: " << e.what() << std::endl;
     }
 }
 
