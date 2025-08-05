@@ -189,8 +189,7 @@ private:
         
         const size_t total_lines = all_lines.size();
         const bool use_full_analysis = total_lines < 15000;     // 15K行未満で全機能（JavaScript戦略移植）
-        const bool use_sampling_mode = total_lines >= 15000 && total_lines < 40000;  // サンプリングモード（JavaScript戦略移植）
-        const bool use_high_speed_mode = total_lines >= 40000;  // 🚀 【JavaScript逆輸入】40K行超で高速モード
+        // サンプリングモード削除: 検出率が悪すぎるため高速モードに統合（JavaScript戦略移植）
         
         if (!g_quiet_mode) {
             std::cerr << "📊 ファイル情報: " << total_lines << "行検出" << std::endl;
@@ -200,9 +199,7 @@ private:
         if (g_debug_mode) {
             std::cerr << "🔧 デバッグ: total_lines=" << total_lines << std::endl;
             std::cerr << "🔧 デバッグ: use_full_analysis=" << use_full_analysis << std::endl;
-            std::cerr << "🔧 デバッグ: use_sampling_mode=" << use_sampling_mode << std::endl;
-            std::cerr << "🔧 デバッグ: use_high_speed_mode=" << use_high_speed_mode << std::endl;
-            std::cerr << "🔧 デバッグ: 40000以上か? " << (total_lines >= 40000) << std::endl;
+            std::cerr << "🔧 デバッグ: 15000行未満か? " << (total_lines < 15000) << std::endl;
         }
         
         // 第1段階: 行ベース解析（JavaScript戦略移植版）
@@ -219,70 +216,17 @@ private:
                 extract_typescript_functions_from_line(current_line, current_line_number, result, existing_functions);
                 processed_lines++;
             }
-        } else if (use_sampling_mode) {
+        } else {
             if (!g_quiet_mode) {
-                std::cerr << "🎲 サンプリングモード: 10行に1行処理（JavaScript戦略移植）" << std::endl;
+                std::cerr << "⚡ 高速モード: TypeScript完全検出・全行処理（サンプリング削除）" << std::endl;
             }
-            // サンプリングモード：10行に1行だけ処理
-            for (size_t i = 0; i < all_lines.size(); i += 10) {
+            // 高速モード：TypeScript完全検出・全行処理（サンプリング削除）
+            for (size_t i = 0; i < all_lines.size(); i++) {
                 const std::string& current_line = all_lines[i];
                 size_t current_line_number = i + 1;
                 
+                // 🚀 【修正】TypeScript完全検出を全行で実行（サンプリング削除）
                 extract_typescript_functions_from_line(current_line, current_line_number, result, existing_functions);
-                processed_lines++;
-            }
-        } else if (use_high_speed_mode) {
-            if (!g_quiet_mode) {
-                std::cerr << "⚡ 高速モード: 基本検出のみ（JavaScript戦略移植・Geminiスキップ）" << std::endl;
-            }
-            // 高速モード：基本検出のみ
-            
-            // 高速モード：基本検出のみ（全行処理）
-            for (size_t i = 0; i < all_lines.size(); i++) {
-                const std::string& current_line = all_lines[i];
-                size_t current_line_number = i + 1;
-                
-                // 🚀 【JavaScript高速化技術完全移植】基本パターンのみ検出（Gemini攻撃停止！）
-                extract_basic_typescript_functions_from_line(current_line, current_line_number, result, existing_functions);
-                processed_lines++;
-                
-                // 🚫 JavaScript高速化戦略：クラス・Gemini検出を停止で大幅高速化！
-                // extract_typescript_classes_from_line - 停止
-                // extract_typescript_interfaces_from_line - 停止
-                // gemini_line_level_double_attack - 停止
-            }
-        } else if (use_sampling_mode) {
-            if (!g_quiet_mode) {
-                std::cerr << "🎲 サンプリングモード: 10行に1行処理（JavaScript戦略移植）" << std::endl;
-            }
-            // サンプリングモード：10行に1行だけ処理
-            for (size_t i = 0; i < all_lines.size(); i += 10) {
-                const std::string& current_line = all_lines[i];
-                size_t current_line_number = i + 1;
-                
-                // 🚀 【JavaScript高速化技術移植】サンプリングモードでもシンプルに！
-                extract_basic_typescript_functions_from_line(current_line, current_line_number, result, existing_functions);
-                processed_lines++;
-                
-                // 🚫 JavaScript高速化戦略：サンプリングでもGemini停止で大幅高速化！
-                // extract_typescript_functions_from_line - 停止  
-                // extract_typescript_classes_from_line - 停止
-                // extract_typescript_interfaces_from_line - 停止
-                // gemini_line_level_double_attack - 停止
-            }
-        } else if (use_high_speed_mode) {
-            if (!g_quiet_mode) {
-                std::cerr << "⚡ 高速モード: 基本検出のみ（JavaScript戦略移植・Geminiスキップ）" << std::endl;
-            }
-            // 高速モード：基本検出のみ
-            
-            // 高速モード：基本検出のみ（全行処理）
-            for (size_t i = 0; i < all_lines.size(); i++) {
-                const std::string& current_line = all_lines[i];
-                size_t current_line_number = i + 1;
-                
-                // 基本的なTypeScript関数パターンのみ検出（JavaScript版extract_basic_functions_from_lineベース）
-                extract_basic_typescript_functions_from_line(current_line, current_line_number, result, existing_functions);
                 processed_lines++;
             }
         }
@@ -294,8 +238,8 @@ private:
                       << "行処理 (" << analysis_duration << "ms)" << std::endl;
         }
         
-        // 🚀 【JavaScript逆輸入】高速モードではネスト掘削スキップ！
-        if (use_high_speed_mode) {
+        // 🚀 【サンプリングモード削除】15K行以上は高速モードに統一
+        if (!use_full_analysis) {
             if (!g_quiet_mode) {
                 std::cerr << "⚡ 高速モード: ネスト掘削スキップ（JavaScript戦略移植）" << std::endl;
                 std::cerr << "\n📊 処理戦略: 大規模TSファイルモード（基本検出のみ）" << std::endl;
@@ -308,7 +252,7 @@ private:
             double_regex_attack_for_class_methods(content, result, existing_functions);
             
             // 🚀 第3段階: 【ユーザー天才アイデア】無限ネスト掘削アタック！
-            if (use_full_analysis || use_sampling_mode) {
+            if (use_full_analysis) {
                 infinite_nested_function_attack(content, result, existing_functions);
             }
         }

@@ -943,7 +943,7 @@ public:
         return result;
     }
 
-private:
+protected:
     // 🔍 JavaScriptメンバ変数検出（C++成功パターン移植）
     void detect_member_variables(AnalysisResult& result, const std::string& content) {
         std::istringstream stream(content);
@@ -1191,7 +1191,7 @@ private:
         
         const size_t total_lines = all_lines.size();
         const bool use_full_analysis = total_lines < 15000;     // JavaScript特化調整: 15K行未満で全機能
-        const bool use_sampling_mode = total_lines >= 15000 && total_lines < 40000;  // サンプリングモード
+        // サンプリングモード削除: 検出率が悪すぎるため高速モードに統合
         
         if (!g_quiet_mode) {
             std::cerr << "📊 JavaScript解析開始: " << total_lines << "行検出" << std::endl;
@@ -1208,19 +1208,11 @@ private:
         size_t processed_lines = 0;
         
         if (use_full_analysis) {
-            // std::cerr << "🚀 通常モード: 全機能有効（JavaScript最高精度）" << std::endl;
-            // 通常モード：全行処理
-            for (size_t i = 0; i < all_lines.size(); i++) {
-                const std::string& current_line = all_lines[i];
-                size_t current_line_number = i + 1;
-                
-                extract_functions_from_line(current_line, current_line_number, result, existing_functions);
-                processed_lines++;
+            if (!g_quiet_mode) {
+                std::cerr << "🚀 通常モード: 全機能有効（JavaScript最高精度）" << std::endl;
             }
-        } else if (use_sampling_mode) {
-            std::cerr << "🎲 サンプリングモード: 10行に1行処理（効率重視）" << std::endl;
-            // サンプリングモード：10行に1行だけ処理
-            for (size_t i = 0; i < all_lines.size(); i += 10) {
+            // 通常モード：全行処理・6パターン検出
+            for (size_t i = 0; i < all_lines.size(); i++) {
                 const std::string& current_line = all_lines[i];
                 size_t current_line_number = i + 1;
                 
@@ -1231,14 +1223,11 @@ private:
             if (!g_quiet_mode) {
                 std::cerr << "⚡ 高速モード: 基本検出のみ（大規模JS対応）" << std::endl;
             }
-            // 高速モード：基本検出のみ
-            
-            // 高速モード：基本検出のみ（全行処理）
+            // 高速モード：基本検出のみ・全行処理・2パターン検出
             for (size_t i = 0; i < all_lines.size(); i++) {
                 const std::string& current_line = all_lines[i];
                 size_t current_line_number = i + 1;
                 
-                // 基本的な関数パターンのみ検出
                 extract_basic_functions_from_line(current_line, current_line_number, result, existing_functions);
                 processed_lines++;
             }
@@ -1253,7 +1242,7 @@ private:
         }
         
         // 🚀 【JavaScriptコールバック地獄専用】無限ネスト掘削アタック開始！
-        if (use_full_analysis || use_sampling_mode) {
+        if (use_full_analysis) {
             if (!g_quiet_mode) {
                 std::cerr << "🚀 【JavaScript専用】無限ネスト掘削アタック開始！（コールバック地獄対応版）" << std::endl;
             }
@@ -1274,17 +1263,13 @@ private:
         }
         
         // 🏁 処理戦略のサマリー
-        if (!use_full_analysis && !use_sampling_mode) {
+        if (use_full_analysis) {
             if (!g_quiet_mode) {
-                std::cerr << "\n📊 処理戦略: 大規模JSファイルモード（基本検出のみ）" << std::endl;
-            }
-        } else if (use_sampling_mode) {
-            if (!g_quiet_mode) {
-                std::cerr << "\n📊 処理戦略: サンプリングモード（10%処理）" << std::endl;
+                std::cerr << "\n📊 処理戦略: 通常モード（全機能有効）" << std::endl;
             }
         } else {
             if (!g_quiet_mode) {
-                std::cerr << "\n📊 処理戦略: 通常モード（全機能有効）" << std::endl;
+                std::cerr << "\n📊 処理戦略: 高速モード（基本検出のみ・全行処理）" << std::endl;
             }
         }
     }
@@ -1832,6 +1817,7 @@ private:
         }
     }
     
+protected:
     // 🆕 ===============================================================================
     // 💬 Comment Collection System - TypeScriptアナライザーからの移植
     // ===============================================================================
