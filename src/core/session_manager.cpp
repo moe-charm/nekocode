@@ -375,6 +375,23 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
             result = session_commands_.cmd_dependency_analyze(session, filename);
         } else if (command == "help") {
             result = session_commands_.cmd_help();
+        } else if (command.substr(0, 10) == "ast-query ") {
+            // ast-query <query_path>
+            std::string query_path = command.substr(10);
+            result = session_commands_.cmd_ast_query(session, query_path);
+        } else if (command == "ast-stats") {
+            result = session_commands_.cmd_ast_stats(session);
+        } else if (command.substr(0, 15) == "scope-analysis ") {
+            // scope-analysis <line_number>
+            std::string line_str = command.substr(15);
+            uint32_t line_number = std::stoul(line_str);
+            result = session_commands_.cmd_scope_analysis(session, line_number);
+        } else if (command.substr(0, 9) == "ast-dump ") {
+            // ast-dump <format>
+            std::string format = command.substr(9);
+            result = session_commands_.cmd_ast_dump(session, format);
+        } else if (command == "ast-dump") {
+            result = session_commands_.cmd_ast_dump(session);
         } else {
             result = {
                 {"error", "Unknown command: " + command},
@@ -383,7 +400,8 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                                         "include-graph", "include-cycles", "include-impact",
                                         "include-unused", "include-optimize", "duplicates", 
                                         "large-files", "todo", "complexity-ranking", 
-                                        "analyze", "dependency-analyze", "help"}}
+                                        "analyze", "dependency-analyze", "help",
+                                        "ast-query <path>", "ast-stats", "scope-analysis <line>", "ast-dump [format]"}}
             };
         }
         

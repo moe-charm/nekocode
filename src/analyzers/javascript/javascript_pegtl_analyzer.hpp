@@ -33,6 +33,7 @@ namespace nekocode {
 //=============================================================================
 
 struct JavaScriptParseState {
+    // 🌳 従来の平面データ構造
     std::vector<ClassInfo> classes;
     std::vector<FunctionInfo> functions;
     std::vector<ImportInfo> imports;
@@ -42,12 +43,200 @@ struct JavaScriptParseState {
     size_t current_line = 1;
     std::string current_content;
     
+    // 🌳 AST革命: リアルタイムAST構築システム
+    std::unique_ptr<ASTNode> ast_root;              // AST ルートノード
+    DepthStack depth_stack;                         // 深度スタック管理
+    ASTNode* current_scope = nullptr;               // 現在のスコープノード
+    std::uint32_t current_depth = 0;                // 現在の深度
+    std::uint32_t brace_depth = 0;                  // ブレース深度追跡
+    
+    // AST構築フラグ
+    bool ast_enabled = true;                        // AST構築の有効/無効
+    bool in_class_body = false;                     // クラス本体内フラグ
+    bool in_function_body = false;                  // 関数本体内フラグ
+    std::string current_class_name;                 // 現在のクラス名
+    std::string current_function_name;              // 現在の関数名
+    
+    // コンストラクタ
+    JavaScriptParseState() {
+        // AST ルートノード初期化
+        ast_root = std::make_unique<ASTNode>(ASTNodeType::FILE_ROOT, "");
+        current_scope = ast_root.get();
+        depth_stack[0] = ast_root.get();
+    }
+    
     void update_line_from_position(size_t pos) {
         current_line = 1;
         for (size_t i = 0; i < pos && i < current_content.size(); ++i) {
             if (current_content[i] == '\n') {
                 current_line++;
             }
+        }
+    }
+    
+    // 🌳 AST構築メソッド
+    
+    /// 新しいASTノードを現在のスコープに追加
+    ASTNode* add_ast_node(ASTNodeType type, const std::string& name, std::uint32_t start_line) {
+        if (!ast_enabled || !current_scope) return nullptr;
+        
+        auto new_node = std::make_unique<ASTNode>(type, name);
+        new_node->start_line = start_line;
+        new_node->depth = current_depth;
+        new_node->scope_path = build_scope_path(name);
+        
+        ASTNode* raw_ptr = new_node.get();
+        current_scope->add_child(std::move(new_node));
+        
+        return raw_ptr;
+    }
+    
+    /// スコープ開始（新しい深度レベルに入る）
+    void enter_scope(ASTNode* scope_node) {
+        if (!ast_enabled) return;
+        
+        current_depth++;
+        current_scope = scope_node;
+        depth_stack[current_depth] = scope_node;
+        
+        // デバッグ出力
+        // std::cerr << "[AST] Enter scope: " << scope_node->name << " (depth: " << current_depth << ")" << std::endl;
+    }
+    
+    /// スコープ終了（前の深度レベルに戻る）
+    void exit_scope() {
+        if (!ast_enabled || current_depth == 0) return;
+        
+        // 終了行を設定
+        if (current_scope) {
+            current_scope->end_line = current_line;
+        }
+        
+        current_depth--;
+        auto it = depth_stack.find(current_depth);
+        current_scope = (it != depth_stack.end()) ? it->second : ast_root.get();
+        
+        // デバッグ出力
+        // std::cerr << "[AST] Exit scope, return to: " << (current_scope ? current_scope->name : "root") << " (depth: " << current_depth << ")" << std::endl;
+    }
+    
+    /// ブレース深度に基づく自動スコープ管理
+    void update_brace_depth(char c) {
+        if (!ast_enabled) return;
+        
+        if (c == '{') {
+            brace_depth++;
+            // 新しいブロックスコープの場合はBLOCKノードを追加
+            if (brace_depth > current_depth + 1) {
+                ASTNode* block_node = add_ast_node(ASTNodeType::BLOCK, "block", current_line);
+                if (block_node) {
+                    enter_scope(block_node);
+                }
+            }
+        } else if (c == '}' && brace_depth > 0) {
+            brace_depth--;
+            // スコープを抜ける
+            if (brace_depth < current_depth) {
+                exit_scope();
+                
+                // クラス/関数終了フラグをリセット
+                if (in_class_body && brace_depth == 0) {
+                    in_class_body = false;
+                    current_class_name.clear();
+                }
+                if (in_function_body && brace_depth <= 1) {
+                    in_function_body = false;
+                    current_function_name.clear();
+                }
+            }
+        }
+    }
+    
+    /// スコープパス構築
+    std::string build_scope_path(const std::string& name) const {
+        if (!current_scope || current_scope == ast_root.get()) {
+            return name;
+        }
+        
+        std::string parent_path = current_scope->scope_path;
+        if (parent_path.empty()) {
+            return name;
+        }
+        return parent_path + "::" + name;
+    }
+    
+    /// クラス開始処理
+    void start_class(const std::string& class_name, std::uint32_t start_line) {
+        current_class_name = class_name;
+        in_class_body = true;
+        
+        if (ast_enabled) {
+            ASTNode* class_node = add_ast_node(ASTNodeType::CLASS, class_name, start_line);
+            if (class_node) {
+                enter_scope(class_node);
+            }
+        }
+    }
+    
+    /// 関数開始処理
+    void start_function(const std::string& function_name, std::uint32_t start_line, bool is_method = false) {
+        current_function_name = function_name;
+        in_function_body = true;
+        
+        if (ast_enabled) {
+            ASTNodeType node_type = is_method ? ASTNodeType::METHOD : ASTNodeType::FUNCTION;
+            ASTNode* func_node = add_ast_node(node_type, function_name, start_line);
+            if (func_node) {
+                enter_scope(func_node);
+            }
+        }
+    }
+    
+    /// import文処理
+    void add_import(const std::string& module_path, std::uint32_t line_number) {
+        if (ast_enabled) {
+            ASTNode* import_node = add_ast_node(ASTNodeType::IMPORT, module_path, line_number);
+            if (import_node) {
+                import_node->attributes["module_path"] = module_path;
+            }
+        }
+    }
+    
+    /// export文処理
+    void add_export(const std::string& export_name, std::uint32_t line_number) {
+        if (ast_enabled) {
+            ASTNode* export_node = add_ast_node(ASTNodeType::EXPORT, export_name, line_number);
+            if (export_node) {
+                export_node->attributes["export_name"] = export_name;
+            }
+        }
+    }
+    
+    /// 制御構造処理（if, for, while等）
+    void add_control_structure(ASTNodeType type, std::uint32_t line_number) {
+        if (ast_enabled) {
+            std::string name = get_control_structure_name(type);
+            ASTNode* control_node = add_ast_node(type, name, line_number);
+            if (control_node) {
+                // 制御構造は一時的にスコープを作る場合がある
+                if (type == ASTNodeType::IF_STATEMENT || type == ASTNodeType::FOR_LOOP || 
+                    type == ASTNodeType::WHILE_LOOP || type == ASTNodeType::SWITCH_STATEMENT) {
+                    enter_scope(control_node);
+                }
+            }
+        }
+    }
+    
+private:
+    std::string get_control_structure_name(ASTNodeType type) const {
+        switch (type) {
+            case ASTNodeType::IF_STATEMENT: return "if";
+            case ASTNodeType::FOR_LOOP: return "for";
+            case ASTNodeType::WHILE_LOOP: return "while";
+            case ASTNodeType::SWITCH_STATEMENT: return "switch";
+            case ASTNodeType::TRY_BLOCK: return "try";
+            case ASTNodeType::CATCH_BLOCK: return "catch";
+            default: return "control";
         }
     }
 };
@@ -59,7 +248,92 @@ struct JavaScriptParseState {
 template<typename Rule>
 struct javascript_action : tao::pegtl::nothing<Rule> {};
 
-// 🧪 テスト用: simple function 検出
+//=============================================================================
+// 🌳 AST革命: ネストレベル管理システム 
+//=============================================================================
+
+// ⚡ ブレース開始検出（ネストレベル管理）
+template<>
+struct javascript_action<tao::pegtl::one<'{'>> {
+    template<typename ParseInput>
+    static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        state.update_line_from_position(in.position().byte);
+        state.update_brace_depth('{');
+        
+        // デバッグ出力
+        // std::cerr << "[AST] Brace open: depth=" << state.brace_depth << ", line=" << state.current_line << std::endl;
+    }
+};
+
+// ⚡ ブレース終了検出（ネストレベル管理）
+template<>
+struct javascript_action<tao::pegtl::one<'}'>> {
+    template<typename ParseInput>
+    static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        state.update_line_from_position(in.position().byte);
+        state.update_brace_depth('}');
+        
+        // デバッグ出力
+        // std::cerr << "[AST] Brace close: depth=" << state.brace_depth << ", line=" << state.current_line << std::endl;
+    }
+};
+
+// 🎯 制御構造検出（if, for, while等）
+template<>
+struct javascript_action<nekocode::javascript::minimal_grammar::if_keyword> {
+    template<typename ParseInput>
+    static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        state.update_line_from_position(in.position().byte);
+        state.add_control_structure(ASTNodeType::IF_STATEMENT, state.current_line);
+    }
+};
+
+template<>
+struct javascript_action<nekocode::javascript::minimal_grammar::for_keyword> {
+    template<typename ParseInput>
+    static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        state.update_line_from_position(in.position().byte);
+        state.add_control_structure(ASTNodeType::FOR_LOOP, state.current_line);
+    }
+};
+
+template<>
+struct javascript_action<nekocode::javascript::minimal_grammar::while_keyword> {
+    template<typename ParseInput>
+    static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        state.update_line_from_position(in.position().byte);
+        state.add_control_structure(ASTNodeType::WHILE_LOOP, state.current_line);
+    }
+};
+
+template<>
+struct javascript_action<nekocode::javascript::minimal_grammar::switch_keyword> {
+    template<typename ParseInput>
+    static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        state.update_line_from_position(in.position().byte);
+        state.add_control_structure(ASTNodeType::SWITCH_STATEMENT, state.current_line);
+    }
+};
+
+template<>
+struct javascript_action<nekocode::javascript::minimal_grammar::try_keyword> {
+    template<typename ParseInput>
+    static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        state.update_line_from_position(in.position().byte);
+        state.add_control_structure(ASTNodeType::TRY_BLOCK, state.current_line);
+    }
+};
+
+template<>
+struct javascript_action<nekocode::javascript::minimal_grammar::catch_keyword> {
+    template<typename ParseInput>
+    static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        state.update_line_from_position(in.position().byte);
+        state.add_control_structure(ASTNodeType::CATCH_BLOCK, state.current_line);
+    }
+};
+
+// 🧪 テスト用: simple function 検出 + 🌳 AST構築
 template<>
 struct javascript_action<javascript::minimal_grammar::simple_function> {
     template<typename ParseInput>
@@ -82,12 +356,19 @@ struct javascript_action<javascript::minimal_grammar::simple_function> {
             }
             
             if (name_end > name_start) {
-                FunctionInfo func_info;
-                func_info.name = matched.substr(name_start, name_end - name_start);
+                std::string func_name = matched.substr(name_start, name_end - name_start);
                 state.update_line_from_position(in.position().byte);
+                
+                // 🌳 AST革命: リアルタイムAST構築
+                state.start_function(func_name, state.current_line, state.in_class_body);
+                
+                // 従来の平面データ構造も維持（後方互換性）
+                FunctionInfo func_info;
+                func_info.name = func_name;
                 func_info.start_line = state.current_line;
                 state.functions.push_back(func_info);
-                // std::cerr << "[DEBUG] Found simple function: " << func_info.name << " at line " << func_info.start_line << std::endl;
+                
+                // std::cerr << "[AST] Found simple function: " << func_name << " at line " << state.current_line << std::endl;
             }
         }
     }
@@ -197,12 +478,13 @@ struct javascript_action<javascript::minimal_grammar::async_arrow> {
     }
 };
 
-// 📦 import文検出（簡易版）
+// 📦 import文検出（簡易版）+ 🌳 AST構築
 template<>
 struct javascript_action<javascript::minimal_grammar::simple_import> {
     template<typename ParseInput>
     static void apply(const ParseInput& in, JavaScriptParseState& state) {
         std::string matched = in.string();
+        state.update_line_from_position(in.position().byte);
         
         ImportInfo import_info;
         import_info.line_number = state.current_line;
@@ -219,15 +501,21 @@ struct javascript_action<javascript::minimal_grammar::simple_import> {
             import_info.imported_names.push_back(import_names);
         }
         
+        std::string module_path;
         if (quote1 != std::string::npos && quote2 != std::string::npos) {
-            import_info.module_path = matched.substr(quote1 + 1, quote2 - quote1 - 1);
+            module_path = matched.substr(quote1 + 1, quote2 - quote1 - 1);
+            import_info.module_path = module_path;
         }
         
+        // 🌳 AST革命: import文をASTに追加
+        state.add_import(module_path, state.current_line);
+        
+        // 従来の平面データ構造も維持
         state.imports.push_back(import_info);
     }
 };
 
-// 🏛️ class検出
+// 🏛️ class検出 + 🌳 AST構築
 template<>
 struct javascript_action<javascript::minimal_grammar::simple_class> {
     template<typename ParseInput>
@@ -250,12 +538,19 @@ struct javascript_action<javascript::minimal_grammar::simple_class> {
             }
             
             if (name_end > name_start) {
-                ClassInfo class_info;
-                class_info.name = matched.substr(name_start, name_end - name_start);
+                std::string class_name = matched.substr(name_start, name_end - name_start);
                 state.update_line_from_position(in.position().byte);
+                
+                // 🌳 AST革命: リアルタイムクラス構築
+                state.start_class(class_name, state.current_line);
+                
+                // 従来の平面データ構造も維持（後方互換性）
+                ClassInfo class_info;
+                class_info.name = class_name;
                 class_info.start_line = state.current_line;
                 state.classes.push_back(class_info);
-                // std::cerr << "[DEBUG] Found simple class: " << class_info.name << " at line " << class_info.start_line << std::endl;
+                
+                // std::cerr << "[AST] Found simple class: " << class_name << " at line " << state.current_line << std::endl;
             }
         }
     }
@@ -448,7 +743,7 @@ struct javascript_action<javascript::minimal_grammar::class_header> {
     }
 };
 
-// 🏛️ class method検出
+// 🏛️ class method検出 + 🌳 AST構築
 template<>
 struct javascript_action<javascript::minimal_grammar::class_method> {
     template<typename ParseInput>
@@ -458,12 +753,17 @@ struct javascript_action<javascript::minimal_grammar::class_method> {
         
         // static methodName() { または methodName() { から名前抽出
         bool is_static = (matched.find("static") != std::string::npos);
+        bool is_async = (matched.find("async") != std::string::npos);
         
         // メソッド名抽出位置を決定
         size_t name_start = 0;
+        if (is_async) {
+            size_t async_pos = matched.find("async");
+            name_start = async_pos + 5; // "async"の長さ
+        }
         if (is_static) {
             size_t static_pos = matched.find("static");
-            name_start = static_pos + 6; // "static"の長さ
+            name_start = std::max(name_start, static_pos + 6); // "static"の長さ
         }
         
         // 空白をスキップ
@@ -479,16 +779,24 @@ struct javascript_action<javascript::minimal_grammar::class_method> {
         }
         
         if (name_end > name_start) {
-            FunctionInfo func_info;
-            func_info.name = matched.substr(name_start, name_end - name_start);
+            std::string method_name = matched.substr(name_start, name_end - name_start);
             state.update_line_from_position(in.position().byte);
+            
+            // 🌳 AST革命: メソッドをASTに追加（クラス内メソッドとして）
+            state.start_function(method_name, state.current_line, true); // is_method = true
+            
+            // 従来の平面データ構造も維持
+            FunctionInfo func_info;
+            func_info.name = method_name;
             func_info.start_line = state.current_line;
+            func_info.is_async = is_async;
             if (is_static) {
                 func_info.metadata["is_static"] = "true";
             }
             func_info.metadata["is_class_method"] = "true";
             state.functions.push_back(func_info);
-            // std::cerr << "[DEBUG] Found class method: " << func_info.name << " at line " << func_info.start_line << std::endl;
+            
+            // std::cerr << "[AST] Found class method: " << method_name << " at line " << state.current_line << std::endl;
         }
     }
 };
@@ -591,7 +899,13 @@ public:
             
             // デバッグ: パース結果を強制確認
             if (success) {
-                // 解析結果をAnalysisResultに移動
+                // 🌳 AST革命: AST情報は内部に保存（TODO: セッション作成時に取得）
+                // 将来的にsession_manager.cppから取得できるように保存
+                // if (state.ast_root) {
+                //     // AST情報をクラスメンバーに保存して後で取得可能にする
+                // }
+                
+                // 従来の平面データ構造を移動（後方互換性）
                 result.classes = std::move(state.classes);
                 result.functions = std::move(state.functions);
                 result.imports = std::move(state.imports);
@@ -623,7 +937,7 @@ public:
             apply_line_based_analysis(result, content, filename);
         }
         
-        // 統計更新
+        // 🌳 AST統計更新と従来統計の統合
         result.update_statistics();
         
         return result;

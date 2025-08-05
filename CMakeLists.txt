@@ -32,6 +32,13 @@ if(NEKOCODE_ENABLE_UNIVERSAL_AST)
     message(STATUS "🌟 Universal AST Revolution enabled - 6言語統一システム起動!")
 endif()
 
+# 🧠 Memory System オプション（時間軸Memory革命）
+option(NEKOCODE_ENABLE_MEMORY_SYSTEM "Enable Memory System for analysis result persistence" ON)
+if(NEKOCODE_ENABLE_MEMORY_SYSTEM)
+    add_compile_definitions(NEKOCODE_USE_MEMORY_SYSTEM=1)
+    message(STATUS "🧠 Memory System enabled - 時間軸Memory革命起動!")
+endif()
+
 # コンパイラー警告設定
 if(MSVC)
     add_compile_options(/W4)
@@ -144,6 +151,10 @@ set(NEKOCODE_SOURCES
     # コマンド
     ${SRC_DIR}/commands/find_command.cpp
     
+    # 🧠 Memory System - 時間軸Memory革命（条件付きコンパイル）
+    $<$<BOOL:${NEKOCODE_ENABLE_MEMORY_SYSTEM}>:${SRC_DIR}/memory/memory_system.cpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_MEMORY_SYSTEM}>:${SRC_DIR}/commands/memory_command.cpp>
+    
     # レガシー（必要に応じて削除予定）
     ${SRC_DIR}/legacy/tree_sitter_analyzer.cpp
     ${SRC_DIR}/legacy/pegtl_analyzer.cpp
@@ -197,6 +208,10 @@ set(NEKOCODE_HEADERS
     ${INCLUDE_DIR}/nekocode/analyzers/unity_components.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/go_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/rust_analyzer.hpp
+    
+    # 🧠 Memory System Headers（条件付き）
+    $<$<BOOL:${NEKOCODE_ENABLE_MEMORY_SYSTEM}>:${SRC_DIR}/memory/memory_system.hpp>
+    $<$<BOOL:${NEKOCODE_ENABLE_MEMORY_SYSTEM}>:${INCLUDE_DIR}/nekocode/memory_command.hpp>
     
     # 🌟 Universal AST Revolution ヘッダー（条件付き）
     $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/universal/universal_tree_builder.hpp>

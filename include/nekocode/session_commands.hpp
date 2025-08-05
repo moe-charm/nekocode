@@ -109,6 +109,22 @@ public:
                                     bool debug = false) const;
 
     //=========================================================================
+    // 🌳 AST革命: 新セッションコマンド群
+    //=========================================================================
+    
+    /// AST Query: 指定パスのノードを検索
+    nlohmann::json cmd_ast_query(const SessionData& session, const std::string& query_path) const;
+    
+    /// スコープ解析: 指定行のスコープ情報を取得
+    nlohmann::json cmd_scope_analysis(const SessionData& session, uint32_t line_number) const;
+    
+    /// AST Dump: AST構造を指定フォーマットで出力
+    nlohmann::json cmd_ast_dump(const SessionData& session, const std::string& format = "tree") const;
+    
+    /// AST統計: AST基盤の詳細統計情報
+    nlohmann::json cmd_ast_stats(const SessionData& session) const;
+
+    //=========================================================================
     // 🔍 ヘルプ
     //=========================================================================
     

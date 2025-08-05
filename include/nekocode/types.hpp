@@ -317,6 +317,304 @@ struct AnalysisResult {
 };
 
 //=============================================================================
+// 🌳 AST Revolution - リアルタイムAST構築システム
+//=============================================================================
+
+/// AST ノードタイプ
+enum class ASTNodeType {
+    // 基本構造
+    FILE_ROOT,              // ファイルルート
+    NAMESPACE,              // namespace
+    
+    // クラス・構造体
+    CLASS,                  // class
+    STRUCT,                 // struct
+    INTERFACE,              // interface
+    ENUM,                   // enum
+    
+    // 関数・メソッド
+    FUNCTION,               // function
+    METHOD,                 // method
+    CONSTRUCTOR,            // constructor
+    DESTRUCTOR,             // destructor
+    GETTER,                 // getter
+    SETTER,                 // setter
+    
+    // 変数・プロパティ
+    VARIABLE,               // variable declaration
+    PARAMETER,              // function parameter
+    PROPERTY,               // class property
+    FIELD,                  // struct field
+    
+    // 制御構造
+    IF_STATEMENT,           // if
+    ELSE_STATEMENT,         // else
+    FOR_LOOP,               // for
+    WHILE_LOOP,             // while
+    DO_WHILE_LOOP,          // do-while
+    SWITCH_STATEMENT,       // switch
+    CASE_STATEMENT,         // case
+    TRY_BLOCK,              // try
+    CATCH_BLOCK,            // catch
+    FINALLY_BLOCK,          // finally
+    
+    // 式・演算
+    EXPRESSION,             // expression
+    BINARY_OPERATION,       // binary operation (a + b)
+    UNARY_OPERATION,        // unary operation (!a)
+    FUNCTION_CALL,          // function call
+    METHOD_CALL,            // method call
+    
+    // その他
+    COMMENT,                // comment
+    IMPORT,                 // import/include
+    EXPORT,                 // export
+    BLOCK,                  // { } block
+    UNKNOWN                 // unknown/other
+};
+
+/// AST ノード - 木構造でコード構造を表現
+struct ASTNode {
+    // 基本情報
+    ASTNodeType type = ASTNodeType::UNKNOWN;
+    std::string name;                    // ノード名（関数名、クラス名等）
+    std::string full_name;               // フルネーム（ネームスペース含む）
+    
+    // 位置情報
+    LineNumber start_line = 0;           // 開始行
+    LineNumber end_line = 0;             // 終了行
+    std::uint32_t start_column = 0;      // 開始列
+    std::uint32_t end_column = 0;        // 終了列
+    
+    // 階層情報
+    std::uint32_t depth = 0;             // ネストレベル（0=トップレベル）
+    std::string scope_path;              // スコープパス（例: "MyClass::MyMethod"）
+    
+    // 木構造
+    std::vector<std::unique_ptr<ASTNode>> children;  // 子ノード
+    ASTNode* parent = nullptr;           // 親ノード（rawポインタ）
+    
+    // 追加メタデータ
+    std::unordered_map<std::string, std::string> attributes;  // type="int", access="private"等
+    std::string source_text;             // 元のソースコード（オプション）
+    
+    // コンストラクタ
+    ASTNode() = default;
+    ASTNode(ASTNodeType node_type, const std::string& node_name) 
+        : type(node_type), name(node_name) {}
+    
+    // 子ノード追加
+    ASTNode* add_child(std::unique_ptr<ASTNode> child) {
+        child->parent = this;
+        child->depth = this->depth + 1;
+        child->scope_path = build_scope_path(child->name);
+        ASTNode* raw_ptr = child.get();
+        children.push_back(std::move(child));
+        return raw_ptr;
+    }
+    
+    // スコープパス構築
+    std::string build_scope_path(const std::string& child_name) const {
+        if (scope_path.empty()) {
+            return child_name;
+        }
+        return scope_path + "::" + child_name;
+    }
+    
+    // 指定タイプの子ノード検索
+    std::vector<ASTNode*> find_children_by_type(ASTNodeType target_type) const {
+        std::vector<ASTNode*> result;
+        for (const auto& child : children) {
+            if (child->type == target_type) {
+                result.push_back(child.get());
+            }
+        }
+        return result;
+    }
+    
+    // 深度優先探索で全子孫ノード検索
+    std::vector<ASTNode*> find_descendants_by_type(ASTNodeType target_type) const {
+        std::vector<ASTNode*> result;
+        find_descendants_recursive(target_type, result);
+        return result;
+    }
+    
+    // ノードタイプを文字列に変換
+    std::string type_to_string() const {
+        switch (type) {
+            case ASTNodeType::FILE_ROOT: return "file_root";
+            case ASTNodeType::CLASS: return "class";
+            case ASTNodeType::FUNCTION: return "function";
+            case ASTNodeType::METHOD: return "method";
+            case ASTNodeType::VARIABLE: return "variable";
+            case ASTNodeType::IF_STATEMENT: return "if_statement";
+            case ASTNodeType::FOR_LOOP: return "for_loop";
+            case ASTNodeType::WHILE_LOOP: return "while_loop";
+            case ASTNodeType::SWITCH_STATEMENT: return "switch_statement";
+            case ASTNodeType::TRY_BLOCK: return "try_block";
+            case ASTNodeType::FUNCTION_CALL: return "function_call";
+            case ASTNodeType::EXPRESSION: return "expression";
+            case ASTNodeType::COMMENT: return "comment";
+            case ASTNodeType::IMPORT: return "import";
+            case ASTNodeType::EXPORT: return "export";
+            case ASTNodeType::BLOCK: return "block";
+            default: return "unknown";
+        }
+    }
+    
+private:
+    void find_descendants_recursive(ASTNodeType target_type, std::vector<ASTNode*>& result) const {
+        for (const auto& child : children) {
+            if (child->type == target_type) {
+                result.push_back(child.get());
+            }
+            child->find_descendants_recursive(target_type, result);
+        }
+    }
+};
+
+/// AST構築時のスタック管理用
+using DepthStack = std::map<std::uint32_t, ASTNode*>;
+
+/// AST統計情報
+struct ASTStatistics {
+    std::uint32_t total_nodes = 0;
+    std::uint32_t max_depth = 0;
+    std::unordered_map<ASTNodeType, std::uint32_t> node_type_counts;
+    std::uint32_t classes = 0;
+    std::uint32_t functions = 0;
+    std::uint32_t methods = 0;
+    std::uint32_t variables = 0;
+    std::uint32_t control_structures = 0;  // if, for, while, switch等
+    
+    void update_from_root(const ASTNode* root) {
+        if (!root) return;
+        
+        total_nodes = 0;
+        max_depth = 0;
+        node_type_counts.clear();
+        classes = functions = methods = variables = control_structures = 0;
+        
+        collect_statistics_recursive(root);
+    }
+    
+private:
+    void collect_statistics_recursive(const ASTNode* node) {
+        if (!node) return;
+        
+        total_nodes++;
+        max_depth = std::max(max_depth, node->depth);
+        node_type_counts[node->type]++;
+        
+        // カテゴリ別カウント
+        switch (node->type) {
+            case ASTNodeType::CLASS:
+            case ASTNodeType::STRUCT:
+            case ASTNodeType::INTERFACE:
+                classes++;
+                break;
+            case ASTNodeType::FUNCTION:
+                functions++;
+                break;
+            case ASTNodeType::METHOD:
+            case ASTNodeType::CONSTRUCTOR:
+            case ASTNodeType::DESTRUCTOR:
+                methods++;
+                break;
+            case ASTNodeType::VARIABLE:
+            case ASTNodeType::PARAMETER:
+            case ASTNodeType::PROPERTY:
+            case ASTNodeType::FIELD:
+                variables++;
+                break;
+            case ASTNodeType::IF_STATEMENT:
+            case ASTNodeType::FOR_LOOP:
+            case ASTNodeType::WHILE_LOOP:
+            case ASTNodeType::SWITCH_STATEMENT:
+            case ASTNodeType::TRY_BLOCK:
+                control_structures++;
+                break;
+            default:
+                break;
+        }
+        
+        // 子ノードを再帰処理
+        for (const auto& child : node->children) {
+            collect_statistics_recursive(child.get());
+        }
+    }
+};
+
+/// 拡張AnalysisResult - AST情報を含む
+struct EnhancedAnalysisResult : public AnalysisResult {
+    // 🌳 AST情報
+    std::unique_ptr<ASTNode> ast_root;       // AST ルートノード
+    ASTStatistics ast_stats;                 // AST統計
+    bool has_ast = false;                    // AST構築済みフラグ
+    
+    // AST情報を統計に反映
+    void update_statistics_with_ast() {
+        update_statistics();  // 基底クラスの統計更新
+        
+        if (ast_root) {
+            ast_stats.update_from_root(ast_root.get());
+            has_ast = true;
+            
+            // 既存統計をAST統計で更新（より正確）
+            stats.class_count = ast_stats.classes;
+            stats.function_count = ast_stats.functions + ast_stats.methods;
+        }
+    }
+    
+    // AST Query: 指定パスのノードを検索
+    std::vector<ASTNode*> query_nodes(const std::string& query_path) const {
+        if (!ast_root) return {};
+        
+        // 簡単なパスクエリ実装（例: "MyClass::MyMethod"）
+        std::vector<ASTNode*> result;
+        query_nodes_recursive(ast_root.get(), query_path, result);
+        return result;
+    }
+    
+    // スコープ解析: 指定行のスコープ情報を取得
+    std::string get_scope_at_line(LineNumber line) const {
+        if (!ast_root) return "";
+        
+        ASTNode* deepest_node = find_deepest_node_at_line(ast_root.get(), line);
+        return deepest_node ? deepest_node->scope_path : "";
+    }
+    
+private:
+    void query_nodes_recursive(ASTNode* node, const std::string& query_path, std::vector<ASTNode*>& result) const {
+        if (!node) return;
+        
+        // パス完全一致またはパス末尾一致
+        if (node->scope_path == query_path || 
+            (query_path.find("::") == std::string::npos && node->name == query_path)) {
+            result.push_back(node);
+        }
+        
+        for (const auto& child : node->children) {
+            query_nodes_recursive(child.get(), query_path, result);
+        }
+    }
+    
+    ASTNode* find_deepest_node_at_line(ASTNode* node, LineNumber line) const {
+        if (!node || line < node->start_line || line > node->end_line) {
+            return nullptr;
+        }
+        
+        // 最も深い（具体的な）ノードを探す
+        for (const auto& child : node->children) {
+            ASTNode* deeper = find_deepest_node_at_line(child.get(), line);
+            if (deeper) return deeper;
+        }
+        
+        return node;  // 子ノードに該当なし→このノードが最深
+    }
+};
+
+//=============================================================================
 // 📁 Directory Analysis - ディレクトリ解析結果
 //=============================================================================
 

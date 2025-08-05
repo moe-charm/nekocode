@@ -77,6 +77,14 @@ Should I help you clean these up?"
 ./nekocode_ai session-create <cpp_project>/
 ./nekocode_ai session-command <session_id> include-cycles
 ./nekocode_ai session-command <session_id> include-unused
+
+# 🧠 Memory System - 時間軸Memory革命 (NEW!)
+./nekocode_ai memory save auto project_analysis_jan15     # Save analysis result
+./nekocode_ai memory save memo refactor_plan "Important notes"  # Save manual memo
+./nekocode_ai memory list auto                            # List saved analyses
+./nekocode_ai memory search complexity                    # Search memories
+./nekocode_ai memory timeline auto 7                     # Show 7-day timeline
+./nekocode_ai memory stats                               # Memory statistics
 ```
 
 **That's literally it!** Claude Code will:
@@ -85,6 +93,7 @@ Should I help you clean these up?"
 - ✅ **Detailed results** with line numbers and complexity scores
 - ✅ **Scientific refactoring insights** based on enterprise patterns
 - ✅ **Multi-language support** - C++, JavaScript, TypeScript, Python, C# automatically
+- 🧠 **Memory System** - Save/load analysis results with time-based management (NEW!)
 
 **No manual setup, no configuration files, no learning curve!** 🚀
 
@@ -149,6 +158,11 @@ await mcp__nekocode__list_languages()                   # Check supported langua
 ## 🌟 Key Features
 
 - **🚀 Ultra-Fast Performance**: 10-100x faster than Python implementations
+- **🌳 AST Revolution**: Real-time Abstract Syntax Tree construction during parsing - Zero additional cost! (**BREAKING NEW!**)
+  - Real-time AST queries (`ast-query MyClass::myMethod`)
+  - Scope analysis at any line (`scope-analysis 42`)
+  - Interactive AST visualization (`ast-dump tree|json`)
+  - Advanced AST-based statistics (`ast-stats`)
 - **💬 Comment Extraction & Analysis**: Auto-detect commented-out code with AI-powered classification (**NEW v2.1!**)
 - **⚡ Storage-Optimized Analysis**: `--ssd` (4-16x faster) and `--hdd` (safe) modes (**NEW!**)
 - **📊 Progress Monitoring**: Real-time progress for large projects (30K+ files) (**NEW!**)
