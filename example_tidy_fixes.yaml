@@ -1,0 +1,39 @@
+# Clang-Tidy --export-fixes の出力例
+---
+MainSourceFile:  'clang_tidy_test.cpp'
+Replacements:
+  - FilePath:        'clang_tidy_test.cpp'
+    Offset:          123
+    Length:          4
+    ReplacementText: 'nullptr'
+    DiagnosticName:  'modernize-use-nullptr'
+    DiagnosticMessage: 'use nullptr'
+    
+  - FilePath:        'clang_tidy_test.cpp'
+    Offset:          156
+    Length:          1
+    ReplacementText: 'nullptr'
+    DiagnosticName:  'modernize-use-nullptr'
+    DiagnosticMessage: 'use nullptr'
+    
+  - FilePath:        'clang_tidy_test.cpp'
+    Offset:          234
+    Length:          29
+    ReplacementText: 'auto'
+    DiagnosticName:  'modernize-use-auto'
+    DiagnosticMessage: 'use auto when initializing with new'
+    
+  - FilePath:        'clang_tidy_test.cpp'
+    Offset:          567
+    Length:          15
+    ReplacementText: 'vec.empty()'
+    DiagnosticName:  'readability-container-size-empty'
+    DiagnosticMessage: 'the 'empty' method should be used'
+    
+  - FilePath:        'clang_tidy_test.cpp'
+    Offset:          890
+    Length:          8
+    ReplacementText: ''
+    DiagnosticName:  'readability-redundant-string-cstr'
+    DiagnosticMessage: 'redundant call to c_str()'
+...
