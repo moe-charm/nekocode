@@ -78,48 +78,126 @@ class UniversalDeadCodeAnalyzer:
             }
     
     def _analyze_cpp_deadcode(self, filepath):
-        """C++ LTO解析"""
-        # ツール確認
+        """C++ デッドコード解析 - 単体ファイルとフォルダで戦略を切り替え"""
+        path = Path(filepath)
+        
+        # フォルダかファイルかで判別
+        if path.is_dir():
+            # フォルダの場合はLTO解析
+            return self._analyze_cpp_lto(path)
+        else:
+            # 単体ファイルの場合はclang-tidy
+            return self._analyze_cpp_clang_tidy(filepath)
+    
+    def _analyze_cpp_clang_tidy(self, filepath):
+        """C++ 単体ファイル解析 - clang-tidyとコンパイラ警告の併用"""
+        # まずclang-tidyを試す
+        if shutil.which("clang-tidy"):
+            print("  🔧 Running clang-tidy analysis...")
+            try:
+                cmd = [
+                    "clang-tidy",
+                    "-checks=-*,misc-unused-*,readability-redundant-*,bugprone-*",
+                    filepath,
+                    "--",
+                    "-std=c++17"
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True)
+                unused_items = []
+                
+                # 結果をパース
+                for line in result.stdout.split('\n'):
+                    if "warning:" in line and ("unused" in line or "redundant" in line):
+                        parts = line.split(":", 4)
+                        if len(parts) >= 5:
+                            location = f"{parts[0]}:{parts[1]}"
+                            message = parts[4].strip()
+                            unused_items.append(f"{message} [{location}]")
+                
+                if unused_items:
+                    return {
+                        "status": "success",
+                        "tool": "clang-tidy",
+                        "unused_items": unused_items,
+                        "total_found": len(unused_items)
+                    }
+            except:
+                pass
+        
+        # clang-tidyで結果が得られない場合、コンパイラ警告を使用
+        if shutil.which("clang++"):
+            print("  🔧 Using compiler warnings for analysis...")
+            try:
+                # staticな関数の未使用を検出
+                cmd = [
+                    "clang++",
+                    "-std=c++17",
+                    "-Wunused-function",
+                    "-Wunused-variable",
+                    "-Wunused-member-function",
+                    "-c",
+                    filepath,
+                    "-o", "/dev/null"
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, cwd=Path(filepath).parent)
+                unused_items = []
+                
+                # 警告をパース
+                for line in result.stderr.split('\n'):
+                    if "warning:" in line and "unused" in line:
+                        # test_dead_code.cpp:12:6: warning: unused function 'unused_function'
+                        import re
+                        match = re.search(r'([^:]+):(\d+):\d+: warning: (.+)', line)
+                        if match:
+                            filename = Path(match.group(1)).name
+                            line_num = match.group(2)
+                            message = match.group(3)
+                            unused_items.append(f"{message} [{filename}:{line_num}]")
+                
+                return {
+                    "status": "success",
+                    "tool": "clang++ compiler",
+                    "unused_items": unused_items,
+                    "total_found": len(unused_items)
+                }
+            except Exception as e:
+                return {
+                    "status": "error",
+                    "message": f"Compiler analysis failed: {e}",
+                    "tool": "clang++"
+                }
+        
+        # どちらのツールも利用できない場合
+        return {
+            "status": "tool_missing",
+            "message": "⚠️ C++解析ツールがインストールされていません。\n" +
+                     "以下のいずれかをインストールしてください:\n" +
+                     "- clang-tidy: sudo apt install clang-tidy\n" +
+                     "- clang++: sudo apt install clang",
+            "tool": "clang-tidy/clang++"
+        }
+    
+    def _analyze_cpp_lto(self, project_dir):
+        """C++ プロジェクト全体解析 - LTO使用"""
         if not shutil.which("g++"):
             return {
                 "status": "tool_missing",
-                "message": "Install g++ for C++ dead code analysis: sudo apt install gcc g++",
+                "message": "⚠️ g++がインストールされていません。\n" +
+                         "インストール方法: sudo apt install gcc g++\n" +
+                         "LTO解析にはGCC/G++が必要です",
                 "tool": "LTO (g++)"
             }
         
-        print("  🔧 Running LTO analysis...")
-        # 実際のLTO処理（既存のnekocode_lto_analyzer.pyから）
-        cmd = [
-            "g++", "-flto", "-ffunction-sections", "-fdata-sections",
-            filepath, "-o", "temp_analysis", "-Wl,--gc-sections", "-Wl,--print-gc-sections"
-        ]
-        
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            # LTO結果解析
-            unused_functions = []
-            for line in result.stderr.split('\n'):
-                if "removing unused section" in line and ".text." in line:
-                    # 関数名抽出
-                    import re
-                    match = re.search(r"'\\.text\\.([^']+)'", line)
-                    if match:
-                        unused_functions.append(match.group(1))
-            
-            return {
-                "status": "success", 
-                "tool": "LTO",
-                "unused_items": [f"unused function '{func}'" for func in unused_functions],
-                "total_found": len(unused_functions)
-            }
-        except Exception as e:
-            return {
-                "status": "error", 
-                "message": f"LTO analysis failed: {e}",
-                "tool": "LTO (g++)"
-            }
-        finally:
-            Path("temp_analysis").unlink(missing_ok=True)
+        print("  🔧 Running LTO analysis for project...")
+        # TODO: プロジェクト全体のLTO解析実装
+        # 現在は単純化のため基本的な結果を返す
+        return {
+            "status": "not_implemented",
+            "message": "Project-wide LTO analysis is under development",
+            "tool": "LTO"
+        }
     
     def _analyze_python_deadcode(self, filepath):
         """Python Vulture解析"""
