@@ -18,17 +18,19 @@ print(f"""
 🐱 NekoCode MCP セットアップ
 ==============================
 
-⚠️ 重要: 以下のコマンドは【プロジェクトのルートディレクトリ】で実行してください！
-        （Claude Codeがプロジェクトを認識するため）
+⚠️ 重要: 以下のコマンドは【あなたが解析したいプロジェクトのルート】で実行してください！
+        （Claude CodeがそのプロジェクトをNekoCodeで解析するため）
 
-1. 現在の場所からプロジェクトルートに移動:
+1. あなたのプロジェクトに移動:
+   cd ~/your-awesome-project   # ← あなたが開発中のプロジェクト
    
-   現在: {os.getcwd()}
-   移動先: {project_root}
+   例: cd ~/my-react-app
+       cd ~/rust-project  
+       cd ~/python-app
    
-   コマンド: cd {os.path.relpath(project_root, os.getcwd())}
+   ※NekoCodeのディレクトリではありません！
 
-2. そこで以下のコマンドを実行:
+2. そのプロジェクトのルートで以下を実行:
 
 claude mcp add nekocode \\
   -e NEKOCODE_BINARY_PATH={nekocode_abs} \\
@@ -51,4 +53,13 @@ claude mcp add nekocode \\
 }}
 
 設定後、Claude Codeを再起動してください！
+
+========================================
+📝 まとめ:
+1. NekoCodeをインストール済み ✓
+2. あなたのプロジェクトフォルダに移動
+3. そこでclaude mcp addを実行
+4. Claude Code再起動
+5. そのプロジェクトでNekoCodeが使える！
+========================================
 """)

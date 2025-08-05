@@ -27,6 +27,21 @@ echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}' | pytho
 ```
 
 ### ステップ3: Claude Code設定
+
+#### 方法A: claude mcp addコマンド（推奨）
+**重要**: あなたが解析したいプロジェクトのルートで実行してください！
+
+```bash
+# あなたのプロジェクトに移動
+cd ~/your-awesome-project  # ← あなたが開発中のプロジェクト
+
+# そこでNekoCodeを追加
+claude mcp add nekocode \
+  -e NEKOCODE_BINARY_PATH=/絶対パス/nekocode-cpp-github/bin/nekocode_ai \
+  -- python3 /絶対パス/nekocode-cpp-github/mcp-nekocode-server/mcp_server_real.py
+```
+
+#### 方法B: 手動設定
 **Linux**: `~/.config/claude-desktop/config.json`  
 **Mac**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
