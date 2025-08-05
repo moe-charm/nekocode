@@ -17,7 +17,13 @@ print(f"""
 🐱 NekoCode MCP セットアップ
 ==============================
 
-以下のコマンドを実行してください：
+⚠️ 重要: 以下のコマンドは【プロジェクトのルートディレクトリ】で実行してください！
+        （Claude Codeがプロジェクトを認識するため）
+
+1. まずプロジェクトルートに移動:
+   cd {os.path.dirname(current_dir)}
+
+2. そこで以下のコマンドを実行:
 
 claude mcp add nekocode \\
   -e NEKOCODE_BINARY_PATH={nekocode_abs} \\
