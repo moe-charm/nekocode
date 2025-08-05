@@ -15,6 +15,7 @@
 #include <fstream>
 #include <set>
 #include <filesystem>
+#include <regex>
 
 namespace nekocode {
 
@@ -143,6 +144,7 @@ nlohmann::json SessionCommands::cmd_help() const {
                 "duplicates - Find duplicate files", 
                 "todo - Find TODO/FIXME comments",
                 "dependency-analyze [file] - Analyze dependencies",
+                "replace <file> <pattern> <replacement> - Simple regex replacement",
                 "help - Show this help"
             }},
             {"ast_revolution", {
@@ -1195,6 +1197,142 @@ nlohmann::json SessionCommands::cmd_calls_detailed(const SessionData& session, c
     };
 }
 
+// Helper function to parse class::method from content
+static std::pair<std::string, std::string> parse_symbol_name(const std::string& content) {
+    // Look for patterns like "ClassName::methodName" or "::methodName"
+    size_t pos = content.find("::");
+    if (pos != std::string::npos) {
+        // Find the start of the class name (backwards from ::)
+        size_t class_start = pos;
+        while (class_start > 0 && (std::isalnum(content[class_start - 1]) || content[class_start - 1] == '_')) {
+            class_start--;
+        }
+        
+        // Find the end of the method name (forwards from ::)
+        size_t method_start = pos + 2;
+        size_t method_end = method_start;
+        while (method_end < content.length() && (std::isalnum(content[method_end]) || content[method_end] == '_')) {
+            method_end++;
+        }
+        
+        std::string class_name = content.substr(class_start, pos - class_start);
+        std::string method_name = content.substr(method_start, method_end - method_start);
+        return {class_name, method_name};
+    }
+    
+    // No class::method pattern, try to extract just the method name
+    // Look for patterns like "analyze_something" or "analyze"
+    size_t start = 0;
+    while (start < content.length() && !std::isalpha(content[start])) {
+        start++;
+    }
+    size_t end = start;
+    while (end < content.length() && (std::isalnum(content[end]) || content[end] == '_')) {
+        end++;
+    }
+    
+    if (start < end) {
+        return {"", content.substr(start, end - start)};
+    }
+    
+    return {"", ""};
+}
+
+// Helper function to detect language from method name pattern
+static std::string detect_language_from_pattern(const std::string& method_name) {
+    for (const auto& [pattern, lang] : LANGUAGE_PATTERNS) {
+        if (method_name.find(pattern) != std::string::npos) {
+            return lang;
+        }
+    }
+    return "Unknown";
+}
+
+// Helper function to check if method is universal
+static bool is_universal_method(const std::string& method_name) {
+    // Check exact match
+    if (UNIVERSAL_METHODS.count(method_name) > 0) {
+        return true;
+    }
+    
+    // Check if it starts with a universal method name
+    for (const auto& universal : UNIVERSAL_METHODS) {
+        if (method_name.find(universal) == 0) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// Create hierarchical structure from flat results
+static nlohmann::json create_hierarchical_structure(const nlohmann::json& matches) {
+    nlohmann::json universal = nlohmann::json::object();
+    nlohmann::json language_specific = nlohmann::json::object();
+    
+    universal["classes"] = nlohmann::json::object();
+    universal["functions"] = nlohmann::json::object();
+    
+    for (const auto& match : matches) {
+        std::string content = match["content"];
+        std::string file = match["file"];
+        int line = match["line"];
+        std::string symbol_type = match["symbol_type"];
+        
+        auto [class_name, method_name] = parse_symbol_name(content);
+        
+        // Skip empty results
+        if (method_name.empty()) continue;
+        
+        if (is_universal_method(method_name)) {
+            // Add to universal section
+            if (!class_name.empty()) {
+                universal["classes"][class_name][method_name] = {
+                    {"line", line},
+                    {"file", file},
+                    {"type", symbol_type}
+                };
+            } else {
+                universal["functions"][method_name] = {
+                    {"line", line},
+                    {"file", file},
+                    {"type", symbol_type}
+                };
+            }
+        } else {
+            // Add to language-specific section
+            std::string lang = detect_language_from_pattern(method_name);
+            
+            // Get category if available
+            std::string category = "other";
+            for (const auto& [pattern, cat] : FEATURE_CATEGORIES) {
+                if (method_name.find(pattern) != std::string::npos) {
+                    category = cat;
+                    break;
+                }
+            }
+            
+            if (!class_name.empty()) {
+                language_specific[lang][category][class_name][method_name] = {
+                    {"line", line},
+                    {"file", file}
+                };
+            } else {
+                language_specific[lang][category][method_name] = {
+                    {"line", line},
+                    {"file", file}
+                };
+            }
+        }
+    }
+    
+    return {
+        {"classes", universal["classes"]},
+        {"functions", universal["functions"]},
+        {"language_specific", language_specific}
+    };
+}
+
 nlohmann::json SessionCommands::cmd_find_symbols(const SessionData& session, 
                                 const std::string& symbol,
                                 const std::vector<std::string>& options,
@@ -1274,6 +1412,12 @@ nlohmann::json SessionCommands::cmd_find_symbols(const SessionData& session,
         matches.push_back(match);
     }
     json_results["matches"] = matches;
+    
+    // Add hierarchical structure (new feature!)
+    auto hierarchical = create_hierarchical_structure(matches);
+    json_results["classes"] = hierarchical["classes"];
+    json_results["functions"] = hierarchical["functions"];  
+    json_results["language_specific"] = hierarchical["language_specific"];
     
     // サマリー
     json_results["summary"] = "Found " + std::to_string(results.total_count) + " matches for '" + symbol + "'";
@@ -1799,6 +1943,554 @@ nlohmann::json SessionCommands::cmd_ast_stats(const SessionData& session) const 
     }
     
     result["summary"] = "AST-based statistics (currently showing basic fallback statistics)";
+    
+    return result;
+}
+
+//=============================================================================
+// 🐱 NekoCode独自編集機能実装
+//=============================================================================
+
+nlohmann::json SessionCommands::cmd_replace(const SessionData& session,
+                                           const std::string& file_path,
+                                           const std::string& pattern,
+                                           const std::string& replacement) const {
+    
+    nlohmann::json result = {
+        {"command", "replace"},
+        {"file_path", file_path},
+        {"pattern", pattern},
+        {"replacement", replacement}
+    };
+    
+    try {
+        // 1. ファイルパス解決 (SessionData活用)
+        std::filesystem::path target_path;
+        
+        if (std::filesystem::path(file_path).is_absolute()) {
+            target_path = file_path;
+        } else {
+            // SessionDataのプロジェクトルートからの相対パス
+            if (session.is_directory) {
+                target_path = session.target_path / file_path;
+            } else {
+                target_path = session.target_path.parent_path() / file_path;
+            }
+        }
+        
+        // 2. ファイル存在チェック
+        if (!std::filesystem::exists(target_path)) {
+            result["error"] = "ファイルが見つかりません: " + file_path;
+            return result;
+        }
+        
+        // 3. プロジェクト内ファイルかチェック (安全性)
+        std::filesystem::path project_root = session.is_directory ? 
+            session.target_path : session.target_path.parent_path();
+        
+        auto relative_check = std::filesystem::relative(target_path, project_root);
+        std::string rel_str = relative_check.string();
+        if (rel_str.length() >= 2 && rel_str.substr(0, 2) == "..") {
+            result["error"] = "プロジェクト外のファイルは編集できません";
+            return result;
+        }
+        
+        // 4. ファイル読み込み
+        std::ifstream file(target_path);
+        if (!file.is_open()) {
+            result["error"] = "ファイルを開けません: " + target_path.string();
+            return result;
+        }
+        
+        std::string content((std::istreambuf_iterator<char>(file)),
+                           std::istreambuf_iterator<char>());
+        file.close();
+        
+        // 5. 正規表現処理
+        std::regex regex_pattern;
+        try {
+            regex_pattern = std::regex(pattern);
+        } catch (const std::regex_error& e) {
+            result["error"] = "正規表現エラー: " + std::string(e.what());
+            return result;
+        }
+        
+        // 6. マッチ検索
+        std::smatch matches;
+        if (!std::regex_search(content, matches, regex_pattern)) {
+            result["warning"] = "パターンにマッチするものが見つかりませんでした";
+            result["matches_found"] = 0;
+            return result;
+        }
+        
+        // 7. 置換実行
+        std::string new_content = std::regex_replace(content, regex_pattern, replacement);
+        
+        // 8. 変更があるかチェック
+        if (content == new_content) {
+            result["warning"] = "変更がありませんでした";
+            return result;
+        }
+        
+        // 9. ファイル更新
+        std::ofstream output_file(target_path);
+        if (!output_file.is_open()) {
+            result["error"] = "ファイルに書き込めません: " + target_path.string();
+            return result;
+        }
+        
+        output_file << new_content;
+        output_file.close();
+        
+        // 10. 成功レポート
+        result["success"] = true;
+        result["file_updated"] = target_path.filename().string();
+        result["size_before"] = content.size();
+        result["size_after"] = new_content.size();
+        result["size_change"] = static_cast<int>(new_content.size()) - static_cast<int>(content.size());
+        
+        // マッチした内容を表示（最初の1つだけ）
+        result["matched_text"] = matches[0].str();
+        result["replaced_with"] = replacement;
+        
+        result["summary"] = "置換完了: " + target_path.filename().string();
+        
+    } catch (const std::exception& e) {
+        result["error"] = "置換処理でエラーが発生しました: " + std::string(e.what());
+    }
+    
+    return result;
+}
+
+//=============================================================================
+// 🔮 置換プレビュー機能
+//=============================================================================
+
+nlohmann::json SessionCommands::cmd_replace_preview(const SessionData& session,
+                                                    const std::string& file_path,
+                                                    const std::string& pattern,
+                                                    const std::string& replacement) const {
+    nlohmann::json result;
+    
+    try {
+        // ファイルパス解決（SessionData対応）
+        std::filesystem::path target_file;
+        if (std::filesystem::path(file_path).is_absolute()) {
+            target_file = file_path;
+        } else {
+            // セッションがファイルの場合は親ディレクトリ基準
+            if (!session.is_directory) {
+                target_file = session.target_path.parent_path() / file_path;
+            } else {
+                target_file = session.target_path / file_path;
+            }
+        }
+        
+        // プロジェクト境界チェック
+        std::filesystem::path base_path = session.is_directory ? 
+            session.target_path : session.target_path.parent_path();
+        auto relative_check = std::filesystem::relative(target_file, base_path);
+        std::string rel_str = relative_check.string();
+        if (rel_str.length() >= 2 && rel_str.substr(0, 2) == "..") {
+            result["error"] = "プロジェクト外のファイルは編集できません";
+            return result;
+        }
+        
+        // ファイル存在チェック
+        if (!std::filesystem::exists(target_file)) {
+            result["error"] = "ファイルが見つかりません: " + target_file.string();
+            return result;
+        }
+        
+        // ファイル読み込み
+        std::ifstream file(target_file);
+        if (!file.is_open()) {
+            result["error"] = "ファイルを開けません: " + target_file.string();
+            return result;
+        }
+        
+        std::string content((std::istreambuf_iterator<char>(file)),
+                           std::istreambuf_iterator<char>());
+        file.close();
+        
+        // 正規表現でマッチング
+        std::regex regex_pattern;
+        try {
+            regex_pattern = std::regex(pattern);
+        } catch (const std::regex_error& e) {
+            result["error"] = "無効な正規表現: " + std::string(e.what());
+            return result;
+        }
+        
+        // マッチ検索とサンプル収集
+        std::vector<nlohmann::json> sample_matches;
+        std::vector<nlohmann::json> all_matches;  // memoryに保存する全マッチ
+        int total_matches = 0;
+        int line_number = 1;
+        std::string line;
+        std::istringstream stream(content);
+        
+        while (std::getline(stream, line)) {
+            std::smatch match;
+            std::string temp_line = line;
+            size_t offset = 0;
+            
+            while (std::regex_search(temp_line, match, regex_pattern)) {
+                total_matches++;
+                
+                nlohmann::json match_info = {
+                    {"line", line_number},
+                    {"matched", match.str()}
+                };
+                
+                // 詳細情報（memoryに保存）
+                nlohmann::json detailed_match = match_info;
+                detailed_match["column"] = offset + match.position();
+                detailed_match["full_line"] = line;
+                detailed_match["replacement_preview"] = 
+                    line.substr(0, offset + match.position()) + 
+                    replacement + 
+                    line.substr(offset + match.position() + match.length());
+                
+                all_matches.push_back(detailed_match);
+                
+                // サンプル（最初の5個のみ）
+                if (sample_matches.size() < 5) {
+                    sample_matches.push_back(match_info);
+                }
+                
+                offset += match.position() + match.length();
+                temp_line = temp_line.substr(match.position() + match.length());
+            }
+            line_number++;
+        }
+        
+        if (total_matches == 0) {
+            result["error"] = "パターンにマッチする箇所が見つかりません";
+            return result;
+        }
+        
+        // プレビューID生成
+        auto now = std::chrono::system_clock::now();
+        auto time_t = std::chrono::system_clock::to_time_t(now);
+        std::stringstream ss;
+        ss << "preview_" << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S");
+        std::string preview_id = ss.str();
+        
+        // サイズ変更計算
+        int size_change = (replacement.length() - pattern.length()) * total_matches;
+        std::string size_change_str = (size_change >= 0 ? "+" : "") + std::to_string(size_change) + " bytes";
+        
+        // memoryディレクトリ作成
+        std::filesystem::path memory_dir = "memory/edit_previews";
+        std::filesystem::create_directories(memory_dir);
+        
+        // 詳細情報をmemoryに保存
+        std::stringstream time_str;
+        time_str << std::put_time(std::localtime(&time_t), "%Y-%m-%dT%H:%M:%SZ");
+        
+        nlohmann::json preview_details = {
+            {"preview_id", preview_id},
+            {"created_at", time_str.str()},
+            {"file_info", {
+                {"path", target_file.string()},
+                {"size", std::filesystem::file_size(target_file)}
+            }},
+            {"operation", {
+                {"pattern", pattern},
+                {"replacement", replacement}
+            }},
+            {"analysis", {
+                {"total_matches", total_matches},
+                {"size_change", size_change},
+                {"risk_level", "low"}  // 今後拡張
+            }},
+            {"matches", all_matches}
+        };
+        
+        // memoryに保存
+        std::filesystem::path preview_file = memory_dir / (preview_id + ".json");
+        std::ofstream memory_file(preview_file);
+        if (memory_file.is_open()) {
+            memory_file << preview_details.dump(2);
+            memory_file.close();
+        }
+        
+        // 軽量応答を返却
+        result = {
+            {"preview_id", preview_id},
+            {"file_path", target_file.string()},
+            {"pattern", pattern},
+            {"replacement", replacement},
+            {"summary", {
+                {"total_matches", total_matches},
+                {"size_change", size_change_str},
+                {"risk_level", "low"}
+            }},
+            {"sample_matches", sample_matches},
+            {"more_details", "詳細は edit-show " + preview_id + " で確認"}
+        };
+        
+    } catch (const std::exception& e) {
+        result["error"] = std::string("プレビュー生成エラー: ") + e.what();
+    }
+    
+    return result;
+}
+
+//=============================================================================
+// 🚀 置換実行確定
+//=============================================================================
+
+nlohmann::json SessionCommands::cmd_replace_confirm(const SessionData& session,
+                                                    const std::string& preview_id) const {
+    nlohmann::json result;
+    
+    try {
+        // プレビューファイル読み込み
+        std::filesystem::path preview_file = "memory/edit_previews/" + preview_id + ".json";
+        if (!std::filesystem::exists(preview_file)) {
+            result["error"] = "プレビューが見つかりません: " + preview_id;
+            return result;
+        }
+        
+        std::ifstream preview_stream(preview_file);
+        nlohmann::json preview_data;
+        preview_stream >> preview_data;
+        preview_stream.close();
+        
+        // ファイル情報取得
+        std::string file_path = preview_data["file_info"]["path"];
+        std::string pattern = preview_data["operation"]["pattern"];
+        std::string replacement = preview_data["operation"]["replacement"];
+        
+        // ファイル読み込み
+        std::ifstream file(file_path);
+        if (!file.is_open()) {
+            result["error"] = "ファイルを開けません: " + file_path;
+            return result;
+        }
+        
+        std::string content((std::istreambuf_iterator<char>(file)),
+                           std::istreambuf_iterator<char>());
+        file.close();
+        
+        // 履歴ID生成
+        auto now = std::chrono::system_clock::now();
+        auto time_t = std::chrono::system_clock::to_time_t(now);
+        std::stringstream ss;
+        ss << "edit_" << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S");
+        std::string edit_id = ss.str();
+        
+        // memoryに変更前ファイル保存
+        std::filesystem::path history_dir = "memory/edit_history";
+        std::filesystem::create_directories(history_dir);
+        
+        std::filesystem::path before_file = history_dir / (edit_id + "_before.txt");
+        std::ofstream before_stream(before_file);
+        before_stream << content;
+        before_stream.close();
+        
+        // 置換実行
+        std::regex regex_pattern(pattern);
+        std::string new_content = std::regex_replace(content, regex_pattern, replacement);
+        
+        // ファイル書き込み
+        std::ofstream out_file(file_path);
+        if (!out_file.is_open()) {
+            result["error"] = "ファイルに書き込めません: " + file_path;
+            return result;
+        }
+        out_file << new_content;
+        out_file.close();
+        
+        // memoryに変更後ファイル保存
+        std::filesystem::path after_file = history_dir / (edit_id + "_after.txt");
+        std::ofstream after_stream(after_file);
+        after_stream << new_content;
+        after_stream.close();
+        
+        // 履歴メタデータ保存
+        std::stringstream time_str;
+        time_str << std::put_time(std::localtime(&time_t), "%Y-%m-%dT%H:%M:%SZ");
+        
+        nlohmann::json history_data = {
+            {"edit_id", edit_id},
+            {"preview_id", preview_id},
+            {"timestamp", time_str.str()},
+            {"operation", "replace"},
+            {"file_info", {
+                {"path", file_path},
+                {"size_before", content.length()},
+                {"size_after", new_content.length()}
+            }},
+            {"change_details", {
+                {"pattern", pattern},
+                {"replacement", replacement},
+                {"matches_count", preview_data["analysis"]["total_matches"]}
+            }}
+        };
+        
+        std::filesystem::path history_meta = history_dir / (edit_id + ".json");
+        std::ofstream history_stream(history_meta);
+        history_stream << history_data.dump(2);
+        history_stream.close();
+        
+        // 100件制限チェック（古いものを削除）
+        auto entries = std::vector<std::filesystem::directory_entry>();
+        for (const auto& entry : std::filesystem::directory_iterator(history_dir)) {
+            if (entry.path().extension() == ".json") {
+                entries.push_back(entry);
+            }
+        }
+        
+        if (entries.size() > 100) {
+            // 古い順にソート
+            std::sort(entries.begin(), entries.end(), 
+                [](const auto& a, const auto& b) {
+                    return std::filesystem::last_write_time(a) < std::filesystem::last_write_time(b);
+                });
+            
+            // 古いものを削除（100件を超える分）
+            for (size_t i = 0; i < entries.size() - 100; i++) {
+                std::string base_name = entries[i].path().stem().string();
+                std::filesystem::remove(history_dir / (base_name + ".json"));
+                std::filesystem::remove(history_dir / (base_name + "_before.txt"));
+                std::filesystem::remove(history_dir / (base_name + "_after.txt"));
+                // diff.txtがあれば削除（将来の拡張用）
+                if (std::filesystem::exists(history_dir / (base_name + "_diff.txt"))) {
+                    std::filesystem::remove(history_dir / (base_name + "_diff.txt"));
+                }
+            }
+        }
+        
+        result = {
+            {"success", true},
+            {"edit_id", edit_id},
+            {"preview_id", preview_id},
+            {"file_path", file_path},
+            {"pattern", pattern},
+            {"replacement", replacement},
+            {"summary", "置換実行完了: " + file_path}
+        };
+        
+    } catch (const std::exception& e) {
+        result["error"] = std::string("置換実行エラー: ") + e.what();
+    }
+    
+    return result;
+}
+
+//=============================================================================
+// 📋 編集履歴一覧
+//=============================================================================
+
+nlohmann::json SessionCommands::cmd_edit_history(const SessionData& session) const {
+    nlohmann::json result;
+    
+    try {
+        std::filesystem::path history_dir = "memory/edit_history";
+        std::vector<nlohmann::json> history_list;
+        
+        if (std::filesystem::exists(history_dir)) {
+            // JSONファイルを収集
+            std::vector<std::filesystem::directory_entry> entries;
+            for (const auto& entry : std::filesystem::directory_iterator(history_dir)) {
+                if (entry.path().extension() == ".json") {
+                    entries.push_back(entry);
+                }
+            }
+            
+            // 新しい順にソート
+            std::sort(entries.begin(), entries.end(), 
+                [](const auto& a, const auto& b) {
+                    return std::filesystem::last_write_time(a) > std::filesystem::last_write_time(b);
+                });
+            
+            // 履歴読み込み（最新20件）
+            for (size_t i = 0; i < std::min(entries.size(), size_t(20)); i++) {
+                std::ifstream file(entries[i].path());
+                nlohmann::json history_data;
+                file >> history_data;
+                
+                // 簡易情報のみ
+                history_list.push_back({
+                    {"edit_id", history_data["edit_id"]},
+                    {"timestamp", history_data["timestamp"]},
+                    {"file", history_data["file_info"]["path"]},
+                    {"operation", history_data["operation"]},
+                    {"pattern", history_data["change_details"]["pattern"]}
+                });
+            }
+        }
+        
+        result = {
+            {"command", "edit-history"},
+            {"total_count", history_list.size()},
+            {"history", history_list},
+            {"summary", "最新20件の編集履歴"}
+        };
+        
+    } catch (const std::exception& e) {
+        result["error"] = std::string("履歴取得エラー: ") + e.what();
+    }
+    
+    return result;
+}
+
+//=============================================================================
+// 🔍 編集詳細表示
+//=============================================================================
+
+nlohmann::json SessionCommands::cmd_edit_show(const SessionData& session,
+                                             const std::string& id) const {
+    nlohmann::json result;
+    
+    try {
+        // preview_かedit_で判定
+        std::filesystem::path target_file;
+        if (id.substr(0, 8) == "preview_") {
+            target_file = "memory/edit_previews/" + id + ".json";
+        } else if (id.substr(0, 5) == "edit_") {
+            target_file = "memory/edit_history/" + id + ".json";
+        } else {
+            result["error"] = "無効なID形式: " + id;
+            return result;
+        }
+        
+        if (!std::filesystem::exists(target_file)) {
+            result["error"] = "指定されたIDが見つかりません: " + id;
+            return result;
+        }
+        
+        // JSON読み込み
+        std::ifstream file(target_file);
+        nlohmann::json data;
+        file >> data;
+        file.close();
+        
+        result = {
+            {"command", "edit-show"},
+            {"id", id},
+            {"details", data}
+        };
+        
+        // edit_の場合は差分も表示可能にする
+        if (id.substr(0, 5) == "edit_") {
+            std::filesystem::path before_path = "memory/edit_history/" + id + "_before.txt";
+            std::filesystem::path after_path = "memory/edit_history/" + id + "_after.txt";
+            
+            if (std::filesystem::exists(before_path) && std::filesystem::exists(after_path)) {
+                result["files_available"] = {
+                    {"before", before_path.string()},
+                    {"after", after_path.string()}
+                };
+            }
+        }
+        
+    } catch (const std::exception& e) {
+        result["error"] = std::string("詳細取得エラー: ") + e.what();
+    }
     
     return result;
 }
