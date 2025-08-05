@@ -4,6 +4,10 @@ cmake-build-*/
 out/
 .build/
 
+# Test and tool directories (local only)
+tests/
+tools/
+
 # Object files
 *.o
 *.obj
