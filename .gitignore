@@ -84,3 +84,35 @@ battle_summary_serena.md
 nekocode_vs_serena_battle_results.txt
 current_task.md
 /setup.py
+
+# Test files in root (should be in tests/ folder)
+/test_*.cpp
+/test_*.py
+/test_*.go
+/test_*.cs
+/test_*.js
+/test.cpp
+/test.js
+/large_test.js
+/complex_deadcode.cpp
+/deadcode_comparison.cpp
+
+# Debug and analysis tools in root (should be in tools/ folder)
+/debug_*.py
+/analyze_*.py
+/*_analyzer.py
+/*_visualizer.py
+/*_demo.py
+/yaml_merger.py
+/perfect_analyzer.py
+/universal_deadcode_analyzer.py
+/clang_tidy_example.cpp
+/example_tidy_fixes.yaml
+
+# BFG and other large tools
+*.jar
+bfg-*.jar
+
+# C# build artifacts
+obj/
+TestProject.csproj
