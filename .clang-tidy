@@ -1,0 +1,39 @@
+# NekoCode用 Clang-Tidy設定
+---
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  performance-*,
+  readability-*,
+  -readability-magic-numbers,
+  misc-unused-*,
+  misc-definitions-in-headers,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic
+
+WarningsAsErrors: ''
+
+# ヘッダーフィルター（解析対象）
+HeaderFilterRegex: '.*\.(h|hpp)$'
+
+# 自動修正時のフォーマット
+FormatStyle: 'file'
+
+# チェック固有の設定
+CheckOptions:
+  - key: modernize-use-nullptr.NullMacros
+    value: 'NULL'
+  - key: performance-move-const-arg.CheckTriviallyCopyableMove
+    value: '1'
+  - key: readability-identifier-naming.ClassCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.FunctionCase
+    value: 'camelCase'
+  - key: readability-identifier-naming.VariableCase
+    value: 'lower_case'
+  - key: readability-identifier-naming.MemberCase
+    value: 'lower_case_'

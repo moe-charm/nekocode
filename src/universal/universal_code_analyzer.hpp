@@ -243,12 +243,12 @@ protected:
     }
     
     ASTNodeType map_control_keyword_to_type(const std::string& keyword) const {
-        if (keyword == "if") return ASTNodeType::IF_STATEMENT;
-        if (keyword == "for" || keyword == "foreach") return ASTNodeType::FOR_LOOP;
-        if (keyword == "while") return ASTNodeType::WHILE_LOOP;
-        if (keyword == "switch") return ASTNodeType::SWITCH_STATEMENT;
-        if (keyword == "try") return ASTNodeType::TRY_BLOCK;
-        if (keyword == "catch" || keyword == "except") return ASTNodeType::CATCH_BLOCK;
+        if (keyword.compare("if") == 0) return ASTNodeType::IF_STATEMENT;
+        if (keyword.compare("for") == 0 || keyword.compare("foreach") == 0) return ASTNodeType::FOR_LOOP;
+        if (keyword.compare("while") == 0) return ASTNodeType::WHILE_LOOP;
+        if (keyword.compare("switch") == 0) return ASTNodeType::SWITCH_STATEMENT;
+        if (keyword.compare("try") == 0) return ASTNodeType::TRY_BLOCK;
+        if (keyword.compare("catch") == 0 || keyword.compare("except") == 0) return ASTNodeType::CATCH_BLOCK;
         return ASTNodeType::UNKNOWN;
     }
     

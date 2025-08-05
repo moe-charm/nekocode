@@ -1,0 +1,85 @@
+---
+MainSourceFile:  '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+Diagnostics:
+  - DiagnosticName:  modernize-use-nullptr
+    DiagnosticMessage:
+      Message:         use nullptr
+      FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+      FileOffset:      170
+      Replacements:
+        - FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+          Offset:          170
+          Length:          4
+          ReplacementText: nullptr
+    Level:           Warning
+    BuildDirectory:  '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test'
+  - DiagnosticName:  modernize-use-nullptr
+    DiagnosticMessage:
+      Message:         use nullptr
+      FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+      FileOffset:      210
+      Replacements:
+        - FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+          Offset:          210
+          Length:          1
+          ReplacementText: nullptr
+    Level:           Warning
+    BuildDirectory:  '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test'
+  - DiagnosticName:  modernize-use-auto
+    DiagnosticMessage:
+      Message:         use auto when declaring iterators
+      FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+      FileOffset:      293
+      Replacements:
+        - FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+          Offset:          293
+          Length:          26
+          ReplacementText: auto
+    Level:           Warning
+    BuildDirectory:  '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test'
+  - DiagnosticName:  modernize-loop-convert
+    DiagnosticMessage:
+      Message:         use range-based for loop instead
+      FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+      FileOffset:      975
+      Replacements:
+        - FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+          Offset:          979
+          Length:          86
+          ReplacementText: '(int & number : numbers)'
+        - FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+          Offset:          1089
+          Length:          3
+          ReplacementText: number
+    Level:           Warning
+    BuildDirectory:  '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test'
+  - DiagnosticName:  modernize-use-auto
+    DiagnosticMessage:
+      Message:         use auto when declaring iterators
+      FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+      FileOffset:      980
+      Replacements:    []
+    Notes:
+      - Message:         this fix will not be applied because it overlaps with another fix
+        FilePath:        ''
+        FileOffset:      0
+        Replacements:    []
+    Level:           Warning
+    BuildDirectory:  '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test'
+  - DiagnosticName:  modernize-use-trailing-return-type
+    DiagnosticMessage:
+      Message:         use a trailing return type for this function
+      FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+      FileOffset:      1595
+      Replacements:
+        - FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+          Offset:          1591
+          Length:          3
+          ReplacementText: auto
+        - FilePath:        '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test/clang_tidy_test.cpp'
+          Offset:          1601
+          Length:          0
+          ReplacementText: ' -> int'
+    Level:           Warning
+    BuildDirectory:  '/mnt/workdisk/public_share/nyacore-workspace/nekocode-cpp-github/experiments/clang_tidy_test'
+...

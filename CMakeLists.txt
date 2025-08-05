@@ -6,7 +6,6 @@ project(NekoCodeCpp VERSION 1.0.0 LANGUAGES C CXX)
 #
 # 実行ファイル２個大作戦：
 # - nekocode_ai: AI/Claude用JSON出力
-# - nekocode_human: Human用美しいテキスト出力
 #
 # Python版からの大幅性能向上:
 # - 10-100倍高速化
@@ -268,13 +267,6 @@ target_compile_definitions(nekocode_ai PRIVATE
 #=============================================================================
 # 👨‍💻 Human Tool - 美しい出力実行ファイル
 #=============================================================================
-
-add_executable(nekocode_human ${SRC_DIR}/main/main_human.cpp)
-target_link_libraries(nekocode_human nekocode_static)
-
-# Human用見た目重視
-target_compile_definitions(nekocode_human PRIVATE 
-    NEKOCODE_HUMAN_MODE=1
     NEKOCODE_VISUAL_PRIORITY=1
 )
 
@@ -303,7 +295,7 @@ endif()
 option(ENABLE_INSTALL "Enable install target" ON)
 if(ENABLE_INSTALL)
     # 実行ファイルインストール
-    install(TARGETS nekocode_ai nekocode_human
+    install(TARGETS nekocode_ai
         RUNTIME DESTINATION bin
     )
     
@@ -364,7 +356,6 @@ message(STATUS "   Install Target: ${ENABLE_INSTALL}")
 message(STATUS "")
 message(STATUS "🎯 実行ファイル２個大作戦:")
 message(STATUS "   🤖 nekocode_ai     - AI/Claude用JSON出力")
-message(STATUS "   👨‍💻 nekocode_human  - Human用美しいテキスト")
 message(STATUS "")
 message(STATUS "⚡ Python版からの革命的改善:")
 message(STATUS "   📈 性能: 10-100倍高速化")
@@ -380,7 +371,6 @@ message(STATUS "")
 # カスタムターゲット: 両方ビルド
 add_custom_target(build_all
     COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target nekocode_ai --parallel
-    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target nekocode_human --parallel
     COMMENT "🚀 Build both AI and Human tools"
 )
 
@@ -392,7 +382,6 @@ add_custom_target(build_ai
 
 # カスタムターゲット: Human専用ビルド
 add_custom_target(build_human
-    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target nekocode_human --parallel
     COMMENT "👨‍💻 Build Human tool only"
 )
 
