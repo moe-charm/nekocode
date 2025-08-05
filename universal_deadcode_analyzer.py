@@ -205,7 +205,7 @@ class UniversalDeadCodeAnalyzer:
         if not shutil.which("vulture"):
             return {
                 "status": "tool_missing",
-                "message": "Install vulture for Python dead code analysis: pip install vulture",
+                "message": "⚠️ vultureがインストールされていません。\nインストール方法: pip install vulture",
                 "tool": "Vulture"
             }
         
@@ -254,7 +254,8 @@ class UniversalDeadCodeAnalyzer:
         else:
             return {
                 "status": "tool_missing", 
-                "message": "Install staticcheck: go install honnef.co/go/tools/cmd/staticcheck@latest",
+                "message": "⚠️ staticcheckがインストールされていません。\n" +
+                         "インストール方法: go install honnef.co/go/tools/cmd/staticcheck@latest",
                 "tool": "staticcheck"
             }
         
@@ -309,7 +310,8 @@ class UniversalDeadCodeAnalyzer:
         if not shutil.which("cargo"):
             return {
                 "status": "tool_missing",
-                "message": "Install Rust: https://rustup.rs/",
+                "message": "⚠️ Rust/Cargoがインストールされていません。\n" +
+                         "インストール方法: https://rustup.rs/",
                 "tool": "cargo"
             }
         
@@ -339,9 +341,17 @@ class UniversalDeadCodeAnalyzer:
                     try:
                         msg = json.loads(line)
                         if 'message' in msg and 'code' in msg['message']:
-                            code = msg['message']['code']['code']
+                            code = msg['message']['code'].get('code', '')
                             if 'unused' in code or 'dead_code' in code:
-                                unused_items.append(msg['message']['message'])
+                                message_text = msg['message']['message']
+                                # 位置情報を取得
+                                if 'spans' in msg['message'] and msg['message']['spans']:
+                                    span = msg['message']['spans'][0]
+                                    file_name = Path(span['file_name']).name
+                                    line_num = span['line_start']
+                                    unused_items.append(f"{message_text} [{file_name}:{line_num}]")
+                                else:
+                                    unused_items.append(message_text)
                     except:
                         continue
             
@@ -433,27 +443,63 @@ class UniversalDeadCodeAnalyzer:
     
     def _analyze_js_deadcode(self, filepath):
         """JavaScript/TypeScript ts-prune解析"""
+        # Node.jsのnpxコマンド確認
         if not shutil.which("npx"):
             return {
                 "status": "tool_missing",
-                "message": "Install Node.js and ts-prune: npm install -g ts-prune",
+                "message": "⚠️ Node.jsがインストールされていません。\n" +
+                         "インストール方法: https://nodejs.org/\n" +
+                         "ts-pruneインストール: npm install -g ts-prune",
                 "tool": "ts-prune"
             }
         
         print("  📜 Running ts-prune...")
+        
+        # TypeScript/JavaScriptプロジェクトのルートを探す
+        path = Path(filepath)
+        current_dir = path if path.is_dir() else path.parent
+        
+        # tsconfig.jsonまたはpackage.jsonを探す
+        project_root = None
+        while current_dir != current_dir.parent:
+            if (current_dir / "tsconfig.json").exists() or (current_dir / "package.json").exists():
+                project_root = current_dir
+                break
+            current_dir = current_dir.parent
+        
+        if not project_root:
+            return {
+                "status": "error",
+                "message": "tsconfig.json or package.json not found. Run in TypeScript/JavaScript project directory.",
+                "tool": "ts-prune"
+            }
+        
         try:
+            # ts-pruneを実行
             result = subprocess.run(
-                ["npx", "ts-prune", "--project", "."],
-                capture_output=True, text=True
+                ["npx", "ts-prune"],
+                cwd=project_root,
+                capture_output=True, 
+                text=True
             )
             
-            unused_exports = result.stdout.strip().split('\n') if result.stdout.strip() else []
+            # ts-pruneの出力を解析
+            unused_items = []
+            for line in result.stdout.strip().split('\n'):
+                if line.strip() and not line.startswith('ts-prune'):
+                    # ts-prune出力例: "src/utils.ts:10 - myFunction"
+                    # → "myFunction [src/utils.ts:10]"
+                    if ' - ' in line:
+                        location, item = line.split(' - ', 1)
+                        unused_items.append(f"{item.strip()} [{location.strip()}]")
+                    else:
+                        unused_items.append(line.strip())
             
             return {
                 "status": "success",
                 "tool": "ts-prune",
-                "unused_exports": unused_exports,
-                "total_found": len(unused_exports)
+                "unused_items": unused_items,
+                "total_found": len(unused_items)
             }
         except Exception as e:
             return {
