@@ -883,4 +883,61 @@ public:
     }
 };
 
+//=============================================================================
+// 🎯 Find Command Hierarchical Support - 階層表示サポート
+//=============================================================================
+
+// Universal methods that are common across all languages
+const std::unordered_set<std::string> UNIVERSAL_METHODS = {
+    "analyze",
+    "extract_functions",
+    "extract_classes",
+    "extract_variables",
+    "get_complexity",
+    "parse",
+    "process"
+};
+
+// Language-specific pattern mappings
+const std::unordered_map<std::string, std::string> LANGUAGE_PATTERNS = {
+    // Go specific
+    {"goroutine", "Go"},
+    {"channel", "Go"},
+    {"go_function", "Go"},
+    
+    // Rust specific
+    {"trait", "Rust"},
+    {"impl", "Rust"},
+    {"lifetime", "Rust"},
+    {"macro", "Rust"},
+    
+    // C++ specific
+    {"template", "Cpp"},
+    {"namespace", "Cpp"},
+    {"virtual", "Cpp"},
+    {"include", "Cpp"},
+    
+    // Python specific
+    {"decorator", "Python"},
+    {"comprehension", "Python"},
+    
+    // C# specific
+    {"property", "CSharp"},
+    {"delegate", "CSharp"},
+    {"linq", "CSharp"}
+};
+
+// Categories for language-specific features
+const std::unordered_map<std::string, std::string> FEATURE_CATEGORIES = {
+    {"goroutine", "concurrency"},
+    {"channel", "concurrency"},
+    {"trait", "ownership"},
+    {"impl", "ownership"},
+    {"template", "metaprogramming"},
+    {"macro", "metaprogramming"},
+    {"decorator", "metaprogramming"},
+    {"property", "oop"},
+    {"delegate", "functional"}
+};
+
 } // namespace nekocode

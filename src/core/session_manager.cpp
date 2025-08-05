@@ -460,6 +460,44 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
             // edit-show <id>
             std::string id = command.substr(10);
             result = session_commands_.cmd_edit_show(session, id);
+        } else if (command.substr(0, 15) == "insert-preview ") {
+            // insert-preview <file> <position> <content>
+            std::string args = command.substr(15);
+            
+            // トークン分割（3つの引数）
+            std::vector<std::string> tokens;
+            std::string current_token;
+            bool in_quotes = false;
+            
+            for (char c : args) {
+                if (c == '"') {
+                    in_quotes = !in_quotes;
+                } else if (c == ' ' && !in_quotes) {
+                    if (!current_token.empty()) {
+                        tokens.push_back(current_token);
+                        current_token.clear();
+                    }
+                } else {
+                    current_token += c;
+                }
+            }
+            if (!current_token.empty()) {
+                tokens.push_back(current_token);
+            }
+            
+            if (tokens.size() != 3) {
+                result = {
+                    {"error", "insert-preview: 使用法: insert-preview <file> <position> <content>"},
+                    {"example", "insert-preview test.cpp end \"// Footer\""},
+                    {"positions", {"start", "end", "行番号", "before:pattern", "after:pattern"}}
+                };
+            } else {
+                result = session_commands_.cmd_insert_preview(session, tokens[0], tokens[1], tokens[2]);
+            }
+        } else if (command.substr(0, 15) == "insert-confirm ") {
+            // insert-confirm <preview_id>
+            std::string preview_id = command.substr(15);
+            result = session_commands_.cmd_insert_confirm(session, preview_id);
         } else if (command.substr(0, 10) == "ast-query ") {
             // ast-query <query_path>
             std::string query_path = command.substr(10);

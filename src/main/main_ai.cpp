@@ -77,6 +77,15 @@ SESSION COMMANDS:
     find <term>                 シンボル検索（例: find preprocess_content）
     include-cycles              C++循環依存検出
     include-unused              C++不要include検出
+    
+    🆕 EDIT COMMANDS（2段階実行：preview → confirm）:
+    replace-preview <file> <pattern> <replacement>   置換プレビュー
+    replace-confirm <preview_id>                     置換実行
+    insert-preview <file> <position> <content>       挿入プレビュー（start/end/行番号）
+    insert-confirm <preview_id>                      挿入実行
+    edit-history                                      編集履歴（最新20件）
+    edit-show <id>                                    詳細表示
+    
     help                        詳細ヘルプ
 
 🧠 MEMORY SYSTEM - 時間軸Memory革命（NEW!）:
