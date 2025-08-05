@@ -374,7 +374,8 @@ class UniversalDeadCodeAnalyzer:
         if not shutil.which("dotnet"):
             return {
                 "status": "tool_missing",
-                "message": "Install .NET SDK: https://dotnet.microsoft.com/download",
+                "message": "⚠️ .NET SDKがインストールされていません。\n" +
+                         "インストール方法: https://dotnet.microsoft.com/download",
                 "tool": ".NET SDK"
             }
         
