@@ -90,6 +90,12 @@ nekocode_vs_serena_battle_results.txt
 current_task.md
 /setup.py
 
+# Local-only documentation (Claude context files)
+CLAUDE.md
+CLAUDE_QUICKSTART.md
+PROJECT_OVERVIEW.txt
+TEST_PROJECTS_MOVED.md
+
 # Test files in root (should be in tests/ folder)
 /test_*.cpp
 /test_*.py
