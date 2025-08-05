@@ -6,6 +6,7 @@ import os
 
 # 現在のディレクトリ（bin/）を取得
 current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(current_dir)
 nekocode_path = os.path.join(current_dir, "nekocode_ai")
 mcp_server_path = os.path.join(current_dir, "..", "mcp-nekocode-server", "mcp_server_real.py")
 
@@ -20,8 +21,12 @@ print(f"""
 ⚠️ 重要: 以下のコマンドは【プロジェクトのルートディレクトリ】で実行してください！
         （Claude Codeがプロジェクトを認識するため）
 
-1. まずプロジェクトルートに移動:
-   cd {os.path.dirname(current_dir)}
+1. 現在の場所からプロジェクトルートに移動:
+   
+   現在: {os.getcwd()}
+   移動先: {project_root}
+   
+   コマンド: cd {os.path.relpath(project_root, os.getcwd())}
 
 2. そこで以下のコマンドを実行:
 
