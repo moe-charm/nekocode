@@ -1,9 +1,0 @@
-{
-  "analysis_type": "clang-tidy-quality",
-  "project_stats": {
-    "total_files": 0,
-    "total_issues": 0,
-    "categories": {}
-  },
-  "files": {}
-}

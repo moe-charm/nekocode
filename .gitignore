@@ -116,3 +116,25 @@ bfg-*.jar
 # C# build artifacts
 obj/
 TestProject.csproj
+
+# Test files and projects in root
+/clang_tidy_test.cpp
+/large_test.ts
+/medium_test.js
+/simple_confidence_test.py
+/csharp_test/
+/lto_test_project/
+/test-include-problems/
+/test_project/
+/experiments/
+
+# Scripts in root
+/fix_emoji_logs.sh
+/perfect_analysis_workflow.sh
+/rebuild.sh
+
+# Config and data files in root
+/project_fixes_example.yaml
+/tidy_fixes.yaml
+/tidy_test.yaml
+/result.json
