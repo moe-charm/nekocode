@@ -384,6 +384,82 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
             result = session_commands_.cmd_dependency_analyze(session, filename);
         } else if (command == "help") {
             result = session_commands_.cmd_help();
+        } else if (command.substr(0, 8) == "replace ") {
+            // replace <file_path> <pattern> <replacement>
+            std::string args = command.substr(8);
+            
+            // シンプルなトークン分割（3つの引数）
+            std::vector<std::string> tokens;
+            std::string current_token;
+            bool in_quotes = false;
+            
+            for (char c : args) {
+                if (c == '"') {
+                    in_quotes = !in_quotes;
+                } else if (c == ' ' && !in_quotes) {
+                    if (!current_token.empty()) {
+                        tokens.push_back(current_token);
+                        current_token.clear();
+                    }
+                } else {
+                    current_token += c;
+                }
+            }
+            if (!current_token.empty()) {
+                tokens.push_back(current_token);
+            }
+            
+            if (tokens.size() != 3) {
+                result = {
+                    {"error", "replace: 使用法: replace <file_path> <pattern> <replacement>"},
+                    {"example", "replace src/test.cpp \"old_function\" \"new_function\""}
+                };
+            } else {
+                result = session_commands_.cmd_replace(session, tokens[0], tokens[1], tokens[2]);
+            }
+        } else if (command.substr(0, 16) == "replace-preview ") {
+            // replace-preview <file_path> <pattern> <replacement>
+            std::string args = command.substr(16);
+            
+            // シンプルなトークン分割（3つの引数）
+            std::vector<std::string> tokens;
+            std::string current_token;
+            bool in_quotes = false;
+            
+            for (char c : args) {
+                if (c == '"') {
+                    in_quotes = !in_quotes;
+                } else if (c == ' ' && !in_quotes) {
+                    if (!current_token.empty()) {
+                        tokens.push_back(current_token);
+                        current_token.clear();
+                    }
+                } else {
+                    current_token += c;
+                }
+            }
+            if (!current_token.empty()) {
+                tokens.push_back(current_token);
+            }
+            
+            if (tokens.size() != 3) {
+                result = {
+                    {"error", "replace-preview: 使用法: replace-preview <file_path> <pattern> <replacement>"},
+                    {"example", "replace-preview src/test.cpp \"old_function\" \"new_function\""}
+                };
+            } else {
+                result = session_commands_.cmd_replace_preview(session, tokens[0], tokens[1], tokens[2]);
+            }
+        } else if (command.substr(0, 16) == "replace-confirm ") {
+            // replace-confirm <preview_id>
+            std::string preview_id = command.substr(16);
+            result = session_commands_.cmd_replace_confirm(session, preview_id);
+        } else if (command == "edit-history") {
+            result = session_commands_.cmd_edit_history(session);
+        } else if (command.substr(0, 10) == "edit-show ") {
+            // edit-show <id>
+            std::string id = command.substr(10);
+            result = session_commands_.cmd_edit_show(session, id);
         } else if (command.substr(0, 10) == "ast-query ") {
             // ast-query <query_path>
             std::string query_path = command.substr(10);
@@ -410,7 +486,8 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                                         "include-unused", "include-optimize", "duplicates", 
                                         "large-files", "todo", "complexity-ranking", 
                                         "analyze", "dependency-analyze", "help",
-                                        "ast-query <path>", "ast-stats", "scope-analysis <line>", "ast-dump [format]"}}
+                                        "ast-query <path>", "ast-stats", "scope-analysis <line>", "ast-dump [format]",
+                                        "replace <file> <pattern> <replacement>"}}
             };
         }
         

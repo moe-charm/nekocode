@@ -125,6 +125,33 @@ public:
     nlohmann::json cmd_ast_stats(const SessionData& session) const;
 
     //=========================================================================
+    // 🐱 NekoCode独自編集機能
+    //=========================================================================
+    
+    /// シンプル正規表現置換
+    nlohmann::json cmd_replace(const SessionData& session,
+                              const std::string& file_path,
+                              const std::string& pattern,
+                              const std::string& replacement) const;
+    
+    /// 置換プレビュー（軽量応答）
+    nlohmann::json cmd_replace_preview(const SessionData& session,
+                                      const std::string& file_path,
+                                      const std::string& pattern,
+                                      const std::string& replacement) const;
+    
+    /// 置換実行確定（プレビューID使用）
+    nlohmann::json cmd_replace_confirm(const SessionData& session,
+                                      const std::string& preview_id) const;
+    
+    /// 編集履歴一覧
+    nlohmann::json cmd_edit_history(const SessionData& session) const;
+    
+    /// 編集詳細表示（preview_idまたはedit_id）
+    nlohmann::json cmd_edit_show(const SessionData& session,
+                                const std::string& id) const;
+
+    //=========================================================================
     // 🔍 ヘルプ
     //=========================================================================
     
