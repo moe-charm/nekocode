@@ -150,6 +150,16 @@ public:
     /// 編集詳細表示（preview_idまたはedit_id）
     nlohmann::json cmd_edit_show(const SessionData& session,
                                 const std::string& id) const;
+    
+    /// 統一挿入プレビュー（start/end/行番号/パターン対応）
+    nlohmann::json cmd_insert_preview(const SessionData& session,
+                                     const std::string& file_path,
+                                     const std::string& position,
+                                     const std::string& content) const;
+    
+    /// 挿入実行確定（プレビューID使用）
+    nlohmann::json cmd_insert_confirm(const SessionData& session,
+                                     const std::string& preview_id) const;
 
     //=========================================================================
     // 🔍 ヘルプ

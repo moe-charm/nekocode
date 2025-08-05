@@ -50,6 +50,14 @@ python3 --version  # Python 3.8+ 必要
 - `mcp__nekocode__session_complexity` - 🧮 複雑度分析（超高速3ms）
 - `mcp__nekocode__find_files` - 🔎 ファイル検索（超高速3ms）
 
+### ✏️ コード編集機能（NEW！2段階実行で安全）
+- `mcp__nekocode__replace_preview` - 📝 置換プレビュー（変更前後の確認）
+- `mcp__nekocode__replace_confirm` - ✅ 置換実行（プレビューID指定）
+- `mcp__nekocode__insert_preview` - 📝 挿入プレビュー（start/end/行番号）
+- `mcp__nekocode__insert_confirm` - ✅ 挿入実行（プレビューID指定）
+- `mcp__nekocode__edit_history` - 📋 編集履歴表示（最新20件）
+- `mcp__nekocode__edit_show` - 🔍 編集詳細表示（ID指定）
+
 ### 🌳 AST Revolution - リアルタイム構文解析（NEW！）
 **JavaScript/TypeScript向け高度解析機能**
 - `mcp__nekocode__session_ast_stats` - 📈 AST基盤統計（ノード数・深度・複雑度）
@@ -111,6 +119,41 @@ result = await mcp__nekocode__analyze("/path/to/project")
 # 高速統計のみ取得（stats_only=True）
 result = await mcp__nekocode__analyze("/path/to/project", stats_only=True)
 # → 複雑度解析をスキップして高速化
+```
+
+### ✏️ コード編集機能 - 安全な2段階実行（NEW!）
+```python
+# 1. 置換プレビュー（実際には変更しない）
+preview = await mcp__nekocode__replace_preview(
+    session_id, "src/main.cpp", "old_function", "new_function"
+)
+# → preview_id: "PRV_001", before/after表示
+
+# 2. 置換実行（プレビューID指定）
+result = await mcp__nekocode__replace_confirm(session_id, "PRV_001")
+# → 実際にファイルを変更
+
+# 3. 挿入プレビュー（様々な位置指定）
+preview = await mcp__nekocode__insert_preview(
+    session_id, "src/main.cpp", "start", "// New header comment"
+)
+preview = await mcp__nekocode__insert_preview(
+    session_id, "src/main.cpp", "42", "// Insert at line 42"
+)
+preview = await mcp__nekocode__insert_preview(
+    session_id, "src/main.cpp", "end", "// End of file comment"
+)
+
+# 4. 挿入実行
+result = await mcp__nekocode__insert_confirm(session_id, "INS_001")
+
+# 5. 編集履歴確認
+history = await mcp__nekocode__edit_history(session_id)
+# → 最新20件の編集操作履歴
+
+# 6. 編集詳細表示
+details = await mcp__nekocode__edit_show(session_id, "ED_001")
+# → 特定の編集操作の詳細情報
 ```
 
 ### 🧠 Memory System - 解析結果の永続化（NEW!）

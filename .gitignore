@@ -83,6 +83,7 @@ docs/_build/
 
 # Internal development files
 .serena/
+secret/
 IMPORTANT_MCP_LOCATION.md
 battle_summary_serena.md
 nekocode_vs_serena_battle_results.txt

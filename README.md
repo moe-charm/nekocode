@@ -308,6 +308,21 @@ make -j
 # NEW: Template & Macro Analysis
 ./nekocode_ai session-command ai_session_20250727_123456 template-analysis
 ./nekocode_ai session-command ai_session_20250727_123456 macro-analysis
+
+# NEW: Code Editing Commands (2-stage execution for safety)
+# Replace text in files
+./nekocode_ai session-command ai_session_20250727_123456 "replace-preview src/main.cpp 'old_func' 'new_func'"
+./nekocode_ai session-command ai_session_20250727_123456 "replace-confirm PRV_001"
+
+# Insert text at specific positions
+./nekocode_ai session-command ai_session_20250727_123456 "insert-preview src/main.cpp start '// New header comment'"
+./nekocode_ai session-command ai_session_20250727_123456 "insert-preview src/main.cpp 42 '// Insert at line 42'"
+./nekocode_ai session-command ai_session_20250727_123456 "insert-preview src/main.cpp end '// End of file'"
+./nekocode_ai session-command ai_session_20250727_123456 "insert-confirm INS_001"
+
+# View editing history
+./nekocode_ai session-command ai_session_20250727_123456 edit-history
+./nekocode_ai session-command ai_session_20250727_123456 "edit-show ED_001"
 ```
 
 ### Include Dependency Analysis (C++ Specific)
@@ -414,6 +429,13 @@ NekoCode now provides comprehensive member variable analysis across all supporte
 | `macro-analysis` | マクロ展開追跡 |
 | `metaprogramming` | メタプログラミングパターン検出 |
 | `compile-time-optimization` | コンパイル時計算最適化提案 |
+| **Editing Commands** | **2-stage execution for safety** |
+| `replace-preview <file> <pattern> <replacement>` | Preview replacement changes |
+| `replace-confirm <preview_id>` | Execute replacement |
+| `insert-preview <file> <position> <content>` | Preview insertion (start/end/line#) |
+| `insert-confirm <preview_id>` | Execute insertion |
+| `edit-history` | Show recent edit operations (20 items) |
+| `edit-show <id>` | Show detailed edit information |
 
 ## 🔧 設定オプション
 

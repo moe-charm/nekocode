@@ -123,6 +123,81 @@ class NekoCodeMCPServer:
                 "name": "list_languages",
                 "description": "🌍 サポート言語一覧",
                 "inputSchema": {"type": "object", "properties": {}}
+            },
+            {
+                "name": "replace_preview",
+                "description": "📝 置換プレビュー（変更前後確認）",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string", "description": "セッションID"},
+                        "file_path": {"type": "string", "description": "ファイルパス"},
+                        "pattern": {"type": "string", "description": "検索パターン"},
+                        "replacement": {"type": "string", "description": "置換文字列"}
+                    },
+                    "required": ["session_id", "file_path", "pattern", "replacement"]
+                }
+            },
+            {
+                "name": "replace_confirm",
+                "description": "✅ 置換実行（プレビューID指定）",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string", "description": "セッションID"},
+                        "preview_id": {"type": "string", "description": "プレビューID"}
+                    },
+                    "required": ["session_id", "preview_id"]
+                }
+            },
+            {
+                "name": "insert_preview",
+                "description": "📝 挿入プレビュー（start/end/行番号）",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string", "description": "セッションID"},
+                        "file_path": {"type": "string", "description": "ファイルパス"},
+                        "position": {"type": "string", "description": "挿入位置（start/end/行番号）"},
+                        "content": {"type": "string", "description": "挿入内容"}
+                    },
+                    "required": ["session_id", "file_path", "position", "content"]
+                }
+            },
+            {
+                "name": "insert_confirm",
+                "description": "✅ 挿入実行（プレビューID指定）",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string", "description": "セッションID"},
+                        "preview_id": {"type": "string", "description": "プレビューID"}
+                    },
+                    "required": ["session_id", "preview_id"]
+                }
+            },
+            {
+                "name": "edit_history",
+                "description": "📋 編集履歴表示（最新20件）",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string", "description": "セッションID"}
+                    },
+                    "required": ["session_id"]
+                }
+            },
+            {
+                "name": "edit_show",
+                "description": "🔍 編集詳細表示（ID指定）",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "session_id": {"type": "string", "description": "セッションID"},
+                        "edit_id": {"type": "string", "description": "編集ID"}
+                    },
+                    "required": ["session_id", "edit_id"]
+                }
             }
         ]
     
@@ -231,6 +306,18 @@ class NekoCodeMCPServer:
                 return await self._tool_include_graph(arguments)
             elif tool_name == "list_languages":
                 return await self._tool_list_languages(arguments)
+            elif tool_name == "replace_preview":
+                return await self._tool_replace_preview(arguments)
+            elif tool_name == "replace_confirm":
+                return await self._tool_replace_confirm(arguments)
+            elif tool_name == "insert_preview":
+                return await self._tool_insert_preview(arguments)
+            elif tool_name == "insert_confirm":
+                return await self._tool_insert_confirm(arguments)
+            elif tool_name == "edit_history":
+                return await self._tool_edit_history(arguments)
+            elif tool_name == "edit_show":
+                return await self._tool_edit_show(arguments)
             else:
                 return {
                     "content": [{"type": "text", "text": f"Unknown tool: {tool_name}"}],
@@ -339,6 +426,128 @@ class NekoCodeMCPServer:
             return {"content": [{"type": "text", "text": f"対応言語: {languages}"}]}
         else:
             return {"content": [{"type": "text", "text": json.dumps(result, indent=2, ensure_ascii=False)}]}
+    
+    async def _tool_replace_preview(self, args: Dict) -> Dict:
+        """置換プレビュー"""
+        session_id = args["session_id"]
+        file_path = args["file_path"]
+        pattern = args["pattern"]
+        replacement = args["replacement"]
+        
+        # セッション存在チェック
+        if session_id not in self.sessions:
+            return {
+                "content": [{"type": "text", "text": f"Session not found: {session_id}"}],
+                "isError": True
+            }
+        
+        # コマンド実行
+        cmd = f"replace-preview {file_path} '{pattern}' '{replacement}'"
+        result = await self._run_nekocode(["session-command", session_id, cmd])
+        
+        return {
+            "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
+        }
+    
+    async def _tool_replace_confirm(self, args: Dict) -> Dict:
+        """置換実行"""
+        session_id = args["session_id"]
+        preview_id = args["preview_id"]
+        
+        # セッション存在チェック
+        if session_id not in self.sessions:
+            return {
+                "content": [{"type": "text", "text": f"Session not found: {session_id}"}],
+                "isError": True
+            }
+        
+        # コマンド実行
+        cmd = f"replace-confirm {preview_id}"
+        result = await self._run_nekocode(["session-command", session_id, cmd])
+        
+        return {
+            "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
+        }
+    
+    async def _tool_insert_preview(self, args: Dict) -> Dict:
+        """挿入プレビュー"""
+        session_id = args["session_id"]
+        file_path = args["file_path"]
+        position = args["position"]
+        content = args["content"]
+        
+        # セッション存在チェック
+        if session_id not in self.sessions:
+            return {
+                "content": [{"type": "text", "text": f"Session not found: {session_id}"}],
+                "isError": True
+            }
+        
+        # コマンド実行
+        cmd = f"insert-preview {file_path} {position} '{content}'"
+        result = await self._run_nekocode(["session-command", session_id, cmd])
+        
+        return {
+            "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
+        }
+    
+    async def _tool_insert_confirm(self, args: Dict) -> Dict:
+        """挿入実行"""
+        session_id = args["session_id"]
+        preview_id = args["preview_id"]
+        
+        # セッション存在チェック
+        if session_id not in self.sessions:
+            return {
+                "content": [{"type": "text", "text": f"Session not found: {session_id}"}],
+                "isError": True
+            }
+        
+        # コマンド実行
+        cmd = f"insert-confirm {preview_id}"
+        result = await self._run_nekocode(["session-command", session_id, cmd])
+        
+        return {
+            "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
+        }
+    
+    async def _tool_edit_history(self, args: Dict) -> Dict:
+        """編集履歴表示"""
+        session_id = args["session_id"]
+        
+        # セッション存在チェック
+        if session_id not in self.sessions:
+            return {
+                "content": [{"type": "text", "text": f"Session not found: {session_id}"}],
+                "isError": True
+            }
+        
+        # コマンド実行
+        result = await self._run_nekocode(["session-command", session_id, "edit-history"])
+        
+        return {
+            "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
+        }
+    
+    async def _tool_edit_show(self, args: Dict) -> Dict:
+        """編集詳細表示"""
+        session_id = args["session_id"]
+        edit_id = args["edit_id"]
+        
+        # セッション存在チェック
+        if session_id not in self.sessions:
+            return {
+                "content": [{"type": "text", "text": f"Session not found: {session_id}"}],
+                "isError": True
+            }
+        
+        # コマンド実行
+        cmd = f"edit-show {edit_id}"
+        result = await self._run_nekocode(["session-command", session_id, cmd])
+        
+        return {
+            "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
+        }
     
     # ========================================
     # MCPプロトコル通信
