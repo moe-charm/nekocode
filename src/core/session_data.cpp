@@ -235,6 +235,11 @@ nlohmann::json SessionData::to_json() const {
     
     j["quick_stats"] = quick_stats;
     
+    // デッドコード解析結果（存在する場合）
+    if (!dead_code_info.is_null()) {
+        j["dead_code_info"] = dead_code_info;
+    }
+    
     // コマンド履歴
     nlohmann::json history_json = nlohmann::json::array();
     for (const auto& cmd : command_history) {
@@ -258,6 +263,11 @@ SessionData SessionData::from_json(const nlohmann::json& j) {
     data.target_path = j["target_path"].get<std::string>();
     data.is_directory = j.value("is_directory", false);
     data.quick_stats = j["quick_stats"];
+    
+    // デッドコード解析結果復元
+    if (j.contains("dead_code_info")) {
+        data.dead_code_info = j["dead_code_info"];
+    }
     
     // 解析データ復元
     if (data.is_directory) {

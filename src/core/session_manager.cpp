@@ -339,10 +339,11 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
         } else if (command == "complexity-ranking") {
             result = session_commands_.cmd_complexity_ranking(session);
         } else if (command.substr(0, 7) == "analyze") {
-            // analyze [filename] [--deep]
+            // analyze [filename] [--deep] [--complete]
             std::string args = command.substr(7);
             std::string filename;
             bool deep = false;
+            bool complete = false;
             
             // --deep フラグをチェック
             size_t deep_pos = args.find("--deep");
@@ -352,6 +353,14 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                 args = args.substr(0, deep_pos) + args.substr(deep_pos + 6);
             }
             
+            // --complete フラグをチェック
+            size_t complete_pos = args.find("--complete");
+            if (complete_pos != std::string::npos) {
+                complete = true;
+                // --completeを削除
+                args = args.substr(0, complete_pos) + args.substr(complete_pos + 10);
+            }
+            
             // ファイル名を抽出（先頭と末尾の空白を除去）
             size_t start = args.find_first_not_of(" \t");
             if (start != std::string::npos) {
@@ -359,7 +368,7 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                 filename = args.substr(start, end - start + 1);
             }
             
-            result = session_commands_.cmd_analyze(session, filename, deep);
+            result = session_commands_.cmd_analyze(session, filename, deep, complete);
         } else if (command.substr(0, 18) == "dependency-analyze") {
             // dependency-analyze [filename]
             std::string args = command.substr(18);

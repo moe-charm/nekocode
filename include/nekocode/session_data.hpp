@@ -40,6 +40,9 @@ struct SessionData {
     // クイック統計（高速アクセス用）
     nlohmann::json quick_stats;
     
+    // デッドコード解析結果（完全解析時のみ）
+    nlohmann::json dead_code_info;
+    
     // JSONシリアライズ
     nlohmann::json to_json() const;
     static SessionData from_json(const nlohmann::json& j);

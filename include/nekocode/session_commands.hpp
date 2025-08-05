@@ -61,7 +61,7 @@ public:
     nlohmann::json cmd_calls_detailed(const SessionData& session, const std::string& function_name) const;
     
     /// クラス責任解析
-    nlohmann::json cmd_analyze(const SessionData& session, const std::string& target = "", bool deep = false) const;
+    nlohmann::json cmd_analyze(const SessionData& session, const std::string& target = "", bool deep = false, bool complete = false) const;
 
     //=========================================================================
     // 🔍 プロジェクト品質コマンド

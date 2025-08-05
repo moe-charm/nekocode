@@ -63,12 +63,64 @@ class NekoCodeMCPServer:
         raise FileNotFoundError("nekocode_ai binary not found")
     
     def setup_tools(self):
-        """MCP ツールを登録"""
+        """🎮 NekoCode MCP ツール整理版 - SESSION中心構造"""
         
-        # 基本解析ツール
+        # ========================
+        # 🎮 SESSION（メイン機能）
+        # ========================
+        
+        self.server.add_tool(
+            "session_create",
+            """🎮 セッション作成（メイン機能）
+
+セッション作成後、以下のコマンドが利用可能:
+📊 基本分析:
+  • stats              - 統計情報
+  • complexity         - 複雑度ランキング  
+  • structure          - 構造解析
+  • calls              - 関数呼び出し解析
+  • files              - ファイル一覧
+
+🔍 高度分析:
+  • find <term>        - シンボル検索
+  • analyze --complete - 完全解析（デッドコード検出）
+  • large-files        - 大きなファイル検出
+  • todo               - TODO/FIXME検出
+
+🔧 C++専用:
+  • include-cycles     - 循環依存検出
+  • include-graph      - 依存関係グラフ
+  • include-unused     - 不要include検出
+  • include-optimize   - 最適化提案
+
+🌳 AST革命:
+  • ast-query <path>   - AST検索
+  • ast-stats          - AST統計
+  • scope-analysis <line> - スコープ解析
+  • ast-dump [format]  - AST構造ダンプ
+
+使用例:
+  1. mcp__nekocode__session_create project/
+  2. セッション内でコマンド実行""",
+            self.create_session,
+            {
+                "type": "object", 
+                "properties": {
+                    "path": {"type": "string", "description": "プロジェクト/ファイルパス"}
+                },
+                "required": ["path"]
+            }
+        )
+        
+        # ========================
+        # 🚀 STANDALONE（補助機能）
+        # ========================
+        
         self.server.add_tool(
             "analyze",
-            "🚀 高速プロジェクト解析",
+            """🚀 単発解析（セッション不要）
+
+軽量な一回限りの解析用。継続的な分析にはsession_createを推奨。""",
             self.analyze_project,
             {
                 "type": "object",
@@ -81,184 +133,47 @@ class NekoCodeMCPServer:
             }
         )
         
-        # セッション管理ツール
-        self.server.add_tool(
-            "session_create",
-            "🎮 対話式セッション作成",
-            self.create_session,
-            {
-                "type": "object", 
-                "properties": {
-                    "path": {"type": "string", "description": "プロジェクトパス"}
-                },
-                "required": ["path"]
-            }
-        )
+        # ========================
+        # 🧠 MEMORY SYSTEM
+        # ========================
         
         self.server.add_tool(
-            "session_stats",
-            "📊 セッション統計情報",
-            self.session_stats,
+            "memory",
+            """🧠 Memory System（時間軸Memory革命）
+
+使用可能操作:
+• save {type} {name} [content] - 保存
+• load {type} {name}          - 読み込み  
+• list [type]                 - 一覧表示
+• search {text}               - 検索
+• stats                       - 統計
+• timeline [type] [days]      - 時系列表示
+
+Memory種類: auto🤖 memo📝 api🌐 cache💾""",
+            self.memory_command,
             {
                 "type": "object",
                 "properties": {
-                    "session_id": {"type": "string", "description": "セッションID"}
-                },
-                "required": ["session_id"]
-            }
-        )
-        
-        self.server.add_tool(
-            "session_complexity",
-            "🧮 複雑度分析 (セッション版)",
-            self.session_complexity,
-            {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "セッションID"}
-                },
-                "required": ["session_id"]
-            }
-        )
-        
-        # C++特化機能
-        self.server.add_tool(
-            "include_cycles",
-            "🔍 C++循環依存検出",
-            self.detect_include_cycles,
-            {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "セッションID"}
-                },
-                "required": ["session_id"]
-            }
-        )
-        
-        self.server.add_tool(
-            "include_graph", 
-            "🌐 C++依存関係グラフ",
-            self.show_include_graph,
-            {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "セッションID"}
-                },
-                "required": ["session_id"]
-            }
-        )
-        
-        self.server.add_tool(
-            "include_optimize",
-            "⚡ C++インクルード最適化提案",
-            self.optimize_includes,
-            {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "セッションID"}
-                },
-                "required": ["session_id"]
-            }
-        )
-        
-        # 🧠 Memory System - 時間軸Memory革命
-        self.server.add_tool(
-            "memory_save",
-            "💾 Memory保存 - 解析結果・メモ保存",
-            self.memory_save,
-            {
-                "type": "object",
-                "properties": {
-                    "type": {"type": "string", "description": "Memory種類: auto|memo|api|cache", "enum": ["auto", "memo", "api", "cache"]},
-                    "name": {"type": "string", "description": "Memory名"},
-                    "content": {"type": "string", "description": "保存内容 (オプション)", "default": ""}
-                },
-                "required": ["type", "name"]
-            }
-        )
-        
-        self.server.add_tool(
-            "memory_load",
-            "📖 Memory読み込み",
-            self.memory_load,
-            {
-                "type": "object",
-                "properties": {
-                    "type": {"type": "string", "description": "Memory種類: auto|memo|api|cache", "enum": ["auto", "memo", "api", "cache"]},
-                    "name": {"type": "string", "description": "Memory名"}
-                },
-                "required": ["type", "name"]
-            }
-        )
-        
-        self.server.add_tool(
-            "memory_list",
-            "📋 Memory一覧表示",
-            self.memory_list,
-            {
-                "type": "object",
-                "properties": {
-                    "type": {"type": "string", "description": "Memory種類: auto|memo|api|cache", "enum": ["auto", "memo", "api", "cache"], "default": "auto"}
-                }
-            }
-        )
-        
-        self.server.add_tool(
-            "memory_search",
-            "🔍 Memory検索",
-            self.memory_search,
-            {
-                "type": "object",
-                "properties": {
-                    "text": {"type": "string", "description": "検索テキスト"}
-                },
-                "required": ["text"]
-            }
-        )
-        
-        self.server.add_tool(
-            "memory_stats",
-            "📊 Memory統計情報",
-            self.memory_stats,
-            {
-                "type": "object",
-                "properties": {}
-            }
-        )
-        
-        self.server.add_tool(
-            "memory_timeline",
-            "📅 Memory時系列表示",
-            self.memory_timeline,
-            {
-                "type": "object",
-                "properties": {
+                    "operation": {"type": "string", "description": "操作: save|load|list|search|stats|timeline"},
                     "type": {"type": "string", "description": "Memory種類: auto|memo|api|cache", "enum": ["auto", "memo", "api", "cache"], "default": "auto"},
-                    "days": {"type": "number", "description": "過去日数", "default": 7}
-                }
+                    "name": {"type": "string", "description": "Memory名（save/load時）"},
+                    "content": {"type": "string", "description": "保存内容（save時）", "default": ""},
+                    "text": {"type": "string", "description": "検索テキスト（search時）"},
+                    "days": {"type": "number", "description": "過去日数（timeline時）", "default": 7}
+                },
+                "required": ["operation"]
             }
         )
         
-        # 便利機能
+        # ========================
+        # 🛠️ UTILS
+        # ========================
+        
         self.server.add_tool(
             "list_languages",
             "🌍 サポート言語一覧",
             self.list_supported_languages,
             {"type": "object", "properties": {}}
-        )
-        
-        self.server.add_tool(
-            "find_files",
-            "🔎 高速ファイル検索",
-            self.find_files,
-            {
-                "type": "object",
-                "properties": {
-                    "session_id": {"type": "string", "description": "セッションID"},
-                    "term": {"type": "string", "description": "検索語"}
-                },
-                "required": ["session_id", "term"]
-            }
         )
     
     async def _run_nekocode(self, args: List[str]) -> Dict:
@@ -404,41 +319,63 @@ class NekoCodeMCPServer:
         return await self._run_nekocode(["session-cmd", session_id, f"find {term}"])
     
     # 🧠 Memory System Handlers - 時間軸Memory革命
-    async def memory_save(self, type: str, name: str, content: str = "") -> Dict:
-        """Memory保存"""
-        cmd = ["memory", "save", type, name]
-        if content:
-            cmd.append(content)
+    
+    async def memory_command(self, operation: str, type: str = "auto", name: str = "", 
+                           content: str = "", text: str = "", days: int = 7) -> Dict:
+        """🧠 統合Memory System handler"""
+        
+        # 操作マッピング
+        operation_map = {
+            "save": "save",
+            "load": "load", 
+            "list": "list",
+            "search": "search",
+            "stats": "stats",
+            "timeline": "timeline"
+        }
+        
+        if operation not in operation_map:
+            return {"error": f"不明な操作: {operation}. 利用可能: {list(operation_map.keys())}"}
+        
+        # Memory コマンド構築
+        if operation == "save":
+            if not name:
+                return {"error": "save操作にはnameが必要です"}
+            cmd = ["memory", "save", type, name]
+            if content:
+                cmd.append(content)
+        elif operation == "load":
+            if not name:
+                return {"error": "load操作にはnameが必要です"}
+            cmd = ["memory", "load", type, name]
+        elif operation == "list":
+            cmd = ["memory", "list"]
+            if type != "auto":
+                cmd.append(type)
+        elif operation == "search":
+            if not text:
+                return {"error": "search操作にはtextが必要です"}
+            cmd = ["memory", "search", text]
+        elif operation == "stats":
+            cmd = ["memory", "stats"]
+        elif operation == "timeline":
+            cmd = ["memory", "timeline"]
+            if type != "auto":
+                cmd.append(type)
+            if days != 7:
+                cmd.append(str(days))
         
         result = await self._run_nekocode(cmd)
-        return result
-    
-    async def memory_load(self, type: str, name: str) -> Dict:
-        """Memory読み込み"""
-        return await self._run_nekocode(["memory", "load", type, name])
-    
-    async def memory_list(self, type: str = "auto") -> Dict:
-        """Memory一覧"""
-        return await self._run_nekocode(["memory", "list", type])
-    
-    async def memory_search(self, text: str) -> Dict:
-        """Memory検索"""
-        return await self._run_nekocode(["memory", "search", text])
-    
-    async def memory_stats(self) -> Dict:
-        """Memory統計"""
-        result = await self._run_nekocode(["memory", "stats"])
+        
+        # 成功時の情報追加
         if "error" not in result:
-            result["memory_info"] = {
-                "message": "🧠 時間軸Memory革命",
-                "features": ["Auto解析結果保存", "Manual手動メモ", "API外部連携", "Cache一時保存"],
-                "advantage": "Serena差別化の時間軸管理"
+            result["nekocode_info"] = {
+                "operation": operation,
+                "memory_type": type,
+                "message": f"🧠 Memory {operation} 完了!"
             }
+        
         return result
-    
-    async def memory_timeline(self, type: str = "auto", days: int = 7) -> Dict:
-        """Memory時系列"""
-        return await self._run_nekocode(["memory", "timeline", type, str(days)])
 
     async def list_supported_languages(self) -> Dict:
         """サポート言語一覧"""
