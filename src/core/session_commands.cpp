@@ -373,12 +373,81 @@ nlohmann::json SessionCommands::cmd_find(const SessionData& session, const std::
     };
 }
 
-nlohmann::json SessionCommands::cmd_analyze(const SessionData& session, const std::string& target, bool deep) const {
-    return {
-        {"command", "analyze"}, 
-        {"result", "Not implemented yet - moved to SessionCommands"},
-        {"summary", "Analyze feature pending implementation"}
-    };
+nlohmann::json SessionCommands::cmd_analyze(const SessionData& session, const std::string& target, bool deep, bool complete) const {
+    nlohmann::json result;
+    result["command"] = "analyze";
+    
+    // 基本解析情報を設定
+    if (session.is_directory) {
+        result["target"] = session.target_path.string();
+        result["total_files"] = session.directory_result.summary.total_files;
+        result["total_lines"] = session.directory_result.summary.total_lines;
+        result["total_functions"] = session.directory_result.summary.total_functions;
+        result["total_classes"] = session.directory_result.summary.total_classes;
+    } else {
+        result["target"] = session.single_file_result.file_info.path.string();
+        result["functions"] = session.single_file_result.stats.function_count;
+        result["classes"] = session.single_file_result.stats.class_count;
+        result["lines"] = session.single_file_result.file_info.total_lines;
+    }
+    
+    // 完全解析が要求された場合
+    if (complete) {
+        try {
+            // Pythonスクリプトを呼び出してデッドコード検出
+            std::string python_script = "universal_deadcode_analyzer.py";
+            std::string cmd = "python3 " + python_script + " \"" + session.target_path.string() + "\" --complete";
+            
+            // コマンド実行
+            FILE* pipe = popen(cmd.c_str(), "r");
+            if (pipe) {
+                char buffer[128];
+                std::string output;
+                while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+                    output += buffer;
+                }
+                int status = pclose(pipe);
+                
+                // JSON出力をパース
+                try {
+                    size_t json_start = output.find("{");
+                    if (json_start != std::string::npos) {
+                        std::string json_str = output.substr(json_start);
+                        nlohmann::json dead_code_result = nlohmann::json::parse(json_str);
+                        
+                        // dead_code_infoを設定
+                        if (dead_code_result.contains("dead_code")) {
+                            result["dead_code"] = dead_code_result["dead_code"];
+                            
+                            // SessionDataにも保存（mutableにする必要があるため、const_castを使用）
+                            const_cast<SessionData&>(session).dead_code_info = dead_code_result["dead_code"];
+                        }
+                    }
+                } catch (const std::exception& e) {
+                    result["dead_code"] = {
+                        {"status", "error"},
+                        {"message", std::string("Failed to parse Python output: ") + e.what()}
+                    };
+                }
+            } else {
+                result["dead_code"] = {
+                    {"status", "error"},
+                    {"message", "Failed to execute Python script"}
+                };
+            }
+        } catch (const std::exception& e) {
+            result["dead_code"] = {
+                {"status", "error"},
+                {"message", std::string("Dead code analysis failed: ") + e.what()}
+            };
+        }
+    }
+    
+    result["deep"] = deep;
+    result["complete"] = complete;
+    result["summary"] = complete ? "Complete analysis with dead code detection" : "Basic structure analysis";
+    
+    return result;
 }
 
 nlohmann::json SessionCommands::cmd_include_graph(const SessionData& session) const {
