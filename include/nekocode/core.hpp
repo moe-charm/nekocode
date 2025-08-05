@@ -171,6 +171,9 @@ private:
     // 🔒 Private Implementation
     //=========================================================================
     
+    /// 完全解析処理（デッドコード検出）
+    void perform_complete_analysis(MultiLanguageAnalysisResult& result, const std::string& filename);
+    
     class Impl; // PIMPL idiom for implementation hiding
     std::unique_ptr<Impl> impl_;
 };

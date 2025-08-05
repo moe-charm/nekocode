@@ -99,6 +99,7 @@ SESSION COMMANDS:
 
 OPTIONS:
     --stats-only        高速統計のみ（複雑度解析スキップ）
+    --complete          完全解析（デッドコード検出を含む）
     --io-threads <N>    並列読み込み数（推奨:16）
     --cpu-threads <N>   解析スレッド数（デフォルト:CPU数）
     --progress          進捗表示
@@ -190,6 +191,9 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
             config.analyze_dependencies = true;
             config.analyze_function_calls = true;
         }
+        
+        // 🎯 完全解析モード設定
+        config.complete_analysis = args.complete_analysis;
         config.enable_parallel_processing = args.enable_parallel;
         
         // 新しい並列化設定

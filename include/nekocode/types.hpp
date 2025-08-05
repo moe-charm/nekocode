@@ -53,6 +53,7 @@ struct FileInfo {
     LineNumber empty_lines = 0;
     double code_ratio = 0.0;
     Timestamp analyzed_at;
+    std::unordered_map<std::string, std::string> metadata; // 拡張情報（完全解析など）
     
     FileInfo() : analyzed_at(std::chrono::system_clock::now()) {}
     
@@ -717,6 +718,9 @@ struct AnalysisConfig {
     bool analyze_dependencies = true;
     bool analyze_function_calls = true;
     bool include_test_files = false;
+    
+    // 完全解析モード（デッドコード検出）
+    bool complete_analysis = false;
     
     // パフォーマンス設定
     bool enable_parallel_processing = true;
