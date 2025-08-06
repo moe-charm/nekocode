@@ -206,6 +206,25 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
         }
     }
     
+    // 🔍 メタデータ（デッドコード検出情報含む）
+    if (!result.file_info.metadata.empty()) {
+        nlohmann::json metadata_json = nlohmann::json::object();
+        for (const auto& [key, value] : result.file_info.metadata) {
+            // dead_code情報は既にJSON文字列なので、パースして埋め込む
+            if (key == "dead_code") {
+                try {
+                    metadata_json[key] = nlohmann::json::parse(value);
+                } catch (const nlohmann::json::exception& e) {
+                    // パース失敗時は文字列として保存
+                    metadata_json[key] = value;
+                }
+            } else {
+                metadata_json[key] = value;
+            }
+        }
+        json_result["metadata"] = metadata_json;
+    }
+    
     return json_result.dump(2);
 }
 

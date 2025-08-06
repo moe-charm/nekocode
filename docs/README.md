@@ -2,17 +2,26 @@
 
 Welcome to the NekoCode documentation!
 
-## Available Documents
+## 🆕 Essential Documents
+
+### 🏗️ **[Architecture Guide](ARCHITECTURE.md)** ⭐ MUST READ
+Complete system architecture, data flow, and component relationships
 
 ### 🌍 Usage Guides
 - [**English Usage Guide**](USAGE.md) - Complete guide for using NekoCode
 - [**日本語使い方ガイド**](USAGE_jp.md) - NekoCodeの詳しい使い方
-- [**Include Analysis Guide**](INCLUDE_ANALYSIS_GUIDE.md) - C++ compile time optimization with include analysis 🚀
 
-### 🚀 Quick Links
+### 🚀 Advanced Features
+- [**Include Analysis Guide**](INCLUDE_ANALYSIS_GUIDE.md) - C++ compile time optimization 
+- [**Performance Guide**](PERFORMANCE_GUIDE.md) - Optimization tips for large projects
+- [**Debug Guide**](DEBUG_GUIDE.md) - Troubleshooting and debugging
+
+### 🤖 Claude Code Integration
+- [**Claude Code Index**](claude-code/INDEX.md) - Claude Code specific features
+- [**Design Philosophy**](claude-code/DESIGN_PHILOSOPHY.md) - Why NekoCode is optimized for AI
+
+### 📦 Project Links
 - [Main README](../README.md) - Project overview and quick start
-- [日本語 README](../README_jp.md) - プロジェクト概要（日本語版）
-- [Examples](../examples/) - Real-world usage examples
 - [Contributing](../CONTRIBUTING.md) - How to contribute
 
 ## Document Overview
