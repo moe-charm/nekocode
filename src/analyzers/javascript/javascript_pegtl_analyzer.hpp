@@ -42,6 +42,7 @@ struct JavaScriptParseState {
     // 現在の解析位置情報
     size_t current_line = 1;
     std::string current_content;
+    std::vector<std::string> content_lines; // end_line計算用
     
     // 🌳 AST革命: リアルタイムAST構築システム
     std::unique_ptr<ASTNode> ast_root;              // AST ルートノード
@@ -893,6 +894,13 @@ public:
             JavaScriptParseState state;
             state.current_content = preprocessed_content;
             
+            // Split content into lines for end_line calculation
+            std::istringstream stream(preprocessed_content);
+            std::string line;
+            while (std::getline(stream, line)) {
+                state.content_lines.push_back(line);
+            }
+            
             tao::pegtl::string_input input(preprocessed_content, filename);
             bool success = tao::pegtl::parse<javascript::minimal_grammar::javascript_minimal, 
                                           javascript_action>(input, state);
@@ -908,6 +916,13 @@ public:
                 // 従来の平面データ構造を移動（後方互換性）
                 result.classes = std::move(state.classes);
                 result.functions = std::move(state.functions);
+                
+                // Calculate end_line for all functions
+                for (auto& func : result.functions) {
+                    if (func.start_line > 0) {
+                        func.end_line = find_function_end_line(state.content_lines, func.start_line - 1);
+                    }
+                }
                 result.imports = std::move(state.imports);
                 result.exports = std::move(state.exports);
                 
@@ -1149,34 +1164,31 @@ protected:
     
     // 🚀 ハイブリッド戦略: 統計整合性チェック
     bool needs_line_based_fallback(const AnalysisResult& result, const std::string& content) {
-        // 戦略ドキュメント通り: 複雑度 vs 検出数の妖当性検証
+        // 🎯 シンプルな判定: 15,000行以内は無条件で完全解析！
+        size_t total_lines = std::count(content.begin(), content.end(), '\n') + 1;
+        
+        // 15,000行以内は常に行ベース解析を実行（完全解析保証）
+        if (total_lines < 15000) {
+            return true;  // 無条件で実行！
+        }
+        
+        // 15,000行以上の大規模ファイルのみ条件判定
+        // （高速モードが適用されるため、最低限の検出を保証）
         uint32_t complexity = result.complexity.cyclomatic_complexity;
         size_t detected_functions = result.functions.size();
-        size_t detected_classes = result.classes.size();
         
-        // 経験的闾値: 複雑度100以上で関数検出が10未満は明らかにおかしい
-        if (complexity > 100 && detected_functions < 10) {
+        // 大規模でも複雑度が高いのに検出が少なすぎる場合は実行
+        if (complexity > 500 && detected_functions < 10) {
             return true;
         }
         
-        // 複雑度500以上で関数検出0は絶対におかしい（lodashケース）
-        if (complexity > 500 && detected_functions == 0) {
-            return true;
+        // 大規模ファイルで十分検出されていればスキップ
+        if (detected_functions >= 50) {
+            return false;
         }
         
-        // クラスがあるのに関数が少ない場合（class methodsが検出されていない可能性）
-        if (detected_classes > 0 && detected_functions < 5) {
-            // std::cerr << "[DEBUG] Class method fallback triggered: classes=" << detected_classes << ", functions=" << detected_functions << std::endl;
-            return true;
-        }
-        
-        // コンテンツにIIFEパターンがある場合もフォールバック
-        if (content.find(";(function()") != std::string::npos || 
-            content.find("(function(){") != std::string::npos) {
-            return true;
-        }
-        
-        return false;
+        // デフォルトで行ベース解析を実行
+        return true;
     }
     
     // 🚀 JavaScript世界最強戦略: 自動最適化ハイブリッド解析（TypeScript成功パターン移植）
@@ -1203,6 +1215,12 @@ protected:
             existing_functions.insert(func.name);
         }
         
+        // 🔥 既存のクラス名も記録（重複検出を防ぐ）
+        std::set<std::string> existing_classes;
+        for (const auto& cls : result.classes) {
+            existing_classes.insert(cls.name);
+        }
+        
         // 🕐 処理時間測定開始
         auto analysis_start = std::chrono::high_resolution_clock::now();
         size_t processed_lines = 0;
@@ -1216,7 +1234,8 @@ protected:
                 const std::string& current_line = all_lines[i];
                 size_t current_line_number = i + 1;
                 
-                extract_functions_from_line(current_line, current_line_number, result, existing_functions);
+                extract_functions_from_line(current_line, current_line_number, result, existing_functions, all_lines);
+                extract_classes_from_line(current_line, current_line_number, result, existing_classes);
                 processed_lines++;
             }
         } else {
@@ -1229,6 +1248,7 @@ protected:
                 size_t current_line_number = i + 1;
                 
                 extract_basic_functions_from_line(current_line, current_line_number, result, existing_functions);
+                extract_classes_from_line(current_line, current_line_number, result, existing_classes);  // クラス検出も追加
                 processed_lines++;
             }
         }
@@ -1275,8 +1295,55 @@ protected:
     }
     
     // 行から関数を抽出
+    // 🔥 クラス検出メソッド（行ベース）
+    void extract_classes_from_line(const std::string& line, size_t line_number,
+                                   AnalysisResult& result, std::set<std::string>& existing_classes) {
+        
+        // パターン1: class ClassName {
+        std::regex class_pattern(R"(^\s*class\s+(\w+)\s*(?:extends\s+\w+)?\s*\{)");
+        std::smatch match;
+        
+        if (std::regex_search(line, match, class_pattern)) {
+            std::string class_name = match[1].str();
+            if (existing_classes.find(class_name) == existing_classes.end()) {
+                ClassInfo class_info;
+                class_info.name = class_name;
+                class_info.start_line = line_number;
+                result.classes.push_back(class_info);
+                existing_classes.insert(class_name);
+            }
+        }
+        
+        // パターン2: export class ClassName {
+        std::regex export_class_pattern(R"(^\s*export\s+class\s+(\w+)\s*(?:extends\s+\w+)?\s*\{)");
+        if (std::regex_search(line, match, export_class_pattern)) {
+            std::string class_name = match[1].str();
+            if (existing_classes.find(class_name) == existing_classes.end()) {
+                ClassInfo class_info;
+                class_info.name = class_name;
+                class_info.start_line = line_number;
+                result.classes.push_back(class_info);
+                existing_classes.insert(class_name);
+            }
+        }
+        
+        // パターン3: export default class ClassName {
+        std::regex export_default_class_pattern(R"(^\s*export\s+default\s+class\s+(\w+)\s*(?:extends\s+\w+)?\s*\{)");
+        if (std::regex_search(line, match, export_default_class_pattern)) {
+            std::string class_name = match[1].str();
+            if (existing_classes.find(class_name) == existing_classes.end()) {
+                ClassInfo class_info;
+                class_info.name = class_name;
+                class_info.start_line = line_number;
+                result.classes.push_back(class_info);
+                existing_classes.insert(class_name);
+            }
+        }
+    }
+    
     void extract_functions_from_line(const std::string& line, size_t line_number, 
-                                      AnalysisResult& result, std::set<std::string>& existing_functions) {
+                                      AnalysisResult& result, std::set<std::string>& existing_functions, 
+                                      const std::vector<std::string>& all_lines) {
         
         // 制御構造キーワードフィルタリング 🔥 NEW!
         static const std::set<std::string> control_keywords = {
@@ -1299,6 +1366,7 @@ protected:
                 FunctionInfo func_info;
                 func_info.name = func_name;
                 func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
                 // func_info.is_fallback_detected = true;  // TODO: FunctionInfoにフィールド追加
                 result.functions.push_back(func_info);
                 existing_functions.insert(func_name);
@@ -1313,6 +1381,7 @@ protected:
                 FunctionInfo func_info;
                 func_info.name = func_name;
                 func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
                 // func_info.is_fallback_detected = true;
                 result.functions.push_back(func_info);
                 existing_functions.insert(func_name);
@@ -1327,6 +1396,7 @@ protected:
                 FunctionInfo func_info;
                 func_info.name = func_name;
                 func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
                 func_info.is_arrow_function = true;
                 // func_info.is_fallback_detected = true;
                 result.functions.push_back(func_info);
@@ -1345,6 +1415,7 @@ protected:
                 FunctionInfo func_info;
                 func_info.name = method_name;
                 func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
                 func_info.metadata["is_class_method"] = "true";
                 result.functions.push_back(func_info);
                 existing_functions.insert(method_name);
@@ -1360,6 +1431,7 @@ protected:
                 FunctionInfo func_info;
                 func_info.name = method_name;
                 func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
                 func_info.metadata["is_class_method"] = "true";
                 func_info.metadata["is_static"] = "true";
                 result.functions.push_back(func_info);
@@ -1376,6 +1448,7 @@ protected:
                 FunctionInfo func_info;
                 func_info.name = func_name;
                 func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
                 func_info.is_async = true;
                 result.functions.push_back(func_info);
                 existing_functions.insert(func_name);
@@ -1397,6 +1470,7 @@ protected:
                     FunctionInfo func_info;
                     func_info.name = method_name;
                     func_info.start_line = line_number;
+                    func_info.end_line = find_function_end_line(all_lines, line_number - 1);
                     func_info.metadata["is_es2015_method"] = "true";
                     func_info.metadata["pattern_type"] = "shorthand_method";
                     result.functions.push_back(func_info);
@@ -2100,6 +2174,31 @@ protected:
         }
         
         return result;
+    }
+    
+    // 関数の終了行を見つける（ブレースのバランスを追跡）
+    uint32_t find_function_end_line(const std::vector<std::string>& lines, size_t start_line) {
+        int brace_count = 0;
+        bool in_function = false;
+        
+        for (size_t i = start_line; i < lines.size(); ++i) {
+            const auto& line = lines[i];
+            
+            for (char c : line) {
+                if (c == '{') {
+                    brace_count++;
+                    in_function = true;
+                } else if (c == '}') {
+                    brace_count--;
+                    if (in_function && brace_count == 0) {
+                        return static_cast<uint32_t>(i + 1);
+                    }
+                }
+            }
+        }
+        
+        // 見つからない場合は開始行+10を返す
+        return static_cast<uint32_t>(std::min(start_line + 10, lines.size()));
     }
 };
 

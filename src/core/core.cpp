@@ -450,7 +450,7 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
 void NekoCodeCore::perform_complete_analysis(MultiLanguageAnalysisResult& result, const std::string& filename) {
     try {
         // 🐍 Pythonスクリプトを呼び出してデッドコード検出
-        std::string command = "python3 universal_deadcode_analyzer.py \"" + filename + "\" --complete";
+        std::string command = "python3 src/tools/universal_deadcode_analyzer.py \"" + filename + "\" --complete";
         
         // システムコマンド実行
         FILE* pipe = popen(command.c_str(), "r");

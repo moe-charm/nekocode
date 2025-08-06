@@ -215,17 +215,12 @@ nlohmann::json SessionData::to_json() const {
         }
         single_file_json["classes"] = classes_json;
         
-        // 関数詳細情報を保存
+        // 🌟 関数詳細情報を保存（UniversalFunctionInfo::to_json()使用）
         nlohmann::json functions_json = nlohmann::json::array();
         for (const auto& func : single_file_result.functions) {
-            nlohmann::json func_json;
-            func_json["name"] = func.name;
-            func_json["start_line"] = func.start_line;
-            func_json["end_line"] = func.end_line;
-            func_json["complexity"] = func.complexity.cyclomatic_complexity;
-            func_json["parameters"] = func.parameters;
-            func_json["is_async"] = func.is_async;
-            func_json["is_arrow_function"] = func.is_arrow_function;
+            // 🆕 UniversalFunctionInfoのto_json()メソッドを使用
+            // これにより自動的にmetadataも保存される！
+            nlohmann::json func_json = func.to_json();
             functions_json.push_back(func_json);
         }
         single_file_json["functions"] = functions_json;
