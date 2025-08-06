@@ -19,6 +19,7 @@
 #include <regex>
 #include <unordered_set>
 #include <thread>
+#include <nlohmann/json.hpp>
 #include <mutex>
 #include <atomic>
 #include <numeric>
@@ -331,19 +332,20 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                     // 🔥 統計再計算は不要！PEGTL結果を信頼
                     // cpp_result.update_statistics(); // ← これが問題の原因だった！
                     
-                    std::cerr << "✅ Stats preserved: classes=" << cpp_result.stats.class_count 
-                              << ", functions=" << cpp_result.stats.function_count << std::endl;
+                    // デバッグ出力削除（JSON出力に干渉するため）
+                    // std::cerr << "✅ Stats preserved: classes=" << cpp_result.stats.class_count 
+                    //           << ", functions=" << cpp_result.stats.function_count << std::endl;
                     
                     result.cpp_result = cpp_result;
                     result.file_info = analysis_result.file_info;
                     
-                    std::cerr << "✅ C++ PEGTL analyzer used successfully!" << std::endl;
+                    // std::cerr << "✅ C++ PEGTL analyzer used successfully!" << std::endl;
                 } else {
                     // フォールバック: 従来のCppAnalyzer
                     auto cpp_result = impl_->cpp_analyzer_->analyze_cpp_file(content, filename);
                     result.cpp_result = cpp_result;
                     result.file_info = cpp_result.file_info;
-                    std::cerr << "⚠️  Fallback to old CppAnalyzer" << std::endl;
+                    // std::cerr << "⚠️  Fallback to old CppAnalyzer" << std::endl;
                 }
                 break;
             }
@@ -467,22 +469,61 @@ void NekoCodeCore::perform_complete_analysis(MultiLanguageAnalysisResult& result
         }
         pclose(pipe);
         
-        // JSONレスポンス解析（簡易実装）
-        if (output.find("\"total_found\"") != std::string::npos && 
-            output.find("\"status\": \"success\"") != std::string::npos) {
-            
-            // デッドコード検出情報をメタデータとして保存
-            if (result.detected_language == Language::CPP && result.cpp_result.has_value()) {
-                result.cpp_result->file_info.metadata["dead_code_analysis"] = "completed";
-            } else if (result.detected_language == Language::JAVASCRIPT && result.js_result.has_value()) {
-                result.js_result->file_info.metadata["dead_code_analysis"] = "completed";
-            } else if (result.detected_language == Language::CSHARP && result.csharp_result.has_value()) {
-                result.csharp_result->file_info.metadata["dead_code_analysis"] = "completed";
+        // JSON結果を探す（Pythonスクリプトは装飾付きで出力）
+        size_t json_start = output.rfind("{");
+        if (json_start != std::string::npos) {
+            // JSON部分を抽出
+            std::string json_str = output.substr(json_start);
+            size_t json_end = json_str.find_last_of("}");
+            if (json_end != std::string::npos) {
+                json_str = json_str.substr(0, json_end + 1);
+                
+                try {
+                    // JSONパース
+                    nlohmann::json dead_code_result = nlohmann::json::parse(json_str);
+                    
+                    // dead_code情報を取得
+                    if (dead_code_result.contains("dead_code") && 
+                        dead_code_result["dead_code"].contains("status")) {
+                        
+                        // メタデータに詳細情報を保存
+                        std::string dead_code_json = dead_code_result["dead_code"].dump();
+                        
+                        // 言語別にメタデータに保存
+                        if (result.cpp_result.has_value()) {
+                            result.cpp_result->file_info.metadata["dead_code"] = dead_code_json;
+                        } 
+                        if (result.js_result.has_value()) {
+                            result.js_result->file_info.metadata["dead_code"] = dead_code_json;
+                        } 
+                        if (result.csharp_result.has_value()) {
+                            result.csharp_result->file_info.metadata["dead_code"] = dead_code_json;
+                        } 
+                        if (result.rust_result.has_value()) {
+                            result.rust_result->file_info.metadata["dead_code"] = dead_code_json;
+                        }
+                        // 共通メタデータにも保存（どの言語でも参照可能）
+                        result.file_info.metadata["dead_code"] = dead_code_json;
+                        
+                        std::cerr << "✅ Dead code analysis completed for: " << filename << std::endl;
+                        
+                        // 検出数を表示
+                        if (dead_code_result["dead_code"].contains("total_found")) {
+                            int total_found = dead_code_result["dead_code"]["total_found"];
+                            if (total_found > 0) {
+                                std::cerr << "   🔍 Found " << total_found << " dead code items" << std::endl;
+                            }
+                        }
+                    } else {
+                        // std::cerr << "⚠️ Dead code analysis returned no results for: " << filename << std::endl;
+                    }
+                } catch (const nlohmann::json::exception& e) {
+                    // JSON出力に干渉するため無効化
+                    // std::cerr << "⚠️ Failed to parse dead code analysis JSON: " << e.what() << std::endl;
+                }
             }
-            
-            std::cerr << "✅ Dead code analysis completed for: " << filename << std::endl;
         } else {
-            std::cerr << "⚠️ Dead code analysis failed or found no issues for: " << filename << std::endl;
+            // std::cerr << "⚠️ No JSON output from dead code analysis for: " << filename << std::endl;
         }
         
     } catch (const std::exception& e) {
