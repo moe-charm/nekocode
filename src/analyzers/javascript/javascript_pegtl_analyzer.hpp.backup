@@ -880,19 +880,17 @@ public:
     AnalysisResult analyze(const std::string& content, const std::string& filename) override {
         AnalysisResult result;
         
-        // 🔥 統一前処理システム使用（重複削除済み）
-        auto preprocess_result = script_preprocessing::ScriptPreprocessor::preprocess_script_content(
-            content, "JS", g_debug_mode
-        );
-        std::string preprocessed_content = preprocess_result.content;
+        // 🔥 前処理革命：コメント・文字列除去システム（コメント収集付き）
+        std::vector<CommentInfo> comments;
+        std::string preprocessed_content = preprocess_content(content, &comments);
         
         // ファイル情報設定
         result.file_info.name = filename;
         result.file_info.size_bytes = content.size();
         result.language = Language::JAVASCRIPT;
         
-        // 🆕 コメントアウト行情報を統一前処理から取得
-        result.commented_lines = std::move(preprocess_result.comments);
+        // 🆕 コメントアウト行情報を結果に追加
+        result.commented_lines = std::move(comments);
         
         // PEGTL解析実行
         try {
@@ -949,16 +947,9 @@ public:
         // 複雑度計算（既存ロジック流用）
         result.complexity = calculate_javascript_complexity(content);
         
-        // 🚀 ハイブリッド戦略: 統計整合性チェック + 統一検出システム補完
+        // 🚀 ハイブリッド戦略: 統計整合性チェック + 行ベース補完
         if (needs_line_based_fallback(result, content)) {
-            auto unified_start = std::chrono::high_resolution_clock::now();
-            apply_javascript_unified_detection(result, preprocessed_content, filename);
-            auto unified_end = std::chrono::high_resolution_clock::now();
-            
-            if (!g_quiet_mode) {
-                auto unified_duration = std::chrono::duration_cast<std::chrono::milliseconds>(unified_end - unified_start).count();
-                std::cerr << "⏱️ [JS] Unified detection took: " << unified_duration << "ms" << std::endl;
-            }
+            apply_line_based_analysis(result, content, filename);
         }
         
         // 🎯 統一後処理実行（メンバ変数検出・統計更新・ログ出力統合）
@@ -1040,68 +1031,816 @@ protected:
     }
     
     // 🚀 JavaScript世界最強戦略: 自動最適化ハイブリッド解析（TypeScript成功パターン移植）
-    void apply_line_based_analysis(AnalysisResult& result, const std::string& content, const std::string& filename) {
-        if (!g_quiet_mode) {
-            std::cerr << "📊 JavaScript解析開始: 統一検出システム使用" << std::endl;
+    void apply_line_based_analysis(AnalysisResult& result, const std::string& content, const std::string& /* filename */) {
+        // 🎯 ファイルサイズ検出と戦略決定
+        std::vector<std::string> all_lines;
+        std::istringstream stream(content);
+        std::string line;
+        while (std::getline(stream, line)) {
+            all_lines.push_back(line);
         }
         
-        // 統一検出システムを使用
-        apply_javascript_unified_detection(result, content, filename);
+        const size_t total_lines = all_lines.size();
+        const bool use_full_analysis = total_lines < 15000;     // JavaScript特化調整: 15K行未満で全機能
+        // サンプリングモード削除: 検出率が悪すぎるため高速モードに統合
+        
+        if (!g_quiet_mode) {
+            std::cerr << "📊 JavaScript解析開始: " << total_lines << "行検出" << std::endl;
+        }
+        
+        // 既存の関数名を記録（重複検出を防ぐ）
+        std::set<std::string> existing_functions;
+        for (const auto& func : result.functions) {
+            existing_functions.insert(func.name);
+        }
+        
+        // 🔥 既存のクラス名も記録（重複検出を防ぐ）
+        std::set<std::string> existing_classes;
+        for (const auto& cls : result.classes) {
+            existing_classes.insert(cls.name);
+        }
+        
+        // 🕐 処理時間測定開始
+        auto analysis_start = std::chrono::high_resolution_clock::now();
+        size_t processed_lines = 0;
+        
+        if (use_full_analysis) {
+            if (!g_quiet_mode) {
+                std::cerr << "🚀 通常モード: 全機能有効（JavaScript最高精度）" << std::endl;
+            }
+            // 通常モード：全行処理・6パターン検出
+            for (size_t i = 0; i < all_lines.size(); i++) {
+                const std::string& current_line = all_lines[i];
+                size_t current_line_number = i + 1;
+                
+                extract_functions_from_line(current_line, current_line_number, result, existing_functions, all_lines);
+                extract_classes_from_line(current_line, current_line_number, result, existing_classes);
+                processed_lines++;
+            }
+        } else {
+            if (!g_quiet_mode) {
+                std::cerr << "⚡ 高速モード: 基本検出のみ（大規模JS対応）" << std::endl;
+            }
+            // 高速モード：基本検出のみ・全行処理・2パターン検出
+            for (size_t i = 0; i < all_lines.size(); i++) {
+                const std::string& current_line = all_lines[i];
+                size_t current_line_number = i + 1;
+                
+                extract_basic_functions_from_line(current_line, current_line_number, result, existing_functions);
+                extract_classes_from_line(current_line, current_line_number, result, existing_classes);  // クラス検出も追加
+                processed_lines++;
+            }
+        }
+        
+        auto analysis_end = std::chrono::high_resolution_clock::now();
+        auto analysis_time = std::chrono::duration_cast<std::chrono::milliseconds>(analysis_end - analysis_start);
+        
+        if (!g_quiet_mode) {
+            std::cerr << "✅ JavaScript第1段階完了: " << processed_lines << "行処理 (" 
+                      << analysis_time.count() << "ms)" << std::endl;
+        }
+        
+        // 🚀 【JavaScriptコールバック地獄専用】無限ネスト掘削アタック開始！
+        if (use_full_analysis) {
+            if (!g_quiet_mode) {
+                std::cerr << "🚀 【JavaScript専用】無限ネスト掘削アタック開始！（コールバック地獄対応版）" << std::endl;
+            }
+            size_t initial_function_count = result.functions.size();
+            
+            // 関数範囲を特定してネスト検索
+            extract_nested_functions_recursively(result, all_lines, existing_functions);
+            
+            size_t nested_functions_found = result.functions.size() - initial_function_count;
+            if (!g_quiet_mode) {
+                std::cerr << "🏆 JavaScript無限ネスト掘削アタック最終結果：" << nested_functions_found 
+                          << "個のネスト関数を発見！" << std::endl;
+            }
+        } else {
+            if (!g_quiet_mode) {
+                std::cerr << "⚡ 高速モード: ネスト掘削スキップ（大規模JS対応）" << std::endl;
+            }
+        }
+        
+        // 🏁 処理戦略のサマリー
+        if (use_full_analysis) {
+            if (!g_quiet_mode) {
+                std::cerr << "\n📊 処理戦略: 通常モード（全機能有効）" << std::endl;
+            }
+        } else {
+            if (!g_quiet_mode) {
+                std::cerr << "\n📊 処理戦略: 高速モード（基本検出のみ・全行処理）" << std::endl;
+            }
+        }
     }
     
     // 行から関数を抽出
     // 🔥 クラス検出メソッド（行ベース）
     
-    void apply_javascript_unified_detection(AnalysisResult& result, const std::string& content, const std::string& filename) {
-        using namespace script_detection;
+    
+    void extract_basic_functions_from_line(const std::string& line, size_t line_number,
+                                          AnalysisResult& result, std::set<std::string>& existing_functions) {
         
-        // 既存の関数/クラス名セットを構築
-        auto existing_names = ScriptDetectionHelpers::build_existing_names_set(result.functions, result.classes);
+        // 制御構造キーワードフィルタリング
+        static const std::set<std::string> control_keywords = {
         
-        // 統一システムで基本検出を実行
-        auto export_functions = ScriptDetectionHelpers::detect_export_functions(content, existing_names);
-        auto basic_functions = ScriptDetectionHelpers::detect_basic_functions(content, existing_names);
-        auto classes = ScriptDetectionHelpers::detect_classes(content, existing_names);
+        while (!current_ranges.empty() && round_count < MAX_DEPTH) {
+            round_count++;
+            
+            auto round_start = std::chrono::high_resolution_clock::now();
+            std::vector<FunctionRange> next_ranges;
+            std::atomic<size_t> round_detections{0};
+            size_t round_lines = 0;
+            
+            // スレッドセーフな範囲・出力管理
+            std::mutex ranges_mutex;
+            std::mutex output_mutex;
+            
+            if (!g_quiet_mode) {
+                std::cerr << "🎯 JavaScript第" << round_count << "回ネスト掘削攻撃開始！（検索範囲: " 
+                          << current_ranges.size() << "個）" << std::endl;
+            }
+            
+            // 🔥 並列処理でコールバック地獄を高速攻略！
+            std::for_each(std::execution::par_unseq,
+                          current_ranges.begin(),
+                          current_ranges.end(),
+                          [&](const FunctionRange& range) {
+                              
+                size_t range_lines = 0;
+                              
+                for (size_t line_idx = range.start_line - 1; 
+                     line_idx < std::min(range.end_line, all_lines.size()); line_idx++) {
+                    
+                    const std::string& line = all_lines[line_idx];
+                    size_t current_line_number = line_idx + 1;
+                    range_lines++;
+                    
+                    // 🎯 JavaScriptネスト関数パターン検出
+                    std::vector<FunctionInfo> detected_functions = 
+                        detect_javascript_nested_functions(line, current_line_number, existing_functions);
+                    
+                    if (!detected_functions.empty()) {
+                        // 検出された関数を結果に追加
+                        {
+                            std::lock_guard<std::mutex> output_lock(output_mutex);
+                            for (const auto& func : detected_functions) {
+                                result.functions.push_back(func);
+                                existing_functions.insert(func.name);
+                                round_detections++;
+                                total_nested_found++;
+                                
+                                if (!g_quiet_mode) {
+                                    std::cerr << "🎯 第" << round_count << "回でネスト" 
+                                              << (func.is_arrow_function ? "アロー" : "") 
+                                              << "関数発見: " << func.name << " (行:" << func.start_line << ")" << std::endl;
+                                }
+                                
+                                // 次回検索範囲の追加（コールバック地獄対応）
+                                if (range.indent_level < MAX_DEPTH - 1) {
+                                    size_t next_start = func.start_line + 1;
+                                    size_t next_end = std::min(static_cast<size_t>(func.start_line + 50), all_lines.size()); // JavaScript関数は50行程度の範囲
+                                    
+                                    if (next_start < next_end) {
+                                        std::lock_guard<std::mutex> ranges_lock(ranges_mutex);
+                                        next_ranges.push_back({next_start, next_end, range.indent_level + 1});
+                                        if (!g_quiet_mode) {
+                                            std::cerr << "  → 次回検索範囲追加: 行" << next_start << "-" << next_end 
+                                                      << " (深さ:" << (range.indent_level + 1) << ")" << std::endl;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // 🔢 行数統計の更新
+                {
+                    std::lock_guard<std::mutex> output_lock(output_mutex);
+                    round_lines += range_lines;
+                }
+            });
+            
+            auto round_end = std::chrono::high_resolution_clock::now();
+            auto round_time = std::chrono::duration_cast<std::chrono::milliseconds>(round_end - round_start);
+            
+            // 📊 層別統計記録
+            layer_times.push_back(round_time);
+            layer_ranges.push_back(current_ranges.size());
+            layer_detections.push_back(round_detections);
+            layer_lines.push_back(round_lines);
+            
+            total_processing_time += round_time.count();
+            total_scanned_lines += round_lines;
+            
+            if (!g_quiet_mode) {
+                std::cerr << "🎯 JavaScript第" << round_count << "回攻撃完了！新規検出: " << round_detections 
+                          << "個 (処理時間: " << round_time.count() << "ms, 処理行数: " << round_lines << "行)" << std::endl;
+            }
+            
+            current_ranges = std::move(next_ranges);
+            
+            if (round_detections == 0) {
+                if (!g_quiet_mode) {
+                    std::cerr << "🎉 JavaScript無限ネスト掘削アタック完了！検索範囲が空になりました" << std::endl;
+                }
+                break;
+            }
+        }
         
-        // 結果をマージ
-        result.functions.insert(result.functions.end(), export_functions.begin(), export_functions.end());
-        result.functions.insert(result.functions.end(), basic_functions.begin(), basic_functions.end());
-        result.classes.insert(result.classes.end(), classes.begin(), classes.end());
+        if (!g_quiet_mode) {
+            std::cerr << "⏱️  JavaScript総処理時間: " << total_processing_time << "ms, 総スキャン行数: " 
+                      << total_scanned_lines << "行 (ラウンド数: " << round_count << "回)" << std::endl;
+        }
         
-        if (!g_quiet_mode && (!export_functions.empty() || !basic_functions.empty() || !classes.empty())) {
-            std::cerr << "🎯 [JS] Unified detection added: +" << export_functions.size() 
-                      << " exports, +" << basic_functions.size() << " functions, +" 
-                      << classes.size() << " classes" << std::endl;
+        // 📊 詳細プロファイリング出力
+        if (!g_quiet_mode) {
+            std::cerr << "\n📊 === JavaScript層ごとの詳細プロファイリング ===" << std::endl;
+        }
+        if (!g_quiet_mode) {
+            for (size_t i = 0; i < layer_times.size(); i++) {
+                double ms_per_line = layer_lines[i] > 0 ? static_cast<double>(layer_times[i].count()) / layer_lines[i] : 0.0;
+                std::cerr << "📈 JavaScript第" << (i+1) << "層: " << layer_times[i].count() << "ms, " 
+                          << layer_ranges[i] << "範囲, " << layer_detections[i] << "個検出, " 
+                          << layer_lines[i] << "行処理 (1行あたり: " 
+                          << std::fixed << std::setprecision(3) << ms_per_line << "ms)" << std::endl;
+            }
+        }
+        
+        // 📊 累積処理時間
+        if (!g_quiet_mode) {
+            std::cerr << "\n📊 === JavaScript累積処理時間 ===" << std::endl;
+            size_t cumulative_time = 0;
+            for (size_t i = 0; i < layer_times.size(); i++) {
+                cumulative_time += layer_times[i].count();
+                std::cerr << "🏃 JavaScript第1層〜第" << (i+1) << "層までの累積: " << cumulative_time << "ms" << std::endl;
+            }
+            std::cerr << "===================================" << std::endl;
         }
     }
-
-    uint32_t find_function_end_line(const std::vector<std::string>& lines, size_t start_line) {
-        if (start_line >= lines.size()) {
-            return static_cast<uint32_t>(start_line + 1);
+    
+    // 🎯 JavaScriptネスト関数検出（コールバック地獄専用）
+    std::vector<FunctionInfo> detect_javascript_nested_functions(const std::string& line, size_t line_number, 
+                                                                 std::set<std::string>& existing_functions) {
+        std::vector<FunctionInfo> detected_functions;
+        std::smatch match;
+        
+        // 制御構造フィルタリング
+        static const std::set<std::string> control_keywords = {
+            "if", "else", "for", "while", "do", "switch", "case", "catch", 
+            "try", "finally", "return", "break", "continue", "throw", 
+            "typeof", "instanceof", "new", "delete", "var", "let", "const"
+        };
+        
+        auto is_control_keyword = [&](const std::string& name) {
+            return control_keywords.find(name) != control_keywords.end();
+        };
+        
+        // 🎯 パターン1: コールバック内関数 - function(
+        std::regex nested_function_pattern(R"(function\s+(\w+)\s*\()");
+        auto func_begin = std::sregex_iterator(line.begin(), line.end(), nested_function_pattern);
+        auto func_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = func_begin; i != func_end; ++i) {
+            std::smatch match = *i;
+            std::string func_name = match[1].str();
+            
+            if (!is_control_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.metadata["nested_type"] = "callback_function";
+                detected_functions.push_back(func_info);
+            }
         }
         
-        // Simple brace matching to find function end
-        uint32_t brace_count = 0;
-        bool found_opening_brace = false;
+        // 🎯 パターン2: アロー関数変数 - const name = (
+        std::regex nested_arrow_pattern(R"((?:const|let|var)\s+(\w+)\s*=\s*\([^)]*\)\s*=>)");
+        auto arrow_begin = std::sregex_iterator(line.begin(), line.end(), nested_arrow_pattern);
+        auto arrow_end = std::sregex_iterator();
         
-        for (size_t i = start_line; i < lines.size(); i++) {
-            const std::string& line = lines[i];
+        for (std::sregex_iterator i = arrow_begin; i != arrow_end; ++i) {
+            std::smatch match = *i;
+            std::string func_name = match[1].str();
+            
+            if (!is_control_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.is_arrow_function = true;
+                func_info.metadata["nested_type"] = "arrow_callback";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        // 🎯 パターン3: オブジェクトメソッド - methodName: function(
+        std::regex method_pattern(R"((\w+):\s*function\s*\()");
+        auto method_begin = std::sregex_iterator(line.begin(), line.end(), method_pattern);
+        auto method_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = method_begin; i != method_end; ++i) {
+            std::smatch match = *i;
+            std::string method_name = match[1].str();
+            
+            if (!is_control_keyword(method_name) && existing_functions.find(method_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = method_name;
+                func_info.start_line = line_number;
+                func_info.metadata["nested_type"] = "object_method";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        // 🎯 パターン4: 関数式 - const name = function
+        std::regex function_expression_pattern(R"((?:const|let|var)\s+(\w+)\s*=\s*function\s*\()");
+        if (std::regex_search(line, match, function_expression_pattern)) {
+            std::string func_name = match[1].str();
+            
+            if (!is_control_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.metadata["nested_type"] = "function_expression";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        // 🔥 【JavaScript無限ネスト掘削アタック強化】パターン5: ES2015ネストメソッドショートハンド - method() { (TypeScript成功パターン移植)
+        std::regex nested_es2015_method_pattern(R"((\w+)\s*\(\s*[^)]*\s*\)\s*\{)");
+        auto es2015_begin = std::sregex_iterator(line.begin(), line.end(), nested_es2015_method_pattern);
+        auto es2015_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = es2015_begin; i != es2015_end; ++i) {
+            std::smatch match = *i;
+            std::string method_name = match[1].str();
+            
+            if (method_name != "constructor" && method_name != "get" && method_name != "set" && 
+                !is_control_keyword(method_name) && existing_functions.find(method_name) == existing_functions.end()) {
+                // ネスト内のメソッドショートハンド
+                FunctionInfo func_info;
+                func_info.name = method_name;
+                func_info.start_line = line_number;
+                func_info.metadata["nested_type"] = "es2015_method_shorthand";
+                func_info.metadata["pattern_source"] = "nested_detection";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        // 🚀 【JavaScript無限ネスト掘削アタック強化】パターン6: ネストアロー関数プロパティ - prop: () => { (TypeScript成功パターン移植)
+        std::regex nested_arrow_property_pattern(R"((\w+):\s*\([^)]*\)\s*=>\s*\{?)");
+        auto arrow_prop_begin = std::sregex_iterator(line.begin(), line.end(), nested_arrow_property_pattern);
+        auto arrow_prop_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = arrow_prop_begin; i != arrow_prop_end; ++i) {
+            std::smatch match = *i;
+            std::string prop_name = match[1].str();
+            
+            if (!is_control_keyword(prop_name) && existing_functions.find(prop_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = prop_name;
+                func_info.start_line = line_number;
+                func_info.is_arrow_function = true;
+                func_info.metadata["nested_type"] = "arrow_property_nested";
+                func_info.metadata["pattern_source"] = "nested_detection";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        // 🎯 【JavaScript無限ネスト掘削アタック強化】パターン7: 複雑ネストプロパティ関数 - prop: function() { (TypeScript成功パターン移植)
+        std::regex nested_complex_property_pattern(R"((\w+):\s*function\s*\([^)]*\)\s*\{)");
+        auto complex_prop_begin = std::sregex_iterator(line.begin(), line.end(), nested_complex_property_pattern);
+        auto complex_prop_end = std::sregex_iterator();
+        
+        for (std::sregex_iterator i = complex_prop_begin; i != complex_prop_end; ++i) {
+            std::smatch match = *i;
+            std::string prop_name = match[1].str();
+            
+            if (!is_control_keyword(prop_name) && existing_functions.find(prop_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = prop_name;
+                func_info.start_line = line_number;
+                func_info.metadata["nested_type"] = "property_function_nested";
+                func_info.metadata["pattern_source"] = "nested_detection";
+                detected_functions.push_back(func_info);
+            }
+        }
+        
+        return detected_functions;
+    }
+    
+    // 🌟 JavaScriptのスコープ範囲構造体（コールバック地獄対応）
+    struct FunctionRange {
+        size_t start_line;
+        size_t end_line;
+        size_t indent_level;
+    };
+    
+    // 🚀 高速モード専用：基本的な関数パターンのみ検出（大規模JS対応）
+    void extract_basic_functions_from_line(const std::string& line, size_t line_number, 
+                                          AnalysisResult& result, std::set<std::string>& existing_functions) {
+        
+        // 制御構造キーワードフィルタリング
+        static const std::set<std::string> control_keywords = {
+            "if", "else", "for", "while", "do", "switch", "case", "catch", 
+            "try", "finally", "return", "break", "continue", "throw", 
+            "typeof", "instanceof", "new", "delete", "var", "let", "const"
+        };
+        
+        auto is_control_keyword = [&](const std::string& name) {
+            return control_keywords.find(name) != control_keywords.end();
+        };
+        
+        // 🎯 高速モード：最も一般的なパターンのみ検出
+        std::smatch match;
+        
+        // パターン1: function name( - 最も基本的
+        std::regex basic_function_pattern(R"(^\s*function\s+(\w+)\s*\()");
+        if (std::regex_search(line, match, basic_function_pattern)) {
+            std::string func_name = match[1].str();
+            if (!is_control_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.end_line = line_number;  // 高速モードでは簡易end_line
+                func_info.parameters = extract_parameters_from_function_signature(line);
+                func_info.metadata["detection_mode"] = "basic";
+                result.functions.push_back(func_info);
+                existing_functions.insert(func_name);
+            }
+        }
+        
+        // パターン2: const/let/var name = function( - ES6対応最小限
+        std::regex basic_arrow_pattern(R"(^\s*(?:const|let|var)\s+(\w+)\s*=\s*function\s*\()");
+        if (std::regex_search(line, match, basic_arrow_pattern)) {
+            std::string func_name = match[1].str();
+            if (!is_control_keyword(func_name) && existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.end_line = line_number;  // 高速モードでは簡易end_line
+                func_info.parameters = extract_parameters_from_function_signature(line);
+                func_info.is_arrow_function = true;
+                func_info.metadata["detection_mode"] = "basic";
+                result.functions.push_back(func_info);
+                existing_functions.insert(func_name);
+            }
+        }
+    }
+    
+protected:
+    // 🆕 ===============================================================================
+    // 💬 Comment Collection System - TypeScriptアナライザーからの移植
+    // ===============================================================================
+    
+    // 🆕 コメント収集機能付き前処理（オーバーロード）
+    std::string preprocess_content(const std::string& content, std::vector<CommentInfo>* out_comments) {
+        if (!out_comments) {
+            return preprocess_content_basic(content);  // 従来版にフォールバック
+        }
+        
+        std::string result = content;
+        
+        // 1. 複数行コメント /* ... */ を除去・収集
+        result = remove_multiline_comments(result, out_comments);
+        
+        // 2. 単行コメント // ... を除去・収集
+        result = remove_single_line_comments(result, out_comments);
+        
+        // 3. 文字列リテラル "...", '...', `...` を除去
+        result = remove_string_literals(result);
+        
+        return result;
+    }
+    
+    // 🔧 行番号計算ヘルパー関数
+    std::uint32_t calculate_line_number(const std::string& content, size_t position) {
+        std::uint32_t line_number = 1;
+        for (size_t i = 0; i < position && i < content.length(); ++i) {
+            if (content[i] == '\n') {
+                line_number++;
+            }
+        }
+        return line_number;
+    }
+    
+    // 🤖 コードらしさ判定ロジック（JavaScript専用）
+    bool looks_like_code(const std::string& comment_text) {
+        // コメント記号を除去したテキストを取得
+        std::string content = comment_text;
+        
+        // コメント記号を削除
+        if (content.find("//") == 0) {
+            content = content.substr(2);
+        }
+        if (content.find("/*") == 0 && content.length() >= 4 && content.substr(content.length()-2) == "*/") {
+            content = content.substr(2, content.length()-4);
+        }
+        
+        // 空白を除去
+        content.erase(0, content.find_first_not_of(" \t\n\r"));
+        content.erase(content.find_last_not_of(" \t\n\r") + 1);
+        
+        if (content.empty()) return false;
+        
+        // 🎯 コード判定キーワード（JavaScript専用）
+        std::vector<std::string> code_keywords = {
+            "function", "const", "let", "var", "class", "return", "if", "else", 
+            "for", "while", "switch", "case", "break", "continue", "try", "catch", 
+            "finally", "throw", "import", "export", "async", "await", "yield",
+            "console.log", "console.error", "console.warn", "debugger", "void", 
+            "null", "undefined", "true", "false", "typeof", "instanceof", "new", 
+            "delete", "this", "super", "extends", "implements"
+        };
+        
+        // キーワードマッチング
+        for (const auto& keyword : code_keywords) {
+            if (content.find(keyword) != std::string::npos) {
+                return true;
+            }
+        }
+        
+        // 🔧 構文パターンマッチング
+        // セミコロン終了
+        if (content.back() == ';') return true;
+        
+        // 中括弧・小括弧パターン
+        if (content.find('{') != std::string::npos || content.find('}') != std::string::npos) return true;
+        if (content.find('(') != std::string::npos && content.find(')') != std::string::npos) return true;
+        
+        // 代入演算子
+        if (content.find('=') != std::string::npos && content.find("==") == std::string::npos) return true;
+        
+        // メソッド呼び出しパターン
+        if (content.find('.') != std::string::npos && content.find('(') != std::string::npos) return true;
+        
+        return false;
+    }
+    
+    // 🆕 複数行コメント /* ... */ 除去・収集（オーバーロード）
+    std::string remove_multiline_comments(const std::string& content, std::vector<CommentInfo>* out_comments) {
+        std::string result;
+        size_t pos = 0;
+        
+        while (pos < content.length()) {
+            size_t comment_start = content.find("/*", pos);
+            if (comment_start == std::string::npos) {
+                result += content.substr(pos);
+                break;
+            }
+            
+            // コメント開始前までをコピー
+            result += content.substr(pos, comment_start - pos);
+            
+            // コメント終了を検索
+            size_t comment_end = content.find("*/", comment_start + 2);
+            if (comment_end == std::string::npos) {
+                // コメントが閉じられていない場合
+                std::string comment_text = content.substr(comment_start);
+                std::uint32_t start_line = calculate_line_number(content, comment_start);
+                std::uint32_t end_line = calculate_line_number(content, content.length());
+                
+                CommentInfo comment_info(start_line, end_line, "multi_line", comment_text);
+                comment_info.looks_like_code = looks_like_code(comment_text);
+                out_comments->push_back(comment_info);
+                
+                result += std::string(content.length() - comment_start, ' ');
+                break;
+            }
+            
+            // コメント情報を収集
+            std::string comment_text = content.substr(comment_start, comment_end - comment_start + 2);
+            std::uint32_t start_line = calculate_line_number(content, comment_start);
+            std::uint32_t end_line = calculate_line_number(content, comment_end + 2);
+            
+            CommentInfo comment_info(start_line, end_line, "multi_line", comment_text);
+            comment_info.looks_like_code = looks_like_code(comment_text);
+            out_comments->push_back(comment_info);
+            
+            // コメント部分をスペースで置換（行数維持のため）
+            for (char c : comment_text) {
+                result += (c == '\n') ? '\n' : ' ';
+            }
+            
+            pos = comment_end + 2;
+        }
+        
+        return result;
+    }
+    
+    // 🆕 単行コメント // ... 除去・収集（オーバーロード）
+    std::string remove_single_line_comments(const std::string& content, std::vector<CommentInfo>* out_comments) {
+        std::istringstream stream(content);
+        std::string result;
+        std::string line;
+        std::uint32_t line_number = 1;
+        
+        while (std::getline(stream, line)) {
+            size_t comment_pos = line.find("//");
+            if (comment_pos != std::string::npos) {
+                // コメント情報を収集
+                std::string comment_text = line.substr(comment_pos);
+                CommentInfo comment_info(line_number, line_number, "single_line", comment_text);
+                comment_info.looks_like_code = looks_like_code(comment_text);
+                out_comments->push_back(comment_info);
+                
+                // コメント部分をスペースで置換
+                std::string clean_line = line.substr(0, comment_pos);
+                clean_line += std::string(line.length() - comment_pos, ' ');
+                result += clean_line + "\n";
+            } else {
+                result += line + "\n";
+            }
+            line_number++;
+        }
+        
+        return result;
+    }
+    
+    // 文字列リテラル "...", '...', `...` 除去
+    std::string remove_string_literals(const std::string& content) {
+        std::string result;
+        size_t pos = 0;
+        
+        while (pos < content.length()) {
+            char c = content[pos];
+            
+            // 文字列開始文字を検出
+            if (c == '"' || c == '\'' || c == '`') {
+                char quote = c;
+                result += ' '; // クォート自体もスペースに
+                pos++;
+                
+                // 文字列終了まで検索
+                while (pos < content.length()) {
+                    char current = content[pos];
+                    
+                    if (current == quote) {
+                        result += ' '; // 終了クォートもスペースに
+                        pos++;
+                        break;
+                    } else if (current == '\\' && pos + 1 < content.length()) {
+                        // エスケープシーケンス処理
+                        result += "  "; // エスケープ文字もスペースに
+                        pos += 2;
+                    } else if (current == '\n') {
+                        // 改行は保持（行数維持）
+                        result += '\n';
+                        pos++;
+                    } else {
+                        result += ' '; // その他の文字はスペースに
+                        pos++;
+                    }
+                }
+            } else {
+                result += c;
+                pos++;
+            }
+        }
+        
+        return result;
+    }
+    
+    // 従来の前処理（フォールバック用）
+    std::string preprocess_content_basic(const std::string& content) {
+        std::string result = content;
+        
+        // 1. 複数行コメント /* ... */ を除去
+        result = remove_multiline_comments_basic(result);
+        
+        // 2. 単行コメント // ... を除去
+        result = remove_single_line_comments_basic(result);
+        
+        // 3. 文字列リテラル "...", '...`, `...` を除去
+        result = remove_string_literals(result);
+        
+        return result;
+    }
+    
+    // 従来の複数行コメント除去
+    std::string remove_multiline_comments_basic(const std::string& content) {
+        std::string result;
+        size_t pos = 0;
+        
+        while (pos < content.length()) {
+            size_t comment_start = content.find("/*", pos);
+            if (comment_start == std::string::npos) {
+                result += content.substr(pos);
+                break;
+            }
+            
+            // コメント開始前までをコピー
+            result += content.substr(pos, comment_start - pos);
+            
+            // コメント終了を検索
+            size_t comment_end = content.find("*/", comment_start + 2);
+            if (comment_end == std::string::npos) {
+                // コメントが閉じられていない場合、残り全部をスペースに
+                result += std::string(content.length() - comment_start, ' ');
+                break;
+            }
+            
+            // コメント部分をスペースで置換（行数維持のため）
+            std::string comment_text = content.substr(comment_start, comment_end - comment_start + 2);
+            for (char c : comment_text) {
+                result += (c == '\n') ? '\n' : ' ';
+            }
+            
+            pos = comment_end + 2;
+        }
+        
+        return result;
+    }
+    
+    // 従来の単行コメント除去
+    std::string remove_single_line_comments_basic(const std::string& content) {
+        std::istringstream stream(content);
+        std::string result;
+        std::string line;
+        
+        while (std::getline(stream, line)) {
+            size_t comment_pos = line.find("//");
+            if (comment_pos != std::string::npos) {
+                // コメント部分をスペースで置換
+                std::string clean_line = line.substr(0, comment_pos);
+                clean_line += std::string(line.length() - comment_pos, ' ');
+                result += clean_line + "\n";
+            } else {
+                result += line + "\n";
+            }
+        }
+        
+        return result;
+    }
+    
+    // 関数の終了行を見つける（ブレースのバランスを追跡）
+    uint32_t find_function_end_line(const std::vector<std::string>& lines, size_t start_line) {
+        int brace_count = 0;
+        bool in_function = false;
+        
+        for (size_t i = start_line; i < lines.size(); ++i) {
+            const auto& line = lines[i];
             
             for (char c : line) {
                 if (c == '{') {
                     brace_count++;
-                    found_opening_brace = true;
-                } else if (c == '}' && found_opening_brace) {
+                    in_function = true;
+                } else if (c == '}') {
                     brace_count--;
-                    if (brace_count == 0) {
+                    if (in_function && brace_count == 0) {
                         return static_cast<uint32_t>(i + 1);
                     }
                 }
             }
         }
         
-        // If no matching brace found, return a reasonable default
+        // 見つからない場合は開始行+10を返す
         return static_cast<uint32_t>(std::min(start_line + 10, lines.size()));
+    }
+    
+    // 🎯 パラメータ抽出ヘルパー関数
+    std::vector<std::string> extract_parameters_from_function_signature(const std::string& line) {
+        std::vector<std::string> parameters;
+        
+        // 括弧内のパラメータを抽出
+        std::regex param_pattern(R"(\(([^)]*)\))");
+        std::smatch match;
+        
+        if (std::regex_search(line, match, param_pattern)) {
+            std::string param_str = match[1].str();
+            if (!param_str.empty()) {
+                // パラメータをカンマで分割
+                std::istringstream iss(param_str);
+                std::string param;
+                
+                while (std::getline(iss, param, ',')) {
+                    // 前後の空白を除去
+                    param.erase(0, param.find_first_not_of(" \t"));
+                    param.erase(param.find_last_not_of(" \t") + 1);
+                    
+                    if (!param.empty()) {
+                        // デフォルト値や型注釈を除去（基本的な名前のみ抽出）
+                        size_t equal_pos = param.find('=');
+                        if (equal_pos != std::string::npos) {
+                            param = param.substr(0, equal_pos);
+                        }
+                        size_t colon_pos = param.find(':');
+                        if (colon_pos != std::string::npos) {
+                            param = param.substr(0, colon_pos);
+                        }
+                        
+                        // 再度空白除去
+                        param.erase(0, param.find_first_not_of(" \t"));
+                        param.erase(param.find_last_not_of(" \t") + 1);
+                        
+                        if (!param.empty()) {
+                            parameters.push_back(param);
+                        }
+                    }
+                }
+            }
+        }
+        
+        return parameters;
     }
 };
 

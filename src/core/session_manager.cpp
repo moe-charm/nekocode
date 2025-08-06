@@ -415,18 +415,22 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                     {"example", "replace-preview src/test.cpp \"old_function\" \"new_function\""}
                 };
             } else {
-                result = session_commands_.cmd_replace_preview(session, tokens[0], tokens[1], tokens[2]);
+                result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+                // DISABLED: session_commands_.cmd_replace_preview(session, tokens[0], tokens[1], tokens[2]);
             }
         } else if (command.substr(0, 16) == "replace-confirm ") {
             // replace-confirm <preview_id>
             std::string preview_id = command.substr(16);
-            result = session_commands_.cmd_replace_confirm(session, preview_id);
+            result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+            // DISABLED: session_commands_.cmd_replace_confirm(session, preview_id);
         } else if (command == "edit-history") {
-            result = session_commands_.cmd_edit_history(session);
+            result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+            // DISABLED: session_commands_.cmd_edit_history(session);
         } else if (command.substr(0, 10) == "edit-show ") {
             // edit-show <id>
             std::string id = command.substr(10);
-            result = session_commands_.cmd_edit_show(session, id);
+            result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+            // DISABLED: session_commands_.cmd_edit_show(session, id);
         } else if (command.substr(0, 15) == "insert-preview ") {
             // insert-preview <file> <position> <content>
             std::string args = command.substr(15);
@@ -459,12 +463,14 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                     {"positions", {"start", "end", "行番号", "before:pattern", "after:pattern"}}
                 };
             } else {
-                result = session_commands_.cmd_insert_preview(session, tokens[0], tokens[1], tokens[2]);
+                result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+                // DISABLED: session_commands_.cmd_insert_preview(session, tokens[0], tokens[1], tokens[2]);
             }
         } else if (command.substr(0, 15) == "insert-confirm ") {
             // insert-confirm <preview_id>
             std::string preview_id = command.substr(15);
-            result = session_commands_.cmd_insert_confirm(session, preview_id);
+            result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+            // DISABLED: session_commands_.cmd_insert_confirm(session, preview_id);
         } else if (command.substr(0, 18) == "movelines-preview ") {
             // movelines-preview <srcfile> <start_line> <line_count> <dstfile> <insert_line>
             std::string args = command.substr(18);
@@ -497,12 +503,14 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                     {"example", "movelines-preview utils.js 45 20 helpers.js 10"}
                 };
             } else {
-                result = session_commands_.cmd_movelines_preview(session, tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]);
+                result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+                // DISABLED: session_commands_.cmd_movelines_preview(session, tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]);
             }
         } else if (command.substr(0, 18) == "movelines-confirm ") {
             // movelines-confirm <preview_id>
             std::string preview_id = command.substr(18);
-            result = session_commands_.cmd_movelines_confirm(session, preview_id);
+            result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+            // DISABLED: session_commands_.cmd_movelines_confirm(session, preview_id);
         } else if (command.substr(0, 8) == "replace ") {
             // replace <file_path> <pattern> <replacement>
             std::string args = command.substr(8);
@@ -534,7 +542,8 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                     {"example", "replace src/test.cpp \"old_function\" \"new_function\""}
                 };
             } else {
-                result = session_commands_.cmd_replace(session, tokens[0], tokens[1], tokens[2]);
+                result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+                // DISABLED: session_commands_.cmd_replace(session, tokens[0], tokens[1], tokens[2]);
             }
         } else if (command.substr(0, 10) == "ast-query ") {
             // ast-query <query_path>
