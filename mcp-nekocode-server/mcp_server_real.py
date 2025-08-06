@@ -493,21 +493,44 @@ class NekoCodeMCPServer:
         }
     
     async def _tool_edit_history(self, args: Dict) -> Dict:
-        """編集履歴表示"""
-        session_id = args["session_id"]
-        
-        # セッション存在チェック
-        if session_id not in self.sessions:
-            return {
-                "content": [{"type": "text", "text": f"Session not found: {session_id}"}],
-                "isError": True
+        """編集履歴表示（セッション不要）"""
+        # セッション不要でedit-historyディレクトリから直接読み込み
+        try:
+            import os
+            import glob
+            
+            history_dir = "memory/edit_history"
+            if not os.path.exists(history_dir):
+                return {
+                    "content": [{"type": "text", "text": json.dumps({"history": [], "total_count": 0, "summary": "編集履歴なし"}, indent=2, ensure_ascii=False)}]
+                }
+            
+            # JSONファイルを取得して最新順でソート
+            history_files = glob.glob(f"{history_dir}/*.json")
+            history_files.sort(key=os.path.getmtime, reverse=True)
+            
+            history_list = []
+            for file_path in history_files[:20]:  # 最新20件
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        history_data = json.load(f)
+                        history_list.append(history_data)
+                except Exception as e:
+                    logger.warning(f"Failed to load history file {file_path}: {e}")
+            
+            result = {
+                "command": "edit-history",
+                "total_count": len(history_files),
+                "history": history_list,
+                "summary": "最新20件の編集履歴"
             }
-        
-        # コマンド実行
-        result = await self._run_nekocode(["session-command", session_id, "edit-history"])
+            
+        except Exception as e:
+            logger.error(f"Edit history error: {e}")
+            result = {"error": f"編集履歴の取得に失敗: {str(e)}"}
         
         return {
-            "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
+            "content": [{"type": "text", "text": json.dumps(result, indent=2, ensure_ascii=False)}]
         }
     
     async def _tool_edit_show(self, args: Dict) -> Dict:
