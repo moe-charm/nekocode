@@ -9,8 +9,8 @@
 
 #include "../universal/universal_code_analyzer.hpp"
 #include "../universal/language_traits.hpp"
+#include "nekocode/analyzers/rust_analyzer.hpp"
 #include <memory>
-#include <regex>
 #include <unordered_map>
 #include <stack>
 
@@ -23,7 +23,10 @@ namespace adapters {
 
 class RustUniversalAdapter : public universal::UniversalCodeAnalyzer<universal::RustTraits> {
 private:
-    // 🦀 Rust特有の構造管理
+    // 🔥 成熟した既存実装を活用（JavaScriptパターンを踏襲）
+    std::unique_ptr<RustAnalyzer> legacy_analyzer;
+    
+    // 🦀 Rust特有の構造管理（拡張用）
     std::string current_module;                     // 現在のモジュール名
     std::stack<std::string> module_stack;          // モジュールスタック
     std::unordered_map<std::string, std::string> trait_implementations; // trait実装管理
@@ -34,7 +37,10 @@ private:
     bool in_test_module = false;
     
 public:
-    RustUniversalAdapter() = default;
+    RustUniversalAdapter() {
+        // 成熟したRustアナライザーを初期化
+        legacy_analyzer = std::make_unique<RustAnalyzer>();
+    }
     virtual ~RustUniversalAdapter() = default;
     
     //=========================================================================
@@ -54,27 +60,23 @@ public:
     }
     
     //=========================================================================
-    // 🔥 Rust特化解析エンジン（ownership/trait + AST統一）
+    // 🔥 ハイブリッド解析エンジン（成熟したRustアナライザー + 統一AST）
     //=========================================================================
     
     AnalysisResult analyze(const std::string& content, const std::string& filename) override {
-        // Phase 1: 基本情報設定
-        AnalysisResult result;
-        result.language = get_language();
-        result.file_info.name = filename;
-        result.file_info.size_bytes = content.size();
-        result.file_info.total_lines = count_lines(content);
+        // Phase 1: 成熟したRust解析で高精度結果取得
+        AnalysisResult legacy_result = legacy_analyzer->analyze(content, filename);
         
-        // Phase 2: Rust特化解析 + AST構築
-        parse_rust_with_ast(content, result);
+        // Phase 2: 統一AST構築（既存結果から逆構築）
+        build_unified_ast_from_legacy_result(legacy_result, content);
         
-        // Phase 3: AST → 従来形式変換
-        this->tree_builder.extract_to_analysis_result(result);
+        // Phase 3: AST統計とレガシー統計の統合
+        enhance_result_with_ast_data(legacy_result);
         
-        // Phase 4: Rust特化統計拡張
-        enhance_result_with_rust_features(result);
+        // Phase 4: Rust特化機能の追加
+        enhance_result_with_rust_features(legacy_result);
         
-        return result;
+        return legacy_result;
     }
     
     //=========================================================================
@@ -149,9 +151,67 @@ public:
     
 protected:
     //=========================================================================
-    // 🔄 Rust特化解析エンジン
+    // 🔄 レガシー → 統一AST変換エンジン
     //=========================================================================
     
+    void build_unified_ast_from_legacy_result(const AnalysisResult& legacy_result, const std::string& content) {
+        // レガシー結果から統一AST構築
+        
+        // クラス情報をAST化（Rustのstruct/enum）
+        for (const auto& class_info : legacy_result.classes) {
+            this->tree_builder.enter_scope(ASTNodeType::CLASS, class_info.name, class_info.start_line);
+            
+            // struct/enum内のメソッドを追加
+            for (const auto& method : class_info.methods) {
+                this->tree_builder.add_function(method.name, method.start_line);
+            }
+            
+            this->tree_builder.exit_scope(class_info.end_line);
+        }
+        
+        // 独立関数をAST化（struct/enum外の関数）
+        for (const auto& func_info : legacy_result.functions) {
+            // メソッドではないものを追加
+            bool is_method = false;
+            for (const auto& cls : legacy_result.classes) {
+                for (const auto& method : cls.methods) {
+                    if (method.name == func_info.name && 
+                        method.start_line == func_info.start_line) {
+                        is_method = true;
+                        break;
+                    }
+                }
+                if (is_method) break;
+            }
+            
+            if (!is_method) {
+                this->tree_builder.add_function(func_info.name, func_info.start_line);
+            }
+        }
+        
+        // Rust特有の構造を解析（trait、impl、macro等）
+        analyze_rust_specific_patterns(content);
+    }
+    
+    void analyze_rust_specific_patterns(const std::string& content) {
+        // Rust特有のパターンを追加解析（必要に応じて）
+        // 例: trait、impl、unsafe、macro、lifetime等
+    }
+    
+    void enhance_result_with_ast_data(AnalysisResult& result) {
+        // AST統計を既存結果に統合
+        auto ast_stats = this->tree_builder.get_ast_statistics();
+        
+        // 統計拡張（より正確な値を使用）
+        if (ast_stats.classes > 0) {
+            result.stats.class_count = ast_stats.classes;
+        }
+        if (ast_stats.functions > 0) {
+            result.stats.function_count = ast_stats.functions;
+        }
+    }
+    
+    // 以下は旧実装（将来削除予定）
     void parse_rust_with_ast(const std::string& content, AnalysisResult& result) {
         std::istringstream stream(content);
         std::string line;
