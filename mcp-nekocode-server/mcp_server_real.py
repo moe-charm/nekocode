@@ -126,65 +126,58 @@ class NekoCodeMCPServer:
             },
             {
                 "name": "replace_preview",
-                "description": "📝 置換プレビュー（変更前後確認）",
+                "description": "📝 置換プレビュー（セッション不要・直接実行）",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "session_id": {"type": "string", "description": "セッションID"},
                         "file_path": {"type": "string", "description": "ファイルパス"},
                         "pattern": {"type": "string", "description": "検索パターン"},
                         "replacement": {"type": "string", "description": "置換文字列"}
                     },
-                    "required": ["session_id", "file_path", "pattern", "replacement"]
+                    "required": ["file_path", "pattern", "replacement"]
                 }
             },
             {
                 "name": "replace_confirm",
-                "description": "✅ 置換実行（プレビューID指定）",
+                "description": "✅ 置換実行（セッション不要・プレビューID指定）",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "session_id": {"type": "string", "description": "セッションID"},
                         "preview_id": {"type": "string", "description": "プレビューID"}
                     },
-                    "required": ["session_id", "preview_id"]
+                    "required": ["preview_id"]
                 }
             },
             {
                 "name": "insert_preview",
-                "description": "📝 挿入プレビュー（start/end/行番号）",
+                "description": "📝 挿入プレビュー（セッション不要・start/end/行番号）",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "session_id": {"type": "string", "description": "セッションID"},
                         "file_path": {"type": "string", "description": "ファイルパス"},
                         "position": {"type": "string", "description": "挿入位置（start/end/行番号）"},
                         "content": {"type": "string", "description": "挿入内容"}
                     },
-                    "required": ["session_id", "file_path", "position", "content"]
+                    "required": ["file_path", "position", "content"]
                 }
             },
             {
                 "name": "insert_confirm",
-                "description": "✅ 挿入実行（プレビューID指定）",
+                "description": "✅ 挿入実行（セッション不要・プレビューID指定）",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "session_id": {"type": "string", "description": "セッションID"},
                         "preview_id": {"type": "string", "description": "プレビューID"}
                     },
-                    "required": ["session_id", "preview_id"]
+                    "required": ["preview_id"]
                 }
             },
             {
                 "name": "edit_history",
-                "description": "📋 編集履歴表示（最新20件）",
+                "description": "📋 編集履歴表示（セッション不要・最新20件）",
                 "inputSchema": {
                     "type": "object",
-                    "properties": {
-                        "session_id": {"type": "string", "description": "セッションID"}
-                    },
-                    "required": ["session_id"]
+                    "properties": {}
                 }
             },
             {
@@ -489,19 +482,11 @@ class NekoCodeMCPServer:
         }
     
     async def _tool_insert_confirm(self, args: Dict) -> Dict:
-        """挿入実行"""
-        session_id = args["session_id"]
+        """挿入実行（直接実行）"""
         preview_id = args["preview_id"]
         
-        # セッション存在チェック
-        if session_id not in self.sessions:
-            return {
-                "content": [{"type": "text", "text": f"Session not found: {session_id}"}],
-                "isError": True
-            }
-        
-        # コマンド実行（引数を個別に渃す）
-        result = await self._run_nekocode(["session-command", session_id, "insert-confirm", preview_id])
+        # 直接コマンド実行（セッション不要）
+        result = await self._run_nekocode(["insert-confirm", preview_id])
         
         return {
             "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
