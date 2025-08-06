@@ -78,6 +78,13 @@ Should I help you clean these up?"
 ./nekocode_ai session-command <session_id> include-cycles
 ./nekocode_ai session-command <session_id> include-unused
 
+# ✨ NEW! Direct Edit Commands (No session required!)
+./nekocode_ai replace-preview main.cpp "oldFunction" "newFunction"  # Preview changes
+./nekocode_ai replace-confirm preview_123                           # Apply changes
+./nekocode_ai replace main.cpp "oldFunction" "newFunction"          # Direct replace
+./nekocode_ai movelines src.js 10 5 dest.js 20                     # Move 5 lines
+./nekocode_ai insert file.py 42 "# New comment"                    # Insert text
+
 # 🧠 Memory System - 時間軸Memory革命 (NEW!)
 ./nekocode_ai memory save auto project_analysis_jan15     # Save analysis result
 ./nekocode_ai memory save memo refactor_plan "Important notes"  # Save manual memo
@@ -148,13 +155,18 @@ await mcp__nekocode__session_stats(session_id)          # 3ms response!
 await mcp__nekocode__include_cycles(session_id)         # Find circular dependencies  
 await mcp__nekocode__include_graph(session_id)          # Dependency visualization
 
-# ✂️ NEW! Safe Code Editing (2-stage execution)
+# ✂️ NEW! Safe Code Editing (2-stage execution OR direct!)
+# Option 1: With session (traditional)
 await mcp__nekocode__replace_preview(session_id, "src/main.cpp", "old_func", "new_func")
 await mcp__nekocode__replace_confirm(session_id, "preview_123")
+
+# Option 2: WITHOUT session (NEW! Simpler!)
+await mcp__nekocode__replace_direct("src/main.cpp", "old_func", "new_func")  # Direct execution!
 
 # 📝 NEW! Move Lines Between Files - Claude Code's Dream Feature!
 await mcp__nekocode__movelines_preview(session_id, "utils.js", "45", "20", "helpers.js", "10")  
 await mcp__nekocode__movelines_confirm(session_id, "movelines_456")  # Actually moves the code!
+# OR Direct: await mcp__nekocode__movelines_direct("utils.js", "45", "20", "helpers.js", "10")
 
 # 🔍 Code Analysis & Search
 await mcp__nekocode__list_languages()                   # Check supported languages
@@ -165,7 +177,8 @@ await mcp__nekocode__edit_history(session_id)          # Track all your changes
 - ✅ Native Claude Code integration
 - ✅ Session management (3ms operations after initial analysis)
 - ✅ Advanced C++ dependency analysis tools
-- ✅ **NEW! Safe code editing** with 2-stage execution (preview → confirm)
+- ✅ **NEW! Safe code editing** with 2-stage execution (preview → confirm) OR direct mode!
+- ✅ **NEW! Session-free editing** - Direct commands without session creation!
 - ✅ **NEW! movelines feature** - Direct file-to-file line movement (no copy/paste!)
 - ✅ Complete edit history tracking and management
 - ✅ All NekoCode features as MCP tools
@@ -422,6 +435,22 @@ NekoCode now provides comprehensive member variable analysis across all supporte
 
 ## 📋 利用可能なコマンド
 
+### 🆕 Direct Commands (セッション不要！) - NEW!
+
+| Command | Description | Example |
+|---------|-------------|---------|  
+| `replace <file> <pattern> <replacement>` | 即座に置換実行 | `./nekocode_ai replace main.cpp "old" "new"` |
+| `replace-preview <file> <pattern> <repl>` | 置換プレビュー | `./nekocode_ai replace-preview main.cpp "old" "new"` |
+| `replace-confirm <preview_id>` | 置換確定実行 | `./nekocode_ai replace-confirm preview_123` |
+| `insert <file> <position> <content>` | 即座に挿入実行 | `./nekocode_ai insert file.py 42 "# Comment"` |
+| `insert-preview <file> <pos> <content>` | 挿入プレビュー | `./nekocode_ai insert-preview file.py start "import os"` |
+| `insert-confirm <preview_id>` | 挿入確定実行 | `./nekocode_ai insert-confirm preview_456` |
+| `movelines <src> <start> <count> <dst> <pos>` | 即座に行移動 | `./nekocode_ai movelines a.js 10 5 b.js 20` |
+| `movelines-preview <src> <s> <c> <dst> <p>` | 行移動プレビュー | `./nekocode_ai movelines-preview a.js 10 5 b.js 20` |
+| `movelines-confirm <preview_id>` | 行移動確定実行 | `./nekocode_ai movelines-confirm movelines_789` |
+
+### Session Commands (セッション必要)
+
 | Command | Description |
 |---------|-------------|
 | `stats` | Project statistics overview |
@@ -450,15 +479,9 @@ NekoCode now provides comprehensive member variable analysis across all supporte
 | `macro-analysis` | マクロ展開追跡 |
 | `metaprogramming` | メタプログラミングパターン検出 |
 | `compile-time-optimization` | コンパイル時計算最適化提案 |
-| **Editing Commands** | **2-stage execution for safety** |
-| `replace-preview <file> <pattern> <replacement>` | Preview replacement changes |
-| `replace-confirm <preview_id>` | Execute replacement |
-| `insert-preview <file> <position> <content>` | Preview insertion (start/end/line#) |
-| `insert-confirm <preview_id>` | Execute insertion |
+| **Session Editing** | **Use session-command** |
 | `edit-history` | Show recent edit operations (20 items) |
 | `edit-show <id>` | Show detailed edit information |
-| `movelines-preview <srcfile> <start> <count> <dstfile> <pos>` | Preview line movement between files |
-| `movelines-confirm <preview_id>` | Execute line movement |
 
 ## 🔧 設定オプション
 
