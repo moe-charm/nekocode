@@ -441,9 +441,8 @@ class NekoCodeMCPServer:
                 "isError": True
             }
         
-        # コマンド実行
-        cmd = f"replace-preview {file_path} '{pattern}' '{replacement}'"
-        result = await self._run_nekocode(["session-command", session_id, cmd])
+        # コマンド実行（引数を個別に渡す）
+        result = await self._run_nekocode(["session-command", session_id, "replace-preview", file_path, pattern, replacement])
         
         return {
             "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
@@ -461,9 +460,8 @@ class NekoCodeMCPServer:
                 "isError": True
             }
         
-        # コマンド実行
-        cmd = f"replace-confirm {preview_id}"
-        result = await self._run_nekocode(["session-command", session_id, cmd])
+        # コマンド実行（引数を個別に渡す）
+        result = await self._run_nekocode(["session-command", session_id, "replace-confirm", preview_id])
         
         return {
             "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
@@ -483,9 +481,8 @@ class NekoCodeMCPServer:
                 "isError": True
             }
         
-        # コマンド実行
-        cmd = f"insert-preview {file_path} {position} '{content}'"
-        result = await self._run_nekocode(["session-command", session_id, cmd])
+        # コマンド実行（引数を個別に渡す）
+        result = await self._run_nekocode(["session-command", session_id, "insert-preview", file_path, position, content])
         
         return {
             "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
@@ -503,9 +500,8 @@ class NekoCodeMCPServer:
                 "isError": True
             }
         
-        # コマンド実行
-        cmd = f"insert-confirm {preview_id}"
-        result = await self._run_nekocode(["session-command", session_id, cmd])
+        # コマンド実行（引数を個別に渃す）
+        result = await self._run_nekocode(["session-command", session_id, "insert-confirm", preview_id])
         
         return {
             "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
@@ -541,9 +537,8 @@ class NekoCodeMCPServer:
                 "isError": True
             }
         
-        # コマンド実行
-        cmd = f"edit-show {edit_id}"
-        result = await self._run_nekocode(["session-command", session_id, cmd])
+        # コマンド実行（引数を個別に渡す）
+        result = await self._run_nekocode(["session-command", session_id, "edit-show", edit_id])
         
         return {
             "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]

@@ -71,7 +71,19 @@ int CommandDispatcher::dispatch(int argc, char* argv[]) {
             std::cerr << "Usage: nekocode_ai session-command <session_id> <command>" << std::endl;
             return 1;
         }
-        return dispatch_session_command(argv[2], argv[3]);
+        // コマンドと引数を結合（引用符が必要な場合は追加）
+        std::string full_command = argv[3];
+        for (int i = 4; i < argc; i++) {
+            full_command += " ";
+            // スペースを含む引数は引用符で囲む
+            std::string arg = argv[i];
+            if (arg.find(' ') != std::string::npos && arg[0] != '"') {
+                full_command += "\"" + arg + "\"";
+            } else {
+                full_command += arg;
+            }
+        }
+        return dispatch_session_command(argv[2], full_command);
     }
     // 📝 直接編集コマンド（セッション不要）
     else if (action == "replace") {
