@@ -421,64 +421,40 @@ class NekoCodeMCPServer:
             return {"content": [{"type": "text", "text": json.dumps(result, indent=2, ensure_ascii=False)}]}
     
     async def _tool_replace_preview(self, args: Dict) -> Dict:
-        """置換プレビュー"""
-        session_id = args["session_id"]
+        """置換プレビュー（セッション不要）"""
         file_path = args["file_path"]
         pattern = args["pattern"]
         replacement = args["replacement"]
         
-        # セッション存在チェック
-        if session_id not in self.sessions:
-            return {
-                "content": [{"type": "text", "text": f"Session not found: {session_id}"}],
-                "isError": True
-            }
-        
-        # コマンド実行（引数を個別に渡す）
-        result = await self._run_nekocode(["session-command", session_id, "replace-preview", file_path, pattern, replacement])
+        # 直接コマンド実行（セッション不要）
+        result = await self._run_nekocode(["replace-preview", file_path, pattern, replacement])
         
         return {
-            "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
+            "content": [{"type": "text", "text": json.dumps(result, indent=2, ensure_ascii=False)}]
         }
     
     async def _tool_replace_confirm(self, args: Dict) -> Dict:
-        """置換実行"""
-        session_id = args["session_id"]
+        """置換実行（セッション不要）"""
         preview_id = args["preview_id"]
         
-        # セッション存在チェック
-        if session_id not in self.sessions:
-            return {
-                "content": [{"type": "text", "text": f"Session not found: {session_id}"}],
-                "isError": True
-            }
-        
-        # コマンド実行（引数を個別に渡す）
-        result = await self._run_nekocode(["session-command", session_id, "replace-confirm", preview_id])
+        # 直接コマンド実行（セッション不要）
+        result = await self._run_nekocode(["replace-confirm", preview_id])
         
         return {
-            "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
+            "content": [{"type": "text", "text": json.dumps(result, indent=2, ensure_ascii=False)}]
         }
     
     async def _tool_insert_preview(self, args: Dict) -> Dict:
-        """挿入プレビュー"""
-        session_id = args["session_id"]
+        """挿入プレビュー（セッション不要）"""
         file_path = args["file_path"]
         position = args["position"]
         content = args["content"]
         
-        # セッション存在チェック
-        if session_id not in self.sessions:
-            return {
-                "content": [{"type": "text", "text": f"Session not found: {session_id}"}],
-                "isError": True
-            }
-        
-        # コマンド実行（引数を個別に渡す）
-        result = await self._run_nekocode(["session-command", session_id, "insert-preview", file_path, position, content])
+        # 直接コマンド実行（セッション不要）
+        result = await self._run_nekocode(["insert-preview", file_path, position, content])
         
         return {
-            "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
+            "content": [{"type": "text", "text": json.dumps(result, indent=2, ensure_ascii=False)}]
         }
     
     async def _tool_insert_confirm(self, args: Dict) -> Dict:
