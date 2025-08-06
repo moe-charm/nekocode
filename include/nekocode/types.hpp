@@ -114,6 +114,19 @@ struct ComplexityInfo {
 // 🏗️ Code Structure - クラス・関数情報
 //=============================================================================
 
+//=============================================================================
+// 🌟 Universal AST Revolution - 段階的移行
+//=============================================================================
+
+// 🆕 UniversalFunctionInfo を使用（全言語統一関数情報）
+#include "nekocode/universal_function_info.hpp"
+
+// 🔄 段階的移行: 既存のFunctionInfo型を UniversalFunctionInfo に置き換え
+// これにより既存コード全てが自動的にUniversalFunctionInfoを使用する！
+using FunctionInfo = UniversalFunctionInfo;
+
+/*
+// 🗑️ 旧FunctionInfo定義（互換性確保のため一時保存）
 struct FunctionInfo {
     std::string name;
     LineNumber start_line = 0;
@@ -127,6 +140,7 @@ struct FunctionInfo {
     FunctionInfo() = default;
     explicit FunctionInfo(const std::string& func_name) : name(func_name) {}
 };
+*/
 
 // 🔍 メンバ変数情報（analyze機能用）
 struct MemberVariable {
