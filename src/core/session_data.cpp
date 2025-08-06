@@ -406,7 +406,122 @@ SessionData SessionData::from_json(const nlohmann::json& j) {
             }
         }
     } else {
-        // 単一ファイルの場合（今回は省略、必要なら後で実装）
+        // 単一ファイルの場合の復元
+        if (j.contains("single_file_result")) {
+            const auto& single = j["single_file_result"];
+            
+            // ファイル情報復元
+            if (single.contains("file_info")) {
+                const auto& info = single["file_info"];
+                data.single_file_result.file_info.name = info["name"];
+                data.single_file_result.file_info.path = info["path"].get<std::string>();
+                data.single_file_result.file_info.size_bytes = info["size_bytes"];
+                data.single_file_result.file_info.total_lines = info["total_lines"];
+                data.single_file_result.file_info.code_lines = info["code_lines"];
+                data.single_file_result.file_info.comment_lines = info["comment_lines"];
+                data.single_file_result.file_info.empty_lines = info["empty_lines"];
+            }
+            
+            // 統計情報復元
+            if (single.contains("stats")) {
+                const auto& stats = single["stats"];
+                data.single_file_result.stats.class_count = stats["class_count"];
+                data.single_file_result.stats.function_count = stats["function_count"];
+                data.single_file_result.stats.import_count = stats["import_count"];
+                data.single_file_result.stats.export_count = stats["export_count"];
+                data.single_file_result.stats.unique_calls = stats["unique_calls"];
+                data.single_file_result.stats.total_calls = stats["total_calls"];
+            }
+            
+            // 複雑度情報復元
+            if (single.contains("complexity")) {
+                const auto& complexity = single["complexity"];
+                data.single_file_result.complexity.cyclomatic_complexity = complexity["cyclomatic_complexity"];
+                data.single_file_result.complexity.max_nesting_depth = complexity["max_nesting_depth"];
+                data.single_file_result.complexity.update_rating();
+            }
+            
+            // クラス情報復元
+            if (single.contains("classes")) {
+                for (const auto& class_json : single["classes"]) {
+                    ClassInfo cls;
+                    cls.name = class_json["name"];
+                    cls.parent_class = class_json.value("parent_class", "");
+                    cls.start_line = class_json["start_line"];
+                    cls.end_line = class_json["end_line"];
+                    
+                    // メソッド情報復元
+                    if (class_json.contains("methods")) {
+                        for (const auto& method_json : class_json["methods"]) {
+                            FunctionInfo method;
+                            method.name = method_json["name"];
+                            method.start_line = method_json["start_line"];
+                            method.end_line = method_json["end_line"];
+                            method.complexity.cyclomatic_complexity = method_json["complexity"];
+                            method.complexity.update_rating();
+                            if (method_json.contains("parameters")) {
+                                method.parameters = method_json["parameters"];
+                            }
+                            cls.methods.push_back(method);
+                        }
+                    }
+                    
+                    // メンバ変数情報復元
+                    if (class_json.contains("member_variables")) {
+                        for (const auto& var_json : class_json["member_variables"]) {
+                            MemberVariable var;
+                            var.name = var_json["name"];
+                            var.type = var_json["type"];
+                            var.declaration_line = var_json["declaration_line"];
+                            var.is_static = var_json.value("is_static", false);
+                            var.is_const = var_json.value("is_const", false);
+                            var.access_modifier = var_json.value("access_modifier", "private");
+                            if (var_json.contains("used_by_methods")) {
+                                var.used_by_methods = var_json["used_by_methods"].get<std::vector<std::string>>();
+                            }
+                            if (var_json.contains("modified_by_methods")) {
+                                var.modified_by_methods = var_json["modified_by_methods"].get<std::vector<std::string>>();
+                            }
+                            cls.member_variables.push_back(var);
+                        }
+                    }
+                    
+                    data.single_file_result.classes.push_back(cls);
+                }
+            }
+            
+            // 関数情報復元  
+            if (single.contains("functions")) {
+                for (const auto& func_json : single["functions"]) {
+                    FunctionInfo func;
+                    func.name = func_json["name"];
+                    func.start_line = func_json["start_line"];
+                    func.end_line = func_json["end_line"];
+                    func.complexity.cyclomatic_complexity = func_json["complexity"];
+                    func.complexity.update_rating();
+                    if (func_json.contains("parameters")) {
+                        func.parameters = func_json["parameters"];
+                    }
+                    func.is_async = func_json.value("is_async", false);
+                    func.is_arrow_function = func_json.value("is_arrow_function", false);
+                    data.single_file_result.functions.push_back(func);
+                }
+            }
+            
+            // 関数呼び出し情報復元
+            if (single.contains("function_calls")) {
+                for (const auto& call_json : single["function_calls"]) {
+                    FunctionCall call;
+                    call.function_name = call_json["function_name"];
+                    call.line_number = call_json["line_number"];
+                    call.is_method_call = call_json.value("is_method_call", false);
+                    if (call_json.contains("object_name")) {
+                        call.object_name = call_json["object_name"];
+                    }
+                    data.single_file_result.function_calls.push_back(call);
+                }
+            }
+        }
     }
     
     // コマンド履歴復元
