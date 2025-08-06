@@ -213,7 +213,7 @@ private:
                 const std::string& current_line = all_lines[i];
                 size_t current_line_number = i + 1;
                 
-                extract_typescript_functions_from_line(current_line, current_line_number, result, existing_functions);
+                extract_typescript_functions_from_line(current_line, current_line_number, result, existing_functions, all_lines);
                 processed_lines++;
             }
         } else {
@@ -226,7 +226,7 @@ private:
                 size_t current_line_number = i + 1;
                 
                 // 🚀 【修正】TypeScript完全検出を全行で実行（サンプリング削除）
-                extract_typescript_functions_from_line(current_line, current_line_number, result, existing_functions);
+                extract_typescript_functions_from_line(current_line, current_line_number, result, existing_functions, all_lines);
                 processed_lines++;
             }
         }
@@ -260,9 +260,10 @@ private:
     
     // TypeScript関数パターンの抽出
     void extract_typescript_functions_from_line(const std::string& line, size_t line_number,
-                                                AnalysisResult& result, std::set<std::string>& existing_functions) {
+                                                AnalysisResult& result, std::set<std::string>& existing_functions,
+                                                const std::vector<std::string>& all_lines) {
         
-        // パターン1: export function name<T>(
+        // パターン1: export function name<T>( または export function name( - TypeScript関数
         std::regex export_function_pattern(R"(^\s*export\s+function\s+(\w+)(?:<[^>]*>)?\s*\()");
         std::smatch match;
         
@@ -272,6 +273,9 @@ private:
                 FunctionInfo func_info;
                 func_info.name = func_name;
                 func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                func_info.metadata["pattern_type"] = "export_function";
+                func_info.metadata["detection_mode"] = "typescript_line_based";
                 // func_info.is_exported = true;
                 // func_info.is_typescript_detected = true;
                 result.functions.push_back(func_info);
@@ -279,15 +283,18 @@ private:
             }
         }
         
-        // パターン2: export const name = (
-        std::regex export_const_pattern(R"(^\s*export\s+const\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>)");
+        // パターン2: export const name = (...): type => - TypeScript export arrow（型注釈対応）
+        std::regex export_const_pattern(R"(^\s*export\s+const\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)(?:\s*:\s*[^=]+)?\s*=>)");
         if (std::regex_search(line, match, export_const_pattern)) {
             std::string func_name = match[1].str();
             if (existing_functions.find(func_name) == existing_functions.end()) {
                 FunctionInfo func_info;
                 func_info.name = func_name;
                 func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
                 func_info.is_arrow_function = true;
+                func_info.metadata["pattern_type"] = "export_const_arrow";
+                func_info.metadata["detection_mode"] = "typescript_line_based";
                 // func_info.is_exported = true;
                 // func_info.is_typescript_detected = true;
                 result.functions.push_back(func_info);
@@ -295,7 +302,7 @@ private:
             }
         }
         
-        // パターン3: export async function name(
+        // パターン3: export async function name<T>( または export async function name(
         std::regex export_async_pattern(R"(^\s*export\s+async\s+function\s+(\w+)(?:<[^>]*>)?\s*\()");
         if (std::regex_search(line, match, export_async_pattern)) {
             std::string func_name = match[1].str();
@@ -303,9 +310,62 @@ private:
                 FunctionInfo func_info;
                 func_info.name = func_name;
                 func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
                 func_info.is_async = true;
+                func_info.metadata["pattern_type"] = "export_async_function";
+                func_info.metadata["detection_mode"] = "typescript_line_based";
                 // func_info.is_exported = true;
                 // func_info.is_typescript_detected = true;
+                result.functions.push_back(func_info);
+                existing_functions.insert(func_name);
+            }
+        }
+        
+        // 🚀 追加パターン: export なしの基本関数（JavaScript パターン移植）
+        // パターン4: function name( - 基本関数
+        std::regex basic_function_pattern(R"(^\s*function\s+(\w+)\s*[<(])");
+        if (std::regex_search(line, match, basic_function_pattern)) {
+            std::string func_name = match[1].str();
+            if (existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                func_info.metadata["pattern_type"] = "basic_function";
+                func_info.metadata["detection_mode"] = "typescript_line_based";
+                result.functions.push_back(func_info);
+                existing_functions.insert(func_name);
+            }
+        }
+        
+        // パターン5: const/let/var name = function( - 基本関数式
+        std::regex basic_function_expr_pattern(R"(^\s*(?:const|let|var)\s+(\w+)\s*=\s*function\s*[<(])");
+        if (std::regex_search(line, match, basic_function_expr_pattern)) {
+            std::string func_name = match[1].str();
+            if (existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                func_info.metadata["pattern_type"] = "basic_function_expr";
+                func_info.metadata["detection_mode"] = "typescript_line_based";
+                result.functions.push_back(func_info);
+                existing_functions.insert(func_name);
+            }
+        }
+        
+        // パターン6: const/let/var name = (...): type => - TypeScript Arrow関数（型注釈対応）
+        std::regex basic_arrow_pattern(R"(^\s*(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)(?:\s*:\s*[^=]+)?\s*=>)");
+        if (std::regex_search(line, match, basic_arrow_pattern)) {
+            std::string func_name = match[1].str();
+            if (existing_functions.find(func_name) == existing_functions.end()) {
+                FunctionInfo func_info;
+                func_info.name = func_name;
+                func_info.start_line = line_number;
+                func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                func_info.is_arrow_function = true;
+                func_info.metadata["pattern_type"] = "basic_arrow";
+                func_info.metadata["detection_mode"] = "typescript_line_based";
                 result.functions.push_back(func_info);
                 existing_functions.insert(func_name);
             }

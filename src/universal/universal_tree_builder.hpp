@@ -74,9 +74,14 @@ public:
         update_statistics(type);
     }
     
-    /// スコープ終了
-    void exit_scope() {
+    /// スコープ終了（end_lineを設定可能）
+    void exit_scope(std::uint32_t end_line = 0) {
         if (current_depth > 0) {
+            // 現在のスコープにend_lineを設定
+            if (end_line > 0 && current_scope) {
+                current_scope->end_line = end_line;
+            }
+            
             current_depth--;
             auto it = depth_stack.find(current_depth);
             current_scope = (it != depth_stack.end()) ? it->second : ast_root.get();
@@ -214,7 +219,18 @@ private:
             ClassInfo class_info;
             class_info.name = node->name;
             class_info.start_line = node->start_line;
-            // TODO: end_lineの算出
+            // end_lineの算出（最後の子ノードの終了行を使用）
+            if (!node->children.empty()) {
+                uint32_t max_end_line = node->start_line;
+                for (const auto& child : node->children) {
+                    if (child->end_line > max_end_line) {
+                        max_end_line = child->end_line;
+                    }
+                }
+                class_info.end_line = max_end_line;
+            } else {
+                class_info.end_line = node->end_line > 0 ? node->end_line : node->start_line;
+            }
             classes.push_back(class_info);
         }
         
@@ -228,7 +244,18 @@ private:
             FunctionInfo func_info;
             func_info.name = node->name;
             func_info.start_line = node->start_line;
-            // TODO: end_lineの算出
+            // end_lineの算出（最後の子ノードの終了行を使用）
+            if (!node->children.empty()) {
+                uint32_t max_end_line = node->start_line;
+                for (const auto& child : node->children) {
+                    if (child->end_line > max_end_line) {
+                        max_end_line = child->end_line;
+                    }
+                }
+                func_info.end_line = max_end_line;
+            } else {
+                func_info.end_line = node->end_line > 0 ? node->end_line : node->start_line;
+            }
             functions.push_back(func_info);
         }
         

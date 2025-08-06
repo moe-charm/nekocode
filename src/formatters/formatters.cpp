@@ -71,7 +71,8 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
         for (const auto& cls : result.classes) {
             nlohmann::json class_json = {
                 {"name", cls.name},
-                {"start_line", cls.start_line}
+                {"start_line", cls.start_line},
+                {"end_line", cls.end_line}
             };
             
             // メンバ変数情報を追加
@@ -102,7 +103,9 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
         for (const auto& func : result.functions) {
             nlohmann::json func_json = {
                 {"name", func.name},
-                {"start_line", func.start_line}
+                {"start_line", func.start_line},
+                {"end_line", func.end_line},
+                {"parameters", func.parameters}
             };
             if (func.is_async) {
                 func_json["is_async"] = true;

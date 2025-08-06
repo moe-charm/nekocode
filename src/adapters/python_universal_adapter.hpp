@@ -9,6 +9,7 @@
 
 #include "../universal/universal_code_analyzer.hpp"
 #include "../universal/language_traits.hpp"
+#include "nekocode/analyzers/python_pegtl_analyzer.hpp"
 #include <memory>
 #include <stack>
 
@@ -21,12 +22,21 @@ namespace adapters {
 
 class PythonUniversalAdapter : public universal::UniversalCodeAnalyzer<universal::PythonTraits> {
 private:
-    // 🐍 インデント管理スタック（Python特有）
+    // 🔥 成熟したPEGTL実装を活用（JavaScriptパターンを踏襲）
+    std::unique_ptr<PythonPEGTLAnalyzer> legacy_analyzer;
+    
+    // 🐍 インデント管理スタック（Python特有の拡張用）
     std::stack<std::uint32_t> indent_stack;
     std::uint32_t current_indent = 0;
     
+    // スコープ終了行追跡用
+    std::stack<std::uint32_t> scope_start_lines;
+    std::uint32_t last_non_empty_line = 0;
+    
 public:
     PythonUniversalAdapter() {
+        // 成熟したPEGTLアナライザーを初期化
+        legacy_analyzer = std::make_unique<PythonPEGTLAnalyzer>();
         // インデントスタック初期化（トップレベル=0）
         indent_stack.push(0);
     }
@@ -50,27 +60,23 @@ public:
     }
     
     //=========================================================================
-    // 🔥 Python特化解析エンジン（インデント処理 + AST統一）
+    // 🔥 ハイブリッド解析エンジン（成熟したPEGTL + 統一AST）
     //=========================================================================
     
     AnalysisResult analyze(const std::string& content, const std::string& filename) override {
-        // Phase 1: 基本情報設定
-        AnalysisResult result;
-        result.language = get_language();
-        result.file_info.name = filename;
-        result.file_info.size_bytes = content.size();
-        result.file_info.total_lines = count_lines(content);
+        // Phase 1: 成熟したPEGTL解析で高精度結果取得（5/5関数検出成功済み！）
+        AnalysisResult legacy_result = legacy_analyzer->analyze(content, filename);
         
-        // Phase 2: Python特化解析 + AST構築
-        parse_python_with_ast(content, result);
+        // Phase 2: 統一AST構築（PEGTL結果から逆構築）
+        build_unified_ast_from_legacy_result(legacy_result, content);
         
-        // Phase 3: AST → 従来形式変換
-        this->tree_builder.extract_to_analysis_result(result);
+        // Phase 3: AST統計とレガシー統計の統合
+        enhance_result_with_ast_data(legacy_result);
         
-        // Phase 4: Python特化統計拡張
-        enhance_result_with_python_features(result);
+        // Phase 4: Python特化機能の追加
+        enhance_result_with_python_features(legacy_result);
         
-        return result;
+        return legacy_result;
     }
     
     //=========================================================================
@@ -108,16 +114,77 @@ public:
     
 protected:
     //=========================================================================
-    // 🔄 Python特化解析エンジン
+    // 🔄 レガシー → 統一AST変換エンジン
     //=========================================================================
     
+    void build_unified_ast_from_legacy_result(const AnalysisResult& legacy_result, const std::string& content) {
+        // レガシー結果から統一AST構築
+        
+        // クラス情報をAST化
+        for (const auto& class_info : legacy_result.classes) {
+            this->tree_builder.enter_scope(ASTNodeType::CLASS, class_info.name, class_info.start_line);
+            
+            // クラス内のメソッドを追加
+            for (const auto& method : class_info.methods) {
+                this->tree_builder.add_function(method.name, method.start_line);
+            }
+            
+            // TODO: メンバ変数対応（将来実装）
+            // member_variables フィールドの正しい構造を確認後に実装
+            
+            this->tree_builder.exit_scope(class_info.end_line);
+        }
+        
+        // 独立関数をAST化（クラス外の関数）
+        for (const auto& func_info : legacy_result.functions) {
+            // クラス内メソッドではないものを追加
+            bool is_method = false;
+            for (const auto& cls : legacy_result.classes) {
+                for (const auto& method : cls.methods) {
+                    if (method.name == func_info.name && 
+                        method.start_line == func_info.start_line) {
+                        is_method = true;
+                        break;
+                    }
+                }
+                if (is_method) break;
+            }
+            
+            if (!is_method) {
+                this->tree_builder.add_function(func_info.name, func_info.start_line);
+            }
+        }
+        
+        // Python特有の構造を解析（特殊メソッド等）
+        analyze_python_specific_patterns(content);
+    }
+    
+    void analyze_python_specific_patterns(const std::string& content) {
+        // Python特有のパターンを追加解析（必要に応じて）
+        // 例: デコレータ、ジェネレータ、ラムダ等
+    }
+    
+    void enhance_result_with_ast_data(AnalysisResult& result) {
+        // AST統計を既存結果に統合
+        auto ast_stats = this->tree_builder.get_ast_statistics();
+        
+        // 統計拡張（より正確な値を使用）
+        if (ast_stats.classes > 0) {
+            result.stats.class_count = ast_stats.classes;
+        }
+        if (ast_stats.functions > 0) {
+            result.stats.function_count = ast_stats.functions;
+        }
+    }
+    
+    // 以下は旧実装（将来削除予定）
     void parse_python_with_ast(const std::string& content, AnalysisResult& result) {
         std::istringstream stream(content);
         std::string line;
         std::uint32_t line_number = 1;
         
         while (std::getline(stream, line)) {
-            // 空行・コメント行をスキップ
+            // 空行・コメント行をスキップ（ただし最終行は記録）
             if (line.empty() || line.find_first_not_of(" \t") == std::string::npos) {
                 line_number++;
                 continue;
@@ -128,9 +195,12 @@ protected:
                 continue;
             }
             
+            // 非空行を記録
+            last_non_empty_line = line_number;
+            
             // インデント検出・スコープ管理
             std::uint32_t line_indent = detect_indentation(line);
-            manage_python_scope(line_indent);
+            manage_python_scope(line_indent, line_number);
             
             // Python特化パターン解析
             analyze_python_line(line, line_number, line_indent);
@@ -138,23 +208,30 @@ protected:
             line_number++;
         }
         
-        // 残っているスコープを全て閉じる
+        // 残っているスコープを全て閉じる（end_lineを設定）
         while (indent_stack.size() > 1) {
-            this->tree_builder.exit_scope();
+            this->tree_builder.exit_scope(last_non_empty_line);
             indent_stack.pop();
+            if (!scope_start_lines.empty()) {
+                scope_start_lines.pop();
+            }
         }
     }
     
-    void manage_python_scope(std::uint32_t line_indent) {
+    void manage_python_scope(std::uint32_t line_indent, std::uint32_t line_number) {
         if (line_indent > current_indent) {
             // インデント増加：新しいスコープ開始
             indent_stack.push(line_indent);
             current_indent = line_indent;
         } else if (line_indent < current_indent) {
-            // インデント減少：スコープ終了処理
+            // インデント減少：スコープ終了処理（end_lineを設定）
             while (!indent_stack.empty() && indent_stack.top() > line_indent) {
-                this->tree_builder.exit_scope();
+                // スコープ終了時、前の行番号をend_lineとして設定
+                this->tree_builder.exit_scope(line_number - 1);
                 indent_stack.pop();
+                if (!scope_start_lines.empty()) {
+                    scope_start_lines.pop();
+                }
             }
             current_indent = line_indent;
         }
@@ -198,6 +275,7 @@ protected:
         bool is_special = universal::PythonTraits::is_special_method(func_name);
         
         this->tree_builder.enter_scope(ASTNodeType::FUNCTION, func_name, line_number);
+        scope_start_lines.push(line_number);
         
         // メタデータ設定
         if (is_special) {
@@ -222,6 +300,7 @@ protected:
         }
         
         this->tree_builder.enter_scope(ASTNodeType::CLASS, class_name, line_number);
+        scope_start_lines.push(line_number);
     }
     
     void handle_instance_variable(const std::string& token, std::uint32_t line_number) {
@@ -240,16 +319,8 @@ protected:
     }
     
     void enhance_result_with_python_features(AnalysisResult& result) {
-        // AST統計を既存結果に統合
-        auto ast_stats = this->tree_builder.get_ast_statistics();
-        
-        // 統計拡張
-        result.stats.class_count = std::max(result.stats.class_count, ast_stats.classes);
-        result.stats.function_count = std::max(result.stats.function_count, ast_stats.functions);
-        
         // Python特化統計（将来拡張用）
-        // result.stats.special_method_count = count_special_methods();
-        // result.stats.instance_variable_count = count_instance_variables();
+        // 例: 特殊メソッド数、デコレータ数、ジェネレータ数等
     }
     
     void find_special_methods_recursive(const ASTNode* node, std::vector<std::string>& special_methods) const {

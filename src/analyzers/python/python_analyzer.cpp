@@ -20,7 +20,6 @@ namespace nekocode {
 
 PythonAnalyzer::PythonAnalyzer() {
     // 🐍 Python analyzer (std::regex完全除去版)
-    std::cerr << "🐍 PythonAnalyzer (String-based) initialized" << std::endl;
 }
 
 Language PythonAnalyzer::get_language() const {
@@ -36,7 +35,7 @@ std::vector<std::string> PythonAnalyzer::get_supported_extensions() const {
 }
 
 AnalysisResult PythonAnalyzer::analyze(const std::string& content, const std::string& filename) {
-    std::cerr << "🐍 PythonAnalyzer analyzing: " << filename << std::endl;
+    // Analyzing Python file
     
     AnalysisResult result;
     
@@ -55,7 +54,7 @@ AnalysisResult PythonAnalyzer::analyze(const std::string& content, const std::st
     
     // 🎯 ハイブリッド戦略: 統計整合性チェック
     if (needs_python_line_based_fallback(result, content)) {
-        std::cerr << "🔧 Python line-based fallback triggered" << std::endl;
+        // Python line-based fallback triggered
         apply_python_line_based_analysis(result, content);
     }
     
@@ -113,6 +112,14 @@ void PythonAnalyzer::extract_classes(const std::string& content, AnalysisResult&
 }
 
 void PythonAnalyzer::extract_functions(const std::string& content, AnalysisResult& result) {
+    // 🎯 end_line計算用に全行を保存
+    std::vector<std::string> all_lines;
+    std::istringstream prestream(content);
+    std::string preline;
+    while (std::getline(prestream, preline)) {
+        all_lines.push_back(preline);
+    }
+    
     std::istringstream stream(content);
     std::string line;
     uint32_t line_number = 1;
@@ -121,8 +128,10 @@ void PythonAnalyzer::extract_functions(const std::string& content, AnalysisResul
         if (is_python_function_line(line)) {
             // インデントレベルでトップレベル関数を識別
             int indent = calculate_indentation_depth(line);
+            std::cerr << "DEBUG: Line " << line_number << ": found function line: " << line << " (indent=" << indent << ")" << std::endl;
             
             // トップレベル関数のみ抽出（クラス内メソッドは除外）
+            // TODO: クラス内メソッドも検出するオプションを追加
             if (indent == 0) {
                 size_t def_pos = line.find("def ");
                 if (def_pos != std::string::npos) {
@@ -135,6 +144,8 @@ void PythonAnalyzer::extract_functions(const std::string& content, AnalysisResul
                         FunctionInfo func_info;
                         func_info.name = func_name;
                         func_info.start_line = line_number;
+                        
+                        func_info.end_line = find_function_end_line(all_lines, line_number - 1, indent);
                         
                         // パラメータ抽出
                         func_info.parameters = extract_parameters(line);
@@ -257,6 +268,52 @@ int PythonAnalyzer::calculate_indentation_depth(const std::string& line) {
     return spaces;
 }
 
+// 🎯 Python関数の終了行を検出（インデントベース）
+uint32_t PythonAnalyzer::find_function_end_line(const std::vector<std::string>& lines, size_t start_line, int base_indent) {
+    // start_lineが0-indexedで、結果は1-indexedにする必要がある
+    if (start_line >= lines.size()) {
+        return static_cast<uint32_t>(start_line + 1);
+    }
+    
+    // 関数の本体は次の行から始まる
+    size_t current_line = start_line + 1;
+    uint32_t last_non_empty_line = static_cast<uint32_t>(start_line + 1);
+    
+    while (current_line < lines.size()) {
+        const std::string& line = lines[current_line];
+        
+        // 空行の判定
+        std::string trimmed = line;
+        size_t first_non_space = trimmed.find_first_not_of(" \t\r\n");
+        
+        if (first_non_space != std::string::npos) {
+            trimmed = trimmed.substr(first_non_space);
+            
+            // コメント行でない場合
+            if (trimmed[0] != '#') {
+                int indent = calculate_indentation_depth(line);
+                
+                // 同じまたはそれより浅いインデントレベルの非空白行を見つけたら終了
+                if (indent <= base_indent && !trimmed.empty()) {
+                    // 前の行が関数の最終行
+                    return last_non_empty_line;
+                }
+                
+                // 関数内のコードなので、最後の非空白行を更新
+                last_non_empty_line = static_cast<uint32_t>(current_line + 1);
+            } else {
+                // コメント行も関数の一部とみなす
+                last_non_empty_line = static_cast<uint32_t>(current_line + 1);
+            }
+        }
+        
+        current_line++;
+    }
+    
+    // ファイルの終わりまで到達した場合
+    return last_non_empty_line;
+}
+
 std::vector<std::string> PythonAnalyzer::extract_parameters(const std::string& func_line) {
     std::vector<std::string> parameters;
     
@@ -360,6 +417,14 @@ bool PythonAnalyzer::needs_python_line_based_fallback(const AnalysisResult& resu
 void PythonAnalyzer::apply_python_line_based_analysis(AnalysisResult& result, const std::string& content) {
     // 🔧 フォールバック: より単純な行ベース解析
     
+    // 🎯 end_line計算用に全行を保存
+    std::vector<std::string> all_lines;
+    std::istringstream prestream(content);
+    std::string preline;
+    while (std::getline(prestream, preline)) {
+        all_lines.push_back(preline);
+    }
+    
     std::istringstream stream(content);
     std::string line;
     uint32_t line_number = 1;
@@ -388,9 +453,11 @@ void PythonAnalyzer::apply_python_line_based_analysis(AnalysisResult& result, co
                     }
                     
                     if (!already_exists) {
+                        int indent = calculate_indentation_depth(line);
                         FunctionInfo func_info;
                         func_info.name = func_name;
                         func_info.start_line = line_number;
+                        func_info.end_line = find_function_end_line(all_lines, line_number - 1, indent);
                         result.functions.push_back(func_info);
                     }
                 }

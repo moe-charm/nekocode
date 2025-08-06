@@ -1367,6 +1367,7 @@ protected:
                 func_info.name = func_name;
                 func_info.start_line = line_number;
                 func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                func_info.parameters = extract_parameters_from_function_signature(line);
                 // func_info.is_fallback_detected = true;  // TODO: FunctionInfoにフィールド追加
                 result.functions.push_back(func_info);
                 existing_functions.insert(func_name);
@@ -1382,6 +1383,7 @@ protected:
                 func_info.name = func_name;
                 func_info.start_line = line_number;
                 func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                func_info.parameters = extract_parameters_from_function_signature(line);
                 // func_info.is_fallback_detected = true;
                 result.functions.push_back(func_info);
                 existing_functions.insert(func_name);
@@ -1397,6 +1399,7 @@ protected:
                 func_info.name = func_name;
                 func_info.start_line = line_number;
                 func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                func_info.parameters = extract_parameters_from_function_signature(line);
                 func_info.is_arrow_function = true;
                 // func_info.is_fallback_detected = true;
                 result.functions.push_back(func_info);
@@ -1416,6 +1419,7 @@ protected:
                 func_info.name = method_name;
                 func_info.start_line = line_number;
                 func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                func_info.parameters = extract_parameters_from_function_signature(line);
                 func_info.metadata["is_class_method"] = "true";
                 result.functions.push_back(func_info);
                 existing_functions.insert(method_name);
@@ -1432,6 +1436,7 @@ protected:
                 func_info.name = method_name;
                 func_info.start_line = line_number;
                 func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                func_info.parameters = extract_parameters_from_function_signature(line);
                 func_info.metadata["is_class_method"] = "true";
                 func_info.metadata["is_static"] = "true";
                 result.functions.push_back(func_info);
@@ -1449,6 +1454,7 @@ protected:
                 func_info.name = func_name;
                 func_info.start_line = line_number;
                 func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                func_info.parameters = extract_parameters_from_function_signature(line);
                 func_info.is_async = true;
                 result.functions.push_back(func_info);
                 existing_functions.insert(func_name);
@@ -1869,6 +1875,8 @@ protected:
                 FunctionInfo func_info;
                 func_info.name = func_name;
                 func_info.start_line = line_number;
+                func_info.end_line = line_number;  // 高速モードでは簡易end_line
+                func_info.parameters = extract_parameters_from_function_signature(line);
                 func_info.metadata["detection_mode"] = "basic";
                 result.functions.push_back(func_info);
                 existing_functions.insert(func_name);
@@ -1883,6 +1891,8 @@ protected:
                 FunctionInfo func_info;
                 func_info.name = func_name;
                 func_info.start_line = line_number;
+                func_info.end_line = line_number;  // 高速モードでは簡易end_line
+                func_info.parameters = extract_parameters_from_function_signature(line);
                 func_info.is_arrow_function = true;
                 func_info.metadata["detection_mode"] = "basic";
                 result.functions.push_back(func_info);
@@ -2199,6 +2209,52 @@ protected:
         
         // 見つからない場合は開始行+10を返す
         return static_cast<uint32_t>(std::min(start_line + 10, lines.size()));
+    }
+    
+    // 🎯 パラメータ抽出ヘルパー関数
+    std::vector<std::string> extract_parameters_from_function_signature(const std::string& line) {
+        std::vector<std::string> parameters;
+        
+        // 括弧内のパラメータを抽出
+        std::regex param_pattern(R"(\(([^)]*)\))");
+        std::smatch match;
+        
+        if (std::regex_search(line, match, param_pattern)) {
+            std::string param_str = match[1].str();
+            if (!param_str.empty()) {
+                // パラメータをカンマで分割
+                std::istringstream iss(param_str);
+                std::string param;
+                
+                while (std::getline(iss, param, ',')) {
+                    // 前後の空白を除去
+                    param.erase(0, param.find_first_not_of(" \t"));
+                    param.erase(param.find_last_not_of(" \t") + 1);
+                    
+                    if (!param.empty()) {
+                        // デフォルト値や型注釈を除去（基本的な名前のみ抽出）
+                        size_t equal_pos = param.find('=');
+                        if (equal_pos != std::string::npos) {
+                            param = param.substr(0, equal_pos);
+                        }
+                        size_t colon_pos = param.find(':');
+                        if (colon_pos != std::string::npos) {
+                            param = param.substr(0, colon_pos);
+                        }
+                        
+                        // 再度空白除去
+                        param.erase(0, param.find_first_not_of(" \t"));
+                        param.erase(param.find_last_not_of(" \t") + 1);
+                        
+                        if (!param.empty()) {
+                            parameters.push_back(param);
+                        }
+                    }
+                }
+            }
+        }
+        
+        return parameters;
     }
 };
 

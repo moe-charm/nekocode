@@ -75,6 +75,7 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
         FunctionInfo func_info;
         func_info.name = rust_func.name;
         func_info.start_line = rust_func.line_number;
+        func_info.end_line = rust_func.end_line;      // 🎯 end_line設定追加
         func_info.complexity = rust_func.complexity;  // 🔧 複雑度を設定！
         
         // Rust特有の情報をメタデータに保存
@@ -205,6 +206,14 @@ void RustAnalyzer::analyze_functions(const std::string& content) {
     NEKOCODE_PERF_TIMER("RustAnalyzer::analyze_functions");
     NEKOCODE_LOG_DEBUG("RustAnalyzer", "Starting function analysis");
     
+    // 🎯 end_line計算用に全行を保存
+    std::vector<std::string> all_lines;
+    std::istringstream prestream(content);
+    std::string preline;
+    while (std::getline(prestream, preline)) {
+        all_lines.push_back(preline);
+    }
+    
     std::istringstream stream(content);
     std::string line;
     size_t line_number = 1;
@@ -251,6 +260,9 @@ void RustAnalyzer::analyze_functions(const std::string& content) {
             
             // 戻り値型を抽出
             func_info.return_type = extract_return_type(line, name_end);
+            
+            // 🎯 end_line計算
+            func_info.end_line = find_function_end_line(all_lines, func_info.line_number - 1);
             
             // 🔧 個別関数の複雑度計算
             std::string function_body = extract_function_body(content, func_info.line_number);
@@ -936,6 +948,34 @@ std::string RustAnalyzer::extract_function_body(const std::string& content, size
     } while (std::getline(stream, line));
     
     return function_body;
+}
+
+// 🎯 関数のend_lineを検出（Rust用ブレースマッチング）
+LineNumber RustAnalyzer::find_function_end_line(const std::vector<std::string>& lines, size_t start_line) {
+    if (start_line >= lines.size()) {
+        return static_cast<LineNumber>(start_line + 1);
+    }
+    
+    int brace_count = 0;
+    bool in_function = false;
+    
+    for (size_t i = start_line; i < lines.size(); ++i) {
+        const std::string& line = lines[i];
+        for (char c : line) {
+            if (c == '{') {
+                brace_count++;
+                in_function = true;
+            } else if (c == '}') {
+                brace_count--;
+                if (in_function && brace_count == 0) {
+                    return static_cast<LineNumber>(i + 1);
+                }
+            }
+        }
+    }
+    
+    // 見つからない場合は開始行+10を返す
+    return static_cast<LineNumber>(std::min(start_line + 10, lines.size()));
 }
 
 } // namespace nekocode
