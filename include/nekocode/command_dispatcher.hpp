@@ -52,6 +52,37 @@ private:
     
     /// ヘルプ表示
     int dispatch_help();
+    
+    //=========================================================================
+    // 📝 直接編集コマンド（セッション不要）
+    //=========================================================================
+    
+    /// replace コマンド処理（直接実行）
+    int dispatch_replace(int argc, char* argv[]);
+    
+    /// replace-preview コマンド処理
+    int dispatch_replace_preview(int argc, char* argv[]);
+    
+    /// replace-confirm コマンド処理
+    int dispatch_replace_confirm(int argc, char* argv[]);
+    
+    /// insert コマンド処理（直接実行）
+    int dispatch_insert(int argc, char* argv[]);
+    
+    /// insert-preview コマンド処理
+    int dispatch_insert_preview(int argc, char* argv[]);
+    
+    /// insert-confirm コマンド処理
+    int dispatch_insert_confirm(int argc, char* argv[]);
+    
+    /// movelines コマンド処理（直接実行）
+    int dispatch_movelines(int argc, char* argv[]);
+    
+    /// movelines-preview コマンド処理
+    int dispatch_movelines_preview(int argc, char* argv[]);
+    
+    /// movelines-confirm コマンド処理
+    int dispatch_movelines_confirm(int argc, char* argv[]);
 
 #ifdef NEKOCODE_USE_MEMORY_SYSTEM
     /// memory コマンド処理（Memory System統合）

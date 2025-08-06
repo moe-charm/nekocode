@@ -465,6 +465,44 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
             // insert-confirm <preview_id>
             std::string preview_id = command.substr(15);
             result = session_commands_.cmd_insert_confirm(session, preview_id);
+        } else if (command.substr(0, 18) == "movelines-preview ") {
+            // movelines-preview <srcfile> <start_line> <line_count> <dstfile> <insert_line>
+            std::string args = command.substr(18);
+            
+            // トークン分割（5つの引数）
+            std::vector<std::string> tokens;
+            std::string current_token;
+            bool in_quotes = false;
+            
+            for (char c : args) {
+                if (c == '"') {
+                    in_quotes = !in_quotes;
+                } else if (c == ' ' && !in_quotes) {
+                    if (!current_token.empty()) {
+                        tokens.push_back(current_token);
+                        current_token.clear();
+                    }
+                } else {
+                    current_token += c;
+                }
+            }
+            
+            if (!current_token.empty()) {
+                tokens.push_back(current_token);
+            }
+            
+            if (tokens.size() != 5) {
+                result = {
+                    {"error", "movelines-preview: 使用法: movelines-preview <srcfile> <start_line> <line_count> <dstfile> <insert_line>"},
+                    {"example", "movelines-preview utils.js 45 20 helpers.js 10"}
+                };
+            } else {
+                result = session_commands_.cmd_movelines_preview(session, tokens[0], tokens[1], tokens[2], tokens[3], tokens[4]);
+            }
+        } else if (command.substr(0, 18) == "movelines-confirm ") {
+            // movelines-confirm <preview_id>
+            std::string preview_id = command.substr(18);
+            result = session_commands_.cmd_movelines_confirm(session, preview_id);
         } else if (command.substr(0, 8) == "replace ") {
             // replace <file_path> <pattern> <replacement>
             std::string args = command.substr(8);
@@ -526,7 +564,9 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                                         "analyze", "dependency-analyze", "help",
                                         "ast-query <path>", "ast-stats", "scope-analysis <line>", "ast-dump [format]",
                                         "replace-preview <file> <pattern> <replacement>", 
-                                        "replace-confirm <preview_id>", "edit-history", "edit-show <id>"}}
+                                        "replace-confirm <preview_id>", "edit-history", "edit-show <id>",
+                                        "movelines-preview <srcfile> <start_line> <line_count> <dstfile> <insert_line>",
+                                        "movelines-confirm <preview_id>"}}
             };
         }
         

@@ -65,27 +65,31 @@ void show_help() {
 
 ACTIONS:
     analyze <path>              単発解析
+    
+    🆕 DIRECT EDIT（セッション不要！）:
+    replace <file> <pattern> <replacement>      即実行置換
+    replace-preview <file> <pattern> <repl>     置換プレビュー
+    replace-confirm <preview_id>                置換確認実行
+    insert <file> <position> <content>          即実行挿入
+    insert-preview <file> <pos> <content>       挿入プレビュー
+    insert-confirm <preview_id>                 挿入確認実行
+    movelines <src> <start> <count> <dst> <pos> 即実行行移動
+    movelines-preview <src> <s> <c> <dst> <p>   行移動プレビュー
+    movelines-confirm <preview_id>              行移動確認実行
+    
+    SESSION MODE（詳細解析用）:
     session-create <path>       セッション作成
     session-command <id> <cmd>  セッションコマンド実行
     memory <command>            Memory System（時間軸Memory革命）
     languages                   サポート言語一覧表示
 
-SESSION COMMANDS:
+SESSION COMMANDS（セッション内のみ）:
     stats                       統計表示
     complexity                  複雑度分析  
     structure                   構造解析
-    find <term>                 シンボル検索（例: find preprocess_content）
+    find <term>                 シンボル検索
     include-cycles              C++循環依存検出
     include-unused              C++不要include検出
-    
-    🆕 EDIT COMMANDS（2段階実行：preview → confirm）:
-    replace-preview <file> <pattern> <replacement>   置換プレビュー
-    replace-confirm <preview_id>                     置換実行
-    insert-preview <file> <position> <content>       挿入プレビュー（start/end/行番号）
-    insert-confirm <preview_id>                      挿入実行
-    edit-history                                      編集履歴（最新20件）
-    edit-show <id>                                    詳細表示
-    
     help                        詳細ヘルプ
 
 🧠 MEMORY SYSTEM - 時間軸Memory革命（NEW!）:
@@ -119,6 +123,17 @@ OPTIONS:
     --check-only        サイズチェックのみ（解析しない）
 
 LANGUAGES: JS/TS/C++/C/Python/C#
+
+🐱 MCP SERVER（Claude Code統合）:
+    bin/setup.py               MCP設定ガイド
+    プロジェクトフォルダで: claude mcp add nekocode -e NEKOCODE_BINARY_PATH=絶対パス -- python3 mcp_server_real.py
+    
+    MCP利用可能機能:
+    • mcp__nekocode__analyze - 高速解析
+    • mcp__nekocode__session_create - セッション作成  
+    • mcp__nekocode__movelines_preview/confirm - 行移動（NEW！）
+    • mcp__nekocode__replace_preview/confirm - 安全置換
+    • mcp__nekocode__edit_history - 編集履歴管理
 )";
 }
 

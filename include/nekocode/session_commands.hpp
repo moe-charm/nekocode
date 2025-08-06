@@ -160,6 +160,18 @@ public:
     /// 挿入実行確定（プレビューID使用）
     nlohmann::json cmd_insert_confirm(const SessionData& session,
                                      const std::string& preview_id) const;
+    
+    /// 行移動プレビュー（srcfile 開始行 行数 dstfile 挿入行）
+    nlohmann::json cmd_movelines_preview(const SessionData& session,
+                                        const std::string& srcfile,
+                                        const std::string& start_line,
+                                        const std::string& line_count,
+                                        const std::string& dstfile,
+                                        const std::string& insert_line) const;
+    
+    /// 行移動実行確定（プレビューID使用）
+    nlohmann::json cmd_movelines_confirm(const SessionData& session,
+                                        const std::string& preview_id) const;
 
     //=========================================================================
     // 🔍 ヘルプ
