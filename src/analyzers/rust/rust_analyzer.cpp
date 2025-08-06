@@ -75,6 +75,7 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
         FunctionInfo func_info;
         func_info.name = rust_func.name;
         func_info.start_line = rust_func.line_number;
+        func_info.complexity = rust_func.complexity;  // 🔧 複雑度を設定！
         
         // Rust特有の情報をメタデータに保存
         if (rust_func.is_async) {
@@ -117,6 +118,14 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
     NEKOCODE_PERF_CHECKPOINT("member_variables");
     detect_member_variables(result, content);
     // メンバ変数検出のログは detect_member_variables 内で出力
+
+    // 🔧 基本統計情報を更新
+    result.stats.function_count = result.functions.size();
+    result.stats.class_count = result.classes.size();
+    result.stats.import_count = result.imports.size();
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Updated stats - functions: " + std::to_string(result.stats.function_count) + 
+                      ", classes: " + std::to_string(result.stats.class_count) + 
+                      ", imports: " + std::to_string(result.stats.import_count));
 
     // 複雑度計算
     NEKOCODE_PERF_CHECKPOINT("complexity");
@@ -243,12 +252,21 @@ void RustAnalyzer::analyze_functions(const std::string& content) {
             // 戻り値型を抽出
             func_info.return_type = extract_return_type(line, name_end);
             
+            // 🔧 個別関数の複雑度計算
+            std::string function_body = extract_function_body(content, func_info.line_number);
+            if (!function_body.empty()) {
+                func_info.complexity = calculate_function_complexity(function_body);
+                NEKOCODE_LOG_TRACE("RustAnalyzer", "Calculated complexity for " + func_info.name + 
+                                  ": " + std::to_string(func_info.complexity.cyclomatic_complexity));
+            }
+            
             rust_functions_.push_back(func_info);
             NEKOCODE_LOG_TRACE("RustAnalyzer", "Found function: " + func_info.name + 
                               (func_info.is_async ? " (async)" : "") + 
                               (func_info.is_unsafe ? " (unsafe)" : "") + 
                               (func_info.is_pub ? " (pub)" : "") +
-                              " at line " + std::to_string(func_info.line_number));
+                              " at line " + std::to_string(func_info.line_number) + 
+                              " (complexity: " + std::to_string(func_info.complexity.cyclomatic_complexity) + ")");
         }
         
         line_number++;
@@ -825,6 +843,99 @@ void RustAnalyzer::detect_member_variables(AnalysisResult& result, const std::st
     }
     
     NEKOCODE_LOG_DEBUG("RustAnalyzer", "Member variable detection completed");
+}
+
+//=============================================================================
+// 🔧 個別関数複雑度計算（新実装）
+//=============================================================================
+
+ComplexityInfo RustAnalyzer::calculate_function_complexity(const std::string& function_body) {
+    using namespace nekocode::debug;
+    ComplexityInfo complexity;
+    complexity.cyclomatic_complexity = 1; // 基本複雑度
+    
+    // Rust固有の複雑度キーワード
+    std::vector<std::string> complexity_keywords = {
+        "if ", "else if", "else ", "match ", "for ", "while ", "loop ",
+        "?", ".unwrap(", ".expect(", ".and_then(", ".or_else(", 
+        ".map(", ".filter(", "panic!", "unreachable!"
+    };
+    
+    for (const auto& keyword : complexity_keywords) {
+        size_t pos = 0;
+        while ((pos = function_body.find(keyword, pos)) != std::string::npos) {
+            complexity.cyclomatic_complexity++;
+            pos += keyword.length();
+        }
+    }
+    
+    // match腕の数をカウント
+    std::regex match_arm_pattern(R"(\s*[^=>\s]+\s*=>)");
+    std::smatch match;
+    std::string::const_iterator searchStart(function_body.cbegin());
+    while (std::regex_search(searchStart, function_body.cend(), match, match_arm_pattern)) {
+        complexity.cyclomatic_complexity++;
+        searchStart = match.suffix().first;
+    }
+    
+    // ネスト深度計算
+    complexity.max_nesting_depth = 0;
+    uint32_t current_depth = 0;
+    
+    for (char c : function_body) {
+        if (c == '{') {
+            current_depth++;
+            if (current_depth > complexity.max_nesting_depth) {
+                complexity.max_nesting_depth = current_depth;
+            }
+        } else if (c == '}' && current_depth > 0) {
+            current_depth--;
+        }
+    }
+    
+    complexity.update_rating();
+    return complexity;
+}
+
+std::string RustAnalyzer::extract_function_body(const std::string& content, size_t fn_start_line) {
+    std::istringstream stream(content);
+    std::string line;
+    size_t current_line = 1;
+    
+    // 開始行まで移動
+    while (std::getline(stream, line) && current_line < fn_start_line) {
+        current_line++;
+    }
+    
+    if (current_line != fn_start_line) {
+        return ""; // 関数が見つからない
+    }
+    
+    std::string function_body;
+    int brace_count = 0;
+    bool found_opening_brace = false;
+    
+    // 関数定義行から開始
+    do {
+        // 中括弧のカウント
+        for (char c : line) {
+            if (c == '{') {
+                brace_count++;
+                found_opening_brace = true;
+            } else if (c == '}' && found_opening_brace) {
+                brace_count--;
+            }
+        }
+        
+        function_body += line + "\n";
+        
+        // 関数の終わりに到達
+        if (found_opening_brace && brace_count == 0) {
+            break;
+        }
+    } while (std::getline(stream, line));
+    
+    return function_body;
 }
 
 } // namespace nekocode

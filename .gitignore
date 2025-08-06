@@ -130,6 +130,7 @@ TestProject.csproj
 
 # Test projects (downloaded for testing)
 test-projects-shared/
+nyash/
 
 # Test files and projects in root
 /clang_tidy_test.cpp

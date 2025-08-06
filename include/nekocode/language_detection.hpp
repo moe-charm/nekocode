@@ -252,6 +252,7 @@ struct MultiLanguageAnalysisResult {
     std::optional<AnalysisResult> js_result;      // JavaScript/TypeScript
     std::optional<CppAnalysisResult> cpp_result;  // C++/C
     std::optional<AnalysisResult> csharp_result;  // C#
+    std::optional<AnalysisResult> rust_result;    // 🔧 Rust追加
     
     // 共通メタデータ
     FileInfo file_info;
@@ -261,7 +262,7 @@ struct MultiLanguageAnalysisResult {
     
     /// 有効な解析結果があるかチェック
     bool has_result() const {
-        return js_result.has_value() || cpp_result.has_value() || csharp_result.has_value();
+        return js_result.has_value() || cpp_result.has_value() || csharp_result.has_value() || rust_result.has_value();
     }
     
     /// 複雑度取得（言語共通）
@@ -269,6 +270,7 @@ struct MultiLanguageAnalysisResult {
         if (js_result) return js_result->complexity;
         if (cpp_result) return cpp_result->complexity;
         if (csharp_result) return csharp_result->complexity;
+        if (rust_result) return rust_result->complexity;  // 🔧 Rust追加
         return ComplexityInfo{};
     }
 };

@@ -403,11 +403,11 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                 if (analyzer) {
                     auto rust_result = analyzer->analyze(content, filename);
                     
-                    // Rust固有の結果をJS結果として格納（共通構造がないため）
-                    result.js_result = rust_result;
+                    // 🔧 Rust固有の結果を正しいフィールドに格納
+                    result.rust_result = rust_result;
                     result.file_info = rust_result.file_info;
                     
-                    // Rust解析成功
+                    std::cerr << "🦀 Rust analyzer used successfully for: " << filename << std::endl;
                 } else {
                     std::cerr << "ERROR: Failed to create Rust analyzer for: " << filename << std::endl;
                 }

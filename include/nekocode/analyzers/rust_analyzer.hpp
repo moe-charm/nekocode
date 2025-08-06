@@ -33,6 +33,7 @@ struct RustFunctionInfo {
     std::vector<std::string> generics;      // <T, U>
     std::vector<std::string> lifetimes;     // 'a, 'b
     std::string return_type;                // -> i32
+    ComplexityInfo complexity;              // 🔧 関数別複雑度追加
 };
 
 struct TraitInfo {
@@ -119,11 +120,13 @@ private:
     
     // 複雑度計算
     ComplexityInfo calculate_rust_complexity(const std::string& content);
+    ComplexityInfo calculate_function_complexity(const std::string& function_body);  // 🔧 個別関数用
     
     // ヘルパー関数
     std::string extract_generics(const std::string& line, size_t start_pos);
     std::string extract_return_type(const std::string& line, size_t fn_pos);
     std::vector<std::string> extract_lifetimes(const std::string& generics);
+    std::string extract_function_body(const std::string& content, size_t fn_start_line);  // 🔧 関数ボディ抽出
 };
 
 } // namespace nekocode
