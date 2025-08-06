@@ -252,6 +252,9 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 analysis_result = multilang_result.csharp_result.value();
             } else if (multilang_result.js_result) {
                 analysis_result = multilang_result.js_result.value();
+            } else if (multilang_result.rust_result) {
+                // 🔧 Rust結果処理を追加
+                analysis_result = multilang_result.rust_result.value();
             } else if (multilang_result.cpp_result) {
                 // 🔥 C++結果をAnalysisResultに手動変換（構造体が異なるため）
                 auto cpp_result = multilang_result.cpp_result.value();
@@ -558,6 +561,9 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                 analysis_result = multilang_result.csharp_result.value();
             } else if (multilang_result.js_result) {
                 analysis_result = multilang_result.js_result.value();
+            } else if (multilang_result.rust_result) {
+                // 🔧 Rust結果処理を追加
+                analysis_result = multilang_result.rust_result.value();
             } else if (multilang_result.cpp_result) {
                 // 🔥 C++結果をAnalysisResultに手動変換（構造体が異なるため）
                 auto cpp_result = multilang_result.cpp_result.value();
