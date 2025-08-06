@@ -9,6 +9,7 @@
 // #include "nekocode/analyzers/csharp_analyzer.hpp" // regex版は削除済み
 #include "../analyzers/base_analyzer.hpp"
 #include "../utils/file_size_reporter.hpp"
+#include "hybrid_stack_manager.hpp"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -76,13 +77,18 @@ NekoCodeCore& NekoCodeCore::operator=(NekoCodeCore&&) noexcept = default;
 
 Result<AnalysisResult> NekoCodeCore::analyze_file(const FilePath& file_path) {
     auto [result, duration] = utils::measure_time([&]() -> Result<AnalysisResult> {
-        // ファイル読み込み
-        auto content_result = utils::read_file(file_path);
-        if (content_result.is_error()) {
-            return Result<AnalysisResult>(content_result.error());
-        }
+        // 🎯 Hybrid Stack Manager による巨大ファイル対応
+        HybridStackManager stack_mgr;
         
-        return analyze_content(content_result.value(), file_path.string());
+        return stack_mgr.analyze_with_smart_stack(file_path, [&]() -> Result<AnalysisResult> {
+            // ファイル読み込み
+            auto content_result = utils::read_file(file_path);
+            if (content_result.is_error()) {
+                return Result<AnalysisResult>(content_result.error());
+            }
+            
+            return analyze_content(content_result.value(), file_path.string());
+        });
     });
     
     // パフォーマンス統計更新
@@ -165,35 +171,40 @@ Result<FileInfo> NekoCodeCore::get_file_info(const FilePath& file_path) {
 Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_file_multilang(const FilePath& file_path) {
     auto [result, duration] = utils::measure_time([&]() -> Result<MultiLanguageAnalysisResult> {
         try {
-            // 🎯 大ファイル進捗表示（Claude Code向け）
-            size_t file_size = 0;
-            try {
-                file_size = std::filesystem::file_size(file_path);
-                if (FileSizeReporter::is_large_file(file_size)) {
-                    FileSizeReporter::report_large_file_start(file_path.filename().string(), file_size);
+            // 🎯 Hybrid Stack Manager による巨大ファイル対応
+            HybridStackManager stack_mgr;
+            
+            return stack_mgr.analyze_with_smart_stack(file_path, [&]() -> Result<MultiLanguageAnalysisResult> {
+                // 🎯 大ファイル進捗表示（Claude Code向け）
+                size_t file_size = 0;
+                try {
+                    file_size = std::filesystem::file_size(file_path);
+                    if (FileSizeReporter::is_large_file(file_size)) {
+                        FileSizeReporter::report_large_file_start(file_path.filename().string(), file_size);
+                    }
+                } catch (...) {
+                    // ファイルサイズ取得失敗は無視して続行
                 }
-            } catch (...) {
-                // ファイルサイズ取得失敗は無視して続行
-            }
-            
-            // UTF-8 safe file reading
-            auto safe_content = utf8::read_file_safe_utf8(file_path.string());
-            if (!safe_content.conversion_success) {
-                return Result<MultiLanguageAnalysisResult>(
-                    AnalysisError(ErrorCode::FILE_NOT_FOUND, safe_content.error_message, file_path));
-            }
-            
-            // 言語自動検出
-            Language detected_lang = impl_->language_detector_->detect_language(file_path, safe_content.content);
-            
-            auto analysis_result = analyze_content_multilang(safe_content.content, file_path.string(), detected_lang);
-            
-            // 🎯 大ファイル処理完了通知
-            if (FileSizeReporter::is_large_file(file_size)) {
-                FileSizeReporter::report_large_file_complete(file_path.filename().string());
-            }
-            
-            return analysis_result;
+                
+                // UTF-8 safe file reading
+                auto safe_content = utf8::read_file_safe_utf8(file_path.string());
+                if (!safe_content.conversion_success) {
+                    return Result<MultiLanguageAnalysisResult>(
+                        AnalysisError(ErrorCode::FILE_NOT_FOUND, safe_content.error_message, file_path));
+                }
+                
+                // 言語自動検出
+                Language detected_lang = impl_->language_detector_->detect_language(file_path, safe_content.content);
+                
+                auto analysis_result = analyze_content_multilang(safe_content.content, file_path.string(), detected_lang);
+                
+                // 🎯 大ファイル処理完了通知
+                if (FileSizeReporter::is_large_file(file_size)) {
+                    FileSizeReporter::report_large_file_complete(file_path.filename().string());
+                }
+                
+                return analysis_result;
+            });
             
         } catch (const std::exception& e) {
             return Result<MultiLanguageAnalysisResult>(
@@ -484,7 +495,8 @@ void NekoCodeCore::perform_complete_analysis(MultiLanguageAnalysisResult& result
 //=============================================================================
 
 Result<DirectoryAnalysis> NekoCodeCore::analyze_directory(const FilePath& directory_path) {
-    if (impl_->parallel_enabled_) {
+    // 🐛 TEMPORARY FIX: 並列処理を強制無効化してセグフォルト回避
+    if (false && impl_->parallel_enabled_) {
         std::cerr << "🔄 Using parallel processing path" << std::endl;
         return analyze_directory_parallel(directory_path);
     }

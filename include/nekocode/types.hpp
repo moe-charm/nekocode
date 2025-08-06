@@ -709,7 +709,15 @@ struct AnalysisConfig {
         ".cpp", ".cxx", ".cc", ".C",
         ".hpp", ".hxx", ".hh", ".H",
         // C
-        ".c", ".h"
+        ".c", ".h",
+        // Python
+        ".py", ".pyw", ".pyi",
+        // C#
+        ".cs",
+        // Go
+        ".go",
+        // Rust
+        ".rs"
     };
     std::vector<std::string> excluded_patterns = {"node_modules", ".git", "dist", "build", "__pycache__"};
     
@@ -822,6 +830,7 @@ enum class ErrorCode {
     PARSING_ERROR = 4,
     OUT_OF_MEMORY = 5,
     TIMEOUT = 6,
+    STACK_EXPANSION_FAILED = 7,
     UNKNOWN_ERROR = 99
 };
 
