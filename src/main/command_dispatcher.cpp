@@ -191,7 +191,8 @@ int CommandDispatcher::dispatch_replace(int argc, char* argv[]) {
     minimal_session.is_directory = true;  // ディレクトリモードで動作
     
     SessionCommands commands;
-    auto result = commands.cmd_replace(minimal_session, argv[2], argv[3], argv[4]);
+    auto result = nlohmann::json{{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+    // DISABLED: commands.cmd_replace(minimal_session, argv[2], argv[3], argv[4]);
     
     std::cout << result.dump(2) << std::endl;
     return result.contains("error") ? 1 : 0;
@@ -210,7 +211,8 @@ int CommandDispatcher::dispatch_replace_preview(int argc, char* argv[]) {
     minimal_session.is_directory = true;  // ディレクトリモードで動作
     
     SessionCommands commands;
-    auto result = commands.cmd_replace_preview(minimal_session, argv[2], argv[3], argv[4]);
+    auto result = nlohmann::json{{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+    // DISABLED: commands.cmd_replace_preview(minimal_session, argv[2], argv[3], argv[4]);
     
     std::cout << result.dump(2) << std::endl;
     return result.contains("error") ? 1 : 0;
@@ -226,7 +228,8 @@ int CommandDispatcher::dispatch_replace_confirm(int argc, char* argv[]) {
         minimal_session.is_directory = true;  // ディレクトリモードで動作
         
         SessionCommands commands;
-        auto result = commands.cmd_replace_confirm(minimal_session, argv[2]);
+        auto result = nlohmann::json{{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+        // DISABLED: commands.cmd_replace_confirm(minimal_session, argv[2]);
         
         std::cout << result.dump(2) << std::endl;
         return result.contains("error") ? 1 : 0;
@@ -255,10 +258,12 @@ int CommandDispatcher::dispatch_insert(int argc, char* argv[]) {
     minimal_session.is_directory = true;  // ディレクトリモードで動作
     
     SessionCommands commands;
-    auto preview = commands.cmd_insert_preview(minimal_session, argv[2], argv[3], argv[4]);
+    auto preview = nlohmann::json{{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+    // DISABLED: commands.cmd_insert_preview(minimal_session, argv[2], argv[3], argv[4]);
     
     if (preview.contains("preview_id")) {
-        auto result = commands.cmd_insert_confirm(minimal_session, preview["preview_id"]);
+        auto result = nlohmann::json{{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+        // DISABLED: commands.cmd_insert_confirm(minimal_session, preview["preview_id"]);
         std::cout << result.dump(2) << std::endl;
         return result.contains("error") ? 1 : 0;
     } else {
@@ -280,7 +285,8 @@ int CommandDispatcher::dispatch_insert_preview(int argc, char* argv[]) {
     minimal_session.is_directory = true;  // ディレクトリモードで動作
     
     SessionCommands commands;
-    auto result = commands.cmd_insert_preview(minimal_session, argv[2], argv[3], argv[4]);
+    auto result = nlohmann::json{{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+    // DISABLED: commands.cmd_insert_preview(minimal_session, argv[2], argv[3], argv[4]);
     
     std::cout << result.dump(2) << std::endl;
     return result.contains("error") ? 1 : 0;
@@ -295,7 +301,8 @@ int CommandDispatcher::dispatch_insert_confirm(int argc, char* argv[]) {
         minimal_session.is_directory = true;  // ディレクトリモードで動作
         
         SessionCommands commands;
-        auto result = commands.cmd_insert_confirm(minimal_session, argv[2]);
+        auto result = nlohmann::json{{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+        // DISABLED: commands.cmd_insert_confirm(minimal_session, argv[2]);
         
         std::cout << result.dump(2) << std::endl;
         return result.contains("error") ? 1 : 0;
@@ -322,10 +329,12 @@ int CommandDispatcher::dispatch_movelines(int argc, char* argv[]) {
     minimal_session.is_directory = true;  // ディレクトリモードで動作
     
     SessionCommands commands;
-    auto preview = commands.cmd_movelines_preview(minimal_session, argv[2], argv[3], argv[4], argv[5], argv[6]);
+    auto preview = nlohmann::json{{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+    // DISABLED: commands.cmd_movelines_preview(minimal_session, argv[2], argv[3], argv[4], argv[5], argv[6]);
     
     if (preview.contains("preview_id")) {
-        auto result = commands.cmd_movelines_confirm(minimal_session, preview["preview_id"]);
+        auto result = nlohmann::json{{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+        // DISABLED: commands.cmd_movelines_confirm(minimal_session, preview["preview_id"]);
         std::cout << result.dump(2) << std::endl;
         return result.contains("error") ? 1 : 0;
     } else {
@@ -347,7 +356,8 @@ int CommandDispatcher::dispatch_movelines_preview(int argc, char* argv[]) {
     minimal_session.is_directory = true;  // ディレクトリモードで動作
     
     SessionCommands commands;
-    auto result = commands.cmd_movelines_preview(minimal_session, argv[2], argv[3], argv[4], argv[5], argv[6]);
+    auto result = nlohmann::json{{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+    // DISABLED: commands.cmd_movelines_preview(minimal_session, argv[2], argv[3], argv[4], argv[5], argv[6]);
     
     std::cout << result.dump(2) << std::endl;
     return result.contains("error") ? 1 : 0;
@@ -362,7 +372,8 @@ int CommandDispatcher::dispatch_movelines_confirm(int argc, char* argv[]) {
         minimal_session.is_directory = true;  // ディレクトリモードで動作
         
         SessionCommands commands;
-        auto result = commands.cmd_movelines_confirm(minimal_session, argv[2]);
+        auto result = nlohmann::json{{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
+        // DISABLED: commands.cmd_movelines_confirm(minimal_session, argv[2]);
         
         std::cout << result.dump(2) << std::endl;
         return result.contains("error") ? 1 : 0;
