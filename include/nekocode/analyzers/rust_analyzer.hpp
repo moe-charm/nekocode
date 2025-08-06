@@ -26,6 +26,7 @@ namespace nekocode {
 struct RustFunctionInfo {
     std::string name;
     LineNumber line_number = 0;
+    LineNumber end_line = 0;                // 🎯 end_line追加
     bool is_async = false;
     bool is_unsafe = false;
     bool is_pub = false;
@@ -126,6 +127,7 @@ private:
     std::string extract_generics(const std::string& line, size_t start_pos);
     std::string extract_return_type(const std::string& line, size_t fn_pos);
     std::vector<std::string> extract_lifetimes(const std::string& generics);
+    LineNumber find_function_end_line(const std::vector<std::string>& lines, size_t start_line);  // 🎯 end_line計算
     std::string extract_function_body(const std::string& content, size_t fn_start_line);  // 🔧 関数ボディ抽出
 };
 

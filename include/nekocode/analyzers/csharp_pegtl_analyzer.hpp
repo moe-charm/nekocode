@@ -278,6 +278,27 @@ public:
         state.result.file_info.size_bytes = content.size();
         state.result.language = Language::CSHARP;
         
+        // 🎯 行数計算
+        size_t total_lines = std::count(content.begin(), content.end(), '\n');
+        if (!content.empty() && content.back() != '\n') {
+            total_lines++;
+        }
+        state.result.file_info.total_lines = total_lines;
+        
+        // コード行数計算（空行とコメント行を除外）
+        size_t code_lines = 0;
+        std::istringstream line_stream(content);
+        std::string line;
+        while (std::getline(line_stream, line)) {
+            // 空白を除去
+            line.erase(0, line.find_first_not_of(" \t\r\n"));
+            // 空行やコメント行以外をカウント
+            if (!line.empty() && line.find("//") != 0) {
+                code_lines++;
+            }
+        }
+        state.result.file_info.code_lines = code_lines;
+        
         try {
             // PEGTL解析実行
             std::cerr << "DEBUG: Starting PEGTL parse for " << filename << std::endl;
@@ -384,6 +405,14 @@ private:
     
     // 🚀 C#ハイブリッド戦略: 行ベース補完解析（JavaScript成功パターン移植）
     void apply_csharp_line_based_analysis(AnalysisResult& result, const std::string& content, const std::string& filename) {
+        // 🎯 end_line計算用に全行を保存
+        std::vector<std::string> all_lines;
+        std::istringstream prestream(content);
+        std::string preline;
+        while (std::getline(prestream, preline)) {
+            all_lines.push_back(preline);
+        }
+        
         std::istringstream stream(content);
         std::string line;
         size_t line_number = 1;
@@ -401,7 +430,7 @@ private:
         
         // C#特化の行ベース解析
         while (std::getline(stream, line)) {
-            extract_csharp_elements_from_line(line, line_number, result, existing_classes, existing_functions);
+            extract_csharp_elements_from_line(line, line_number, result, existing_classes, existing_functions, all_lines);
             line_number++;
         }
     }
@@ -410,7 +439,8 @@ private:
     void extract_csharp_elements_from_line(const std::string& line, size_t line_number,
                                            AnalysisResult& result, 
                                            std::set<std::string>& existing_classes,
-                                           std::set<std::string>& existing_functions) {
+                                           std::set<std::string>& existing_functions,
+                                           const std::vector<std::string>& all_lines) {
         
         // 🚀 デバッグファイル出力（詳細マッチング調査用）
         static std::ofstream debug_file("/tmp/csharp_regex_debug.txt", std::ios::app);
@@ -508,13 +538,20 @@ private:
                 constructor_name != "void" && constructor_name != "int" && constructor_name != "string" && constructor_name != "bool") {
                 
                 debug_file << "Constructor name validated (not a keyword)\n";
-                if (existing_functions.find(constructor_name + "()") == existing_functions.end()) {
+                if (existing_functions.find(constructor_name) == existing_functions.end()) {
                     FunctionInfo constructor_info;
-                    constructor_info.name = constructor_name + "()";  // コンストラクタ明示
+                    constructor_info.name = constructor_name;  // 括弧なし統一
                     constructor_info.start_line = line_number;
+                    constructor_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                    
+                    // 🎯 async検出（コンストラクタは通常asyncではないが念のため）
+                    if (line.find("async ") != std::string::npos) {
+                        constructor_info.is_async = true;
+                    }
+                    
                     result.functions.push_back(constructor_info);
-                    existing_functions.insert(constructor_name + "()");
-                    debug_file << "Added new constructor: " << constructor_name << "()\n";
+                    existing_functions.insert(constructor_name);
+                    debug_file << "Added new constructor: " << constructor_name << "\n";
                 } else {
                     debug_file << "Constructor already exists, skipped\n";
                 }
@@ -545,6 +582,13 @@ private:
                     FunctionInfo method_info;
                     method_info.name = method_name;
                     method_info.start_line = line_number;
+                    method_info.end_line = find_function_end_line(all_lines, line_number - 1);
+                    
+                    // 🎯 async検出
+                    if (line.find("async ") != std::string::npos) {
+                        method_info.is_async = true;
+                    }
+                    
                     result.functions.push_back(method_info);
                     existing_functions.insert(method_name);
                     debug_file << "Added new method: " << method_name << "\n";
@@ -571,6 +615,7 @@ private:
                 FunctionInfo property_info;
                 property_info.name = "property:" + property_name;
                 property_info.start_line = line_number;
+                property_info.end_line = find_function_end_line(all_lines, line_number - 1);
                 result.functions.push_back(property_info);
                 existing_functions.insert("property:" + property_name);
                 debug_file << "Added new property: " << property_name << "\n";
@@ -590,6 +635,7 @@ private:
                 FunctionInfo property_info;
                 property_info.name = "property:" + property_name;
                 property_info.start_line = line_number;
+                property_info.end_line = find_function_end_line(all_lines, line_number - 1);
                 result.functions.push_back(property_info);
                 existing_functions.insert("property:" + property_name);
                 debug_file << "Added new arrow property: " << property_name << "\n";
@@ -793,6 +839,31 @@ private:
                 }
             }
         }
+    }
+    
+    // 🎯 C# 関数の終了行を検出（JavaScript実装パターンを移植）
+    uint32_t find_function_end_line(const std::vector<std::string>& lines, size_t start_line) {
+        int brace_count = 0;
+        bool in_function = false;
+        
+        for (size_t i = start_line; i < lines.size(); ++i) {
+            const auto& line = lines[i];
+            
+            for (char c : line) {
+                if (c == '{') {
+                    brace_count++;
+                    in_function = true;
+                } else if (c == '}') {
+                    brace_count--;
+                    if (in_function && brace_count == 0) {
+                        return static_cast<uint32_t>(i + 1);
+                    }
+                }
+            }
+        }
+        
+        // 見つからない場合は開始行+10を返す
+        return static_cast<uint32_t>(std::min(start_line + 10, lines.size()));
     }
 };
 

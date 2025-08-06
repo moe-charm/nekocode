@@ -56,6 +56,9 @@ private:
     /// インデント深度計算
     int calculate_indentation_depth(const std::string& line);
     
+    /// 🎯 Python関数の終了行を検出（インデントベース）
+    uint32_t find_function_end_line(const std::vector<std::string>& lines, size_t start_line, int base_indent);
+    
     /// Python キーワード検出
     bool is_python_function_line(const std::string& line);
     bool is_python_class_line(const std::string& line);

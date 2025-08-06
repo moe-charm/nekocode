@@ -204,11 +204,7 @@ public:
         // 🆕 コメントアウト行情報を結果に追加
         result.commented_lines = std::move(comments);
         
-        // 強制デバッグ: Python PEGTL analyzer が呼ばれたことを確認
-        ClassInfo debug_class;
-        debug_class.name = "PYTHON_PEGTL_ANALYZER_CALLED";
-        debug_class.start_line = 1;
-        result.classes.push_back(debug_class);
+        // デバッグコード削除（偽クラス検出問題修正）
         
         // PEGTL解析実行
         bool pegtl_success = false;
@@ -235,16 +231,44 @@ public:
         }
         
         // 🚨 PEGTL失敗時のフォールバック戦略
-        if (!pegtl_success) {
+        // 改善：常にフォールバックも実行し、PEGTLで見つからなかった関数を補完
+        {
             // 簡易パターンマッチング（std::regex代替）
             auto fallback_classes = extract_classes_fallback(content);
             auto fallback_functions = extract_functions_fallback(content);
             auto fallback_imports = extract_imports_fallback(content);
             
-            // デバッグクラスを保持しつつフォールバック結果を追加
-            result.classes.insert(result.classes.end(), fallback_classes.begin(), fallback_classes.end());
-            result.functions.insert(result.functions.end(), fallback_functions.begin(), fallback_functions.end());
-            result.imports.insert(result.imports.end(), fallback_imports.begin(), fallback_imports.end());
+            // PEGTLで見つからなかった要素を追加
+            for (const auto& fc : fallback_functions) {
+                bool found = false;
+                for (const auto& pf : result.functions) {
+                    if (pf.name == fc.name && pf.start_line == fc.start_line) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    result.functions.push_back(fc);
+                }
+            }
+            
+            for (const auto& cc : fallback_classes) {
+                bool found = false;
+                for (const auto& pc : result.classes) {
+                    if (pc.name == cc.name && pc.start_line == cc.start_line) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    result.classes.push_back(cc);
+                }
+            }
+            
+            // imports は単純に追加（重複チェック省略）
+            if (!pegtl_success) {
+                result.imports.insert(result.imports.end(), fallback_imports.begin(), fallback_imports.end());
+            }
         }
         
         // 複雑度計算（Python特化版）
@@ -260,6 +284,106 @@ public:
     }
 
 private:
+    // 位置から行番号を計算（Python位置バグ修正用）
+    size_t calculate_line_number(const std::string& content, size_t position) {
+        size_t line_count = 1;
+        for (size_t i = 0; i < position && i < content.size(); ++i) {
+            if (content[i] == '\n') {
+                line_count++;
+            }
+        }
+        return line_count;
+    }
+    
+    // 🎯 Python関数の終了行を検出（linesベクターを使用）
+    uint32_t find_function_end_line_with_lines(const std::vector<std::string>& lines, size_t start_idx, uint32_t base_indent_level) {
+        // 関数の終了を探す
+        uint32_t last_non_empty = start_idx + 1;  // 1ベースの行番号
+        
+        for (size_t i = start_idx + 1; i < lines.size(); ++i) {
+            const std::string& current_line = lines[i];
+            
+            // 空行やコメント行はスキップして記録
+            if (current_line.find_first_not_of(" \t\r\n") == std::string::npos) {
+                continue;
+            }
+            if (current_line.find_first_not_of(" \t") != std::string::npos && 
+                current_line[current_line.find_first_not_of(" \t")] == '#') {
+                continue;
+            }
+            
+            // インデントレベルを計算
+            uint32_t indent = 0;
+            for (char c : current_line) {
+                if (c == ' ') indent++;
+                else if (c == '\t') indent += 4;
+                else break;
+            }
+            uint32_t indent_level = indent / 4;
+            
+            // 同じまたはそれより浅いインデントの非空白行を見つけたら終了
+            if (indent_level <= base_indent_level) {
+                return i;  // 前の行が関数の最後
+            }
+            
+            last_non_empty = i + 1;  // 1ベースの行番号
+        }
+        
+        // ファイルの最後まで到達した場合
+        return last_non_empty;
+    }
+    
+    // 🎯 Python関数の終了行を検出（インデントベース）
+    uint32_t find_function_end_line(const std::string& content, uint32_t start_line) {
+        std::vector<std::string> lines;
+        std::istringstream stream(content);
+        std::string line;
+        while (std::getline(stream, line)) {
+            lines.push_back(line);
+        }
+        
+        if (start_line == 0 || start_line > lines.size()) {
+            return start_line;
+        }
+        
+        // 開始行のインデントレベルを取得
+        std::string start_line_str = lines[start_line - 1];
+        int base_indent = 0;
+        for (char c : start_line_str) {
+            if (c == ' ') base_indent++;
+            else if (c == '\t') base_indent += 4;
+            else break;
+        }
+        
+        // 関数の終了を探す
+        uint32_t last_non_empty = start_line;
+        for (size_t i = start_line; i < lines.size(); ++i) {
+            const std::string& current_line = lines[i];
+            
+            // 空行をスキップ
+            if (current_line.find_first_not_of(" \t\r\n") == std::string::npos) {
+                continue;
+            }
+            
+            // インデントレベルを計算
+            int indent = 0;
+            for (char c : current_line) {
+                if (c == ' ') indent++;
+                else if (c == '\t') indent += 4;
+                else break;
+            }
+            
+            // 同じまたはそれより浅いインデントの非空白行を見つけたら終了
+            if (indent <= base_indent && current_line.find_first_not_of(" \t") != std::string::npos) {
+                return last_non_empty;
+            }
+            
+            last_non_empty = static_cast<uint32_t>(i + 1);
+        }
+        
+        return last_non_empty;
+    }
+    
     // 複雑度計算（Python特化版）
     ComplexityInfo calculate_python_complexity(const std::string& content) {
         ComplexityInfo complexity;
@@ -357,29 +481,108 @@ private:
     
     std::vector<FunctionInfo> extract_functions_fallback(const std::string& content) {
         std::vector<FunctionInfo> functions;
+        std::vector<std::string> lines;
+        std::istringstream stream(content);
+        std::string line;
         
-        // defパターン検索
-        size_t pos = 0;
-        while ((pos = content.find("def ", pos)) != std::string::npos) {
-            size_t name_start = pos + 4; // "def "の長さ
-            while (name_start < content.size() && std::isspace(content[name_start])) {
-                name_start++;
+        // 全行をベクターに格納
+        while (std::getline(stream, line)) {
+            lines.push_back(line);
+        }
+        
+        // クラス情報を追跡
+        struct ClassScope {
+            std::string name;
+            uint32_t indent_level;
+            uint32_t start_line;
+        };
+        std::vector<ClassScope> class_stack;
+        
+        // 各行を解析
+        for (size_t i = 0; i < lines.size(); ++i) {
+            const std::string& current_line = lines[i];
+            uint32_t line_number = i + 1;
+            
+            // 空行やコメント行をスキップ
+            if (current_line.empty() || current_line.find_first_not_of(" \t") == std::string::npos) {
+                continue;
+            }
+            if (current_line.find_first_not_of(" \t") != std::string::npos && 
+                current_line[current_line.find_first_not_of(" \t")] == '#') {
+                continue;
             }
             
-            size_t name_end = name_start;
-            while (name_end < content.size() && 
-                   (std::isalnum(content[name_end]) || content[name_end] == '_')) {
-                name_end++;
+            // インデントレベルを計算
+            uint32_t indent_level = 0;
+            for (char c : current_line) {
+                if (c == ' ') indent_level++;
+                else if (c == '\t') indent_level += 4;
+                else break;
+            }
+            indent_level = indent_level / 4;  // 4スペース = 1レベル
+            
+            // クラススタックを整理（深いインデントから抜けた場合）
+            while (!class_stack.empty() && class_stack.back().indent_level >= indent_level) {
+                class_stack.pop_back();
             }
             
-            if (name_end > name_start) {
-                FunctionInfo func_info;
-                func_info.name = content.substr(name_start, name_end - name_start);
-                func_info.start_line = 1; // 簡易版
-                functions.push_back(func_info);
+            // class定義を検出
+            size_t class_pos = current_line.find("class ");
+            if (class_pos != std::string::npos) {
+                size_t name_start = class_pos + 6;  // "class "の長さ
+                while (name_start < current_line.size() && std::isspace(current_line[name_start])) {
+                    name_start++;
+                }
+                
+                size_t name_end = name_start;
+                while (name_end < current_line.size() && 
+                       (std::isalnum(current_line[name_end]) || current_line[name_end] == '_')) {
+                    name_end++;
+                }
+                
+                if (name_end > name_start) {
+                    ClassScope cls;
+                    cls.name = current_line.substr(name_start, name_end - name_start);
+                    cls.indent_level = indent_level;
+                    cls.start_line = line_number;
+                    class_stack.push_back(cls);
+                }
             }
             
-            pos = name_end;
+            // def定義を検出
+            size_t def_pos = current_line.find("def ");
+            if (def_pos != std::string::npos) {
+                size_t name_start = def_pos + 4;  // "def "の長さ
+                while (name_start < current_line.size() && std::isspace(current_line[name_start])) {
+                    name_start++;
+                }
+                
+                size_t name_end = name_start;
+                while (name_end < current_line.size() && 
+                       (std::isalnum(current_line[name_end]) || current_line[name_end] == '_')) {
+                    name_end++;
+                }
+                
+                if (name_end > name_start) {
+                    FunctionInfo func_info;
+                    std::string func_name = current_line.substr(name_start, name_end - name_start);
+                    
+                    // クラス内のメソッドかどうか判定
+                    if (!class_stack.empty() && indent_level > class_stack.back().indent_level) {
+                        // クラス内メソッドの場合、クラス名も記録（オプション）
+                        func_info.name = func_name;  // メソッド名のみ保存
+                        // func_info.name = class_stack.back().name + "::" + func_name;  // クラス名::メソッド名
+                    } else {
+                        // トップレベル関数
+                        func_info.name = func_name;
+                    }
+                    
+                    func_info.start_line = line_number;
+                    // linesベクターを使って直接end_lineを計算
+                    func_info.end_line = find_function_end_line_with_lines(lines, i, indent_level);
+                    functions.push_back(func_info);
+                }
+            }
         }
         
         return functions;
