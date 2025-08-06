@@ -8,6 +8,8 @@
 //=============================================================================
 
 #include "../javascript/javascript_pegtl_analyzer.hpp"
+#include "nekocode/analyzers/script_preprocessing.hpp"
+#include "nekocode/analyzers/script_postprocessing.hpp"
 #include <regex>
 #include <sstream>
 #include <set>
@@ -58,27 +60,11 @@ public:
                       << " (size: " << content.size() << " bytes)" << std::endl;
         }
         
-        // 🔥 前処理革命：コメント・文字列除去システム（Gemini先生戦略！）
-        auto preprocess_start = std::chrono::high_resolution_clock::now();
-        std::vector<CommentInfo> comments;
-        
-        // 🐛 デバッグ: 大ファイルでは前処理をスキップテスト
-        std::string preprocessed_content;
-        if (content.size() > 2 * 1024 * 1024 && g_debug_mode) {  // 2MB以上でデバッグモード時
-            std::cerr << "⚡ [TS] Skipping preprocessing for large file (>2MB)" << std::endl;
-            preprocessed_content = content;  // 前処理をスキップ
-        } else {
-            preprocessed_content = preprocess_content(content, &comments);
-        }
-        
-        auto preprocess_end = std::chrono::high_resolution_clock::now();
-        
-        // 安全な削減量計算（アンダーフロー防止）
-        long long size_diff = static_cast<long long>(content.length()) - static_cast<long long>(preprocessed_content.length());
-        if (!g_quiet_mode) {
-            std::cerr << "🧹 前処理完了: " << content.length() << " → " << preprocessed_content.length() 
-                      << " bytes (削減: " << size_diff << ")" << std::endl;
-        }
+        // 🚀 統一前処理システム使用（重複削除済み）
+        auto preprocess_result = script_preprocessing::ScriptPreprocessor::preprocess_script_content(
+            content, "TS", g_debug_mode
+        );
+        std::string preprocessed_content = preprocess_result.content;
         
         // 基本的にJavaScript PEGTLの解析を使用（ハイブリッド戦略含む）
         auto js_start = std::chrono::high_resolution_clock::now();
@@ -95,8 +81,8 @@ public:
                       << ", functions=" << result.functions.size() << std::endl;
         }
         
-        // 🔥 コメントアウト行情報を結果に追加（JavaScriptAnalyzer結果の上書き前に実行）
-        result.commented_lines = std::move(comments);
+        // 🔥 コメントアウト行情報を結果に追加（統一前処理から取得）
+        result.commented_lines = std::move(preprocess_result.comments);
         // std::cerr << "🔥 Comments added to result: " << result.commented_lines.size() << " items" << std::endl;
         
         // 🚀 TypeScript特有のハイブリッド戦略追加
@@ -114,9 +100,6 @@ public:
             }
         }
         
-        // 🔍 TypeScript メンバ変数検出（JavaScript成功パターン移植）
-        detect_member_variables(result, content);
-        
         // TypeScript専用の追加解析（将来的に実装）
         // - interface検出
         // - type alias検出  
@@ -129,13 +112,14 @@ public:
             result.classes[0].name = "TS_PEGTL_ANALYZER_CALLED";
         }
         
-        // 📊 統計情報を更新（commented_lines_countを含む）
-        result.update_statistics();
-        // std::cerr << "🔥 After update_statistics: commented_lines_count=" << result.stats.commented_lines_count << std::endl;
+        // 🎯 統一後処理実行（メンバ変数検出・統計更新・ログ出力統合）
+        script_postprocessing::ScriptPostprocessor::finalize_analysis_result(
+            result, content, filename, Language::TYPESCRIPT, "TS"
+        );
         
         auto total_end = std::chrono::high_resolution_clock::now();
+        auto total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(total_end - total_start).count();
         if (!g_quiet_mode || g_debug_mode) {
-            auto total_duration = std::chrono::duration_cast<std::chrono::milliseconds>(total_end - total_start).count();
             std::cerr << "⏱️ [TS] Total analysis time: " << total_duration << "ms" << std::endl;
         }
         
