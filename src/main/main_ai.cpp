@@ -663,7 +663,9 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
         // セッション作成成功
         nlohmann::json result_json;
         result_json["session_id"] = session_id;
-        result_json["commands"] = {"stats", "files", "complexity", "structure", "calls", "find <term>", "help"};
+        result_json["commands"] = {"stats", "files", "complexity", "structure", "calls", "find <term>", 
+                                    "replace-preview <file> <pattern> <replacement>", "replace-confirm <preview_id>", 
+                                    "edit-history", "edit-show <id>", "help"};
         result_json["message"] = "✅ AI Session created";
         
         std::cout << result_json.dump(2) << std::endl;

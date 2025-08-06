@@ -144,7 +144,10 @@ nlohmann::json SessionCommands::cmd_help() const {
                 "duplicates - Find duplicate files", 
                 "todo - Find TODO/FIXME comments",
                 "dependency-analyze [file] - Analyze dependencies",
-                "replace <file> <pattern> <replacement> - Simple regex replacement",
+                "replace-preview <file> <pattern> <replacement> - Preview replacement",
+                "replace-confirm <preview_id> - Confirm replacement",
+                "edit-history - Show edit history",
+                "edit-show <id> - Show edit details",
                 "insert-preview <file> <position> <content> - Preview insertion",
                 "insert-confirm <preview_id> - Confirm insertion",
                 "help - Show this help"
