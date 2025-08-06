@@ -9,8 +9,8 @@
 
 #include "../universal/universal_code_analyzer.hpp"
 #include "../universal/language_traits.hpp"
+#include "nekocode/analyzers/cpp_pegtl_analyzer.hpp"
 #include <memory>
-#include <regex>
 #include <unordered_map>
 
 namespace nekocode {
@@ -22,14 +22,20 @@ namespace adapters {
 
 class CppUniversalAdapter : public universal::UniversalCodeAnalyzer<universal::CppTraits> {
 private:
-    // ⚙️ C++特有の複雑構造管理
+    // 🔥 成熟したPEGTL実装を活用（JavaScriptパターンを踏襲）
+    std::unique_ptr<CppPEGTLAnalyzer> legacy_analyzer;
+    
+    // ⚙️ C++特有の複雑構造管理（拡張用）
     std::unordered_map<std::string, std::string> namespace_stack; // namespace管理
     std::unordered_map<std::string, std::string> template_context; // template管理
     bool in_template_definition = false;
     std::string current_access_modifier = "private"; // デフォルトはprivate
     
 public:
-    CppUniversalAdapter() = default;
+    CppUniversalAdapter() {
+        // 成熟したPEGTLアナライザーを初期化
+        legacy_analyzer = std::make_unique<CppPEGTLAnalyzer>();
+    }
     virtual ~CppUniversalAdapter() = default;
     
     //=========================================================================
@@ -49,27 +55,23 @@ public:
     }
     
     //=========================================================================
-    // 🔥 C++特化解析エンジン（複雑構造処理 + AST統一）
+    // 🔥 ハイブリッド解析エンジン（成熟したPEGTL + 統一AST）
     //=========================================================================
     
     AnalysisResult analyze(const std::string& content, const std::string& filename) override {
-        // Phase 1: 基本情報設定
-        AnalysisResult result;
-        result.language = get_language();
-        result.file_info.name = filename;
-        result.file_info.size_bytes = content.size();
-        result.file_info.total_lines = count_lines(content);
+        // Phase 1: 成熟したPEGTL解析で高精度結果取得
+        AnalysisResult legacy_result = legacy_analyzer->analyze(content, filename);
         
-        // Phase 2: C++特化解析 + AST構築
-        parse_cpp_with_ast(content, result);
+        // Phase 2: 統一AST構築（PEGTL結果から逆構築）
+        build_unified_ast_from_legacy_result(legacy_result, content);
         
-        // Phase 3: AST → 従来形式変換
-        this->tree_builder.extract_to_analysis_result(result);
+        // Phase 3: AST統計とレガシー統計の統合
+        enhance_result_with_ast_data(legacy_result);
         
-        // Phase 4: C++特化統計拡張
-        enhance_result_with_cpp_features(result);
+        // Phase 4: C++特化機能の追加
+        enhance_result_with_cpp_features(legacy_result);
         
-        return result;
+        return legacy_result;
     }
     
     //=========================================================================
@@ -115,9 +117,67 @@ public:
     
 protected:
     //=========================================================================
-    // 🔄 C++特化解析エンジン
+    // 🔄 レガシー → 統一AST変換エンジン
     //=========================================================================
     
+    void build_unified_ast_from_legacy_result(const AnalysisResult& legacy_result, const std::string& content) {
+        // レガシー結果から統一AST構築
+        
+        // クラス情報をAST化
+        for (const auto& class_info : legacy_result.classes) {
+            this->tree_builder.enter_scope(ASTNodeType::CLASS, class_info.name, class_info.start_line);
+            
+            // クラス内のメソッドを追加
+            for (const auto& method : class_info.methods) {
+                this->tree_builder.add_function(method.name, method.start_line);
+            }
+            
+            this->tree_builder.exit_scope(class_info.end_line);
+        }
+        
+        // 独立関数をAST化（クラス外の関数）
+        for (const auto& func_info : legacy_result.functions) {
+            // クラス内メソッドではないものを追加
+            bool is_method = false;
+            for (const auto& cls : legacy_result.classes) {
+                for (const auto& method : cls.methods) {
+                    if (method.name == func_info.name && 
+                        method.start_line == func_info.start_line) {
+                        is_method = true;
+                        break;
+                    }
+                }
+                if (is_method) break;
+            }
+            
+            if (!is_method) {
+                this->tree_builder.add_function(func_info.name, func_info.start_line);
+            }
+        }
+        
+        // C++特有の構造を解析（namespace、template等）
+        analyze_cpp_specific_patterns(content);
+    }
+    
+    void analyze_cpp_specific_patterns(const std::string& content) {
+        // C++特有のパターンを追加解析（必要に応じて）
+        // 例: namespace、template、friend、operatorオーバーロード等
+    }
+    
+    void enhance_result_with_ast_data(AnalysisResult& result) {
+        // AST統計を既存結果に統合
+        auto ast_stats = this->tree_builder.get_ast_statistics();
+        
+        // 統計拡張（より正確な値を使用）
+        if (ast_stats.classes > 0) {
+            result.stats.class_count = ast_stats.classes;
+        }
+        if (ast_stats.functions > 0) {
+            result.stats.function_count = ast_stats.functions;
+        }
+    }
+    
+    // 以下は旧実装（将来削除予定）
     void parse_cpp_with_ast(const std::string& content, AnalysisResult& result) {
         std::istringstream stream(content);
         std::string line;
@@ -275,16 +335,8 @@ protected:
     }
     
     void enhance_result_with_cpp_features(AnalysisResult& result) {
-        // AST統計を既存結果に統合
-        auto ast_stats = this->tree_builder.get_ast_statistics();
-        
-        // 統計拡張
-        result.stats.class_count = std::max(result.stats.class_count, ast_stats.classes);
-        result.stats.function_count = std::max(result.stats.function_count, ast_stats.functions);
-        
         // C++特化統計（将来拡張用）
-        // result.stats.template_count = count_templates();
-        // result.stats.namespace_count = count_namespaces();
+        // 例: template数、namespace数、friend関数数等
     }
     
     void find_templates_recursive(const ASTNode* node, std::vector<std::string>& templates) const {
