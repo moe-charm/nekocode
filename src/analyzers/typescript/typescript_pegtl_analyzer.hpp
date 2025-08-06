@@ -10,6 +10,7 @@
 #include "../javascript/javascript_pegtl_analyzer.hpp"
 #include "nekocode/analyzers/script_preprocessing.hpp"
 #include "nekocode/analyzers/script_postprocessing.hpp"
+#include "nekocode/analyzers/script_detection_helpers.hpp"
 #include <regex>
 #include <sstream>
 #include <set>
@@ -85,18 +86,18 @@ public:
         result.commented_lines = std::move(preprocess_result.comments);
         // std::cerr << "🔥 Comments added to result: " << result.commented_lines.size() << " items" << std::endl;
         
-        // 🚀 TypeScript特有のハイブリッド戦略追加
+        // 🚀 TypeScript特有のハイブリッド戦略追加（統一検出システム使用）
         if (needs_typescript_specific_analysis(result, preprocessed_content)) {
             if (!g_quiet_mode) {
-                std::cerr << "📜 TypeScript specific analysis triggered!" << std::endl;
+                std::cerr << "📜 TypeScript specific analysis triggered (unified detection)!" << std::endl;
             }
             auto ts_specific_start = std::chrono::high_resolution_clock::now();
-            apply_typescript_line_based_analysis(result, preprocessed_content, filename);
+            apply_typescript_unified_detection(result, preprocessed_content);
             auto ts_specific_end = std::chrono::high_resolution_clock::now();
             
             if (!g_quiet_mode || g_debug_mode) {
                 auto ts_duration = std::chrono::duration_cast<std::chrono::milliseconds>(ts_specific_end - ts_specific_start).count();
-                std::cerr << "⏱️ [TS] TypeScript specific analysis took: " << ts_duration << "ms" << std::endl;
+                std::cerr << "⏱️ [TS] TypeScript unified detection took: " << ts_duration << "ms" << std::endl;
             }
         }
         
@@ -147,7 +148,94 @@ private:
         return false;
     }
     
-    // 🚀 TypeScript特有の二重正規表現アタック解析
+    // 🎯 TypeScript統一検出システム（Phase 3: 500行削減）
+    void apply_typescript_unified_detection(AnalysisResult& result, const std::string& content) {
+        auto detection_start = std::chrono::high_resolution_clock::now();
+        
+        // 既存名前セット構築（重複防止）
+        auto existing_names = script_detection::ScriptDetectionHelpers::build_existing_names_set(
+            result.functions, result.classes
+        );
+        
+        // 既存関数名セット構築（関数専用）
+        std::set<std::string> existing_functions;
+        for (const auto& func : result.functions) {
+            existing_functions.insert(func.name);
+        }
+        
+        if (!g_quiet_mode) {
+            std::cerr << "🔍 [TS] Unified detection: existing functions=" << existing_functions.size()
+                      << ", classes=" << result.classes.size() << std::endl;
+        }
+        
+        // 📊 統一export関数検出
+        auto export_functions = script_detection::ScriptDetectionHelpers::detect_export_functions(
+            content, existing_functions
+        );
+        
+        // 📊 統一基本関数検出
+        auto basic_functions = script_detection::ScriptDetectionHelpers::detect_basic_functions(
+            content, existing_functions
+        );
+        
+        // 📊 統一クラス検出
+        std::set<std::string> existing_classes;
+        for (const auto& cls : result.classes) {
+            existing_classes.insert(cls.name);
+        }
+        auto additional_classes = script_detection::ScriptDetectionHelpers::detect_classes(
+            content, existing_classes
+        );
+        
+        // 📊 TypeScript固有interface検出
+        auto interfaces = script_detection::ScriptDetectionHelpers::detect_typescript_interfaces(
+            content, existing_names
+        );
+        
+        // 📊 TypeScript固有type alias検出
+        auto type_aliases = script_detection::ScriptDetectionHelpers::detect_typescript_type_aliases(
+            content, existing_names
+        );
+        
+        // 結果統合
+        for (auto& func : export_functions) {
+            result.functions.push_back(func);
+            existing_functions.insert(func.name);
+        }
+        
+        for (auto& func : basic_functions) {
+            if (existing_functions.find(func.name) == existing_functions.end()) {
+                result.functions.push_back(func);
+                existing_functions.insert(func.name);
+            }
+        }
+        
+        for (auto& cls : additional_classes) {
+            result.classes.push_back(cls);
+        }
+        
+        for (auto& interface : interfaces) {
+            result.classes.push_back(interface);
+        }
+        
+        // Type aliasesは統計のみ記録（将来の拡張用）
+        if (!type_aliases.empty() && g_debug_mode) {
+            std::cerr << "🔍 [TS] Type aliases detected: " << type_aliases.size() << std::endl;
+        }
+        
+        auto detection_end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+            detection_end - detection_start).count();
+        
+        if (!g_quiet_mode) {
+            std::cerr << "✅ [TS] Unified detection completed: +" << export_functions.size() 
+                      << " exports, +" << basic_functions.size() << " functions, +" 
+                      << additional_classes.size() << " classes, +" << interfaces.size() 
+                      << " interfaces (" << duration << "ms)" << std::endl;
+        }
+    }
+    
+    // 🚀 TypeScript特有の二重正規表現アタック解析（レガシー・使用停止予定）
     void apply_typescript_line_based_analysis(AnalysisResult& result, const std::string& content, const std::string& filename) {
         std::istringstream stream(content);
         std::string line;
