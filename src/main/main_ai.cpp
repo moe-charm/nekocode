@@ -314,6 +314,11 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 analysis_result.language = multilang_result.detected_language;
             }
             
+            // パスが設定されていない場合は設定
+            if (analysis_result.file_info.path.empty()) {
+                analysis_result.file_info.path = path;
+            }
+            
             // 出力フォーマット選択
             std::string output = formatter->format_single_file(analysis_result);
             
@@ -621,6 +626,11 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                 // フォールバック
                 analysis_result.file_info = multilang_result.file_info;
                 analysis_result.language = multilang_result.detected_language;
+            }
+            
+            // パスが設定されていない場合は設定
+            if (analysis_result.file_info.path.empty()) {
+                analysis_result.file_info.path = path;
             }
             
             session_id = session_manager.create_session(path, analysis_result);
