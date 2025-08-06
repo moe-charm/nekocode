@@ -139,18 +139,35 @@ cd /path/to/your/project  # ← YOUR project, not nekocode!
 ### Using MCP Server in Claude Code
 
 ```python
-# Now you can use these MCP tools directly!
+# 🚀 Basic Analysis - Works with any project!
 await mcp__nekocode__analyze("/path/to/project", stats_only=True)
 await mcp__nekocode__session_create("/path/to/project")  # Ultra-fast session!
 await mcp__nekocode__session_stats(session_id)          # 3ms response!
-await mcp__nekocode__include_cycles(session_id)         # C++ dependency analysis
+
+# 🔧 Advanced C++ Development
+await mcp__nekocode__include_cycles(session_id)         # Find circular dependencies  
+await mcp__nekocode__include_graph(session_id)          # Dependency visualization
+
+# ✂️ NEW! Safe Code Editing (2-stage execution)
+await mcp__nekocode__replace_preview(session_id, "src/main.cpp", "old_func", "new_func")
+await mcp__nekocode__replace_confirm(session_id, "preview_123")
+
+# 📝 NEW! Move Lines Between Files - Claude Code's Dream Feature!
+await mcp__nekocode__movelines_preview(session_id, "utils.js", "45", "20", "helpers.js", "10")  
+await mcp__nekocode__movelines_confirm(session_id, "movelines_456")  # Actually moves the code!
+
+# 🔍 Code Analysis & Search
 await mcp__nekocode__list_languages()                   # Check supported languages
+await mcp__nekocode__edit_history(session_id)          # Track all your changes
 ```
 
 **That's it!** The MCP server provides:
 - ✅ Native Claude Code integration
 - ✅ Session management (3ms operations after initial analysis)
 - ✅ Advanced C++ dependency analysis tools
+- ✅ **NEW! Safe code editing** with 2-stage execution (preview → confirm)
+- ✅ **NEW! movelines feature** - Direct file-to-file line movement (no copy/paste!)
+- ✅ Complete edit history tracking and management
 - ✅ All NekoCode features as MCP tools
 
 📚 **Full MCP documentation**: [mcp-nekocode-server/README.md](mcp-nekocode-server/README.md)
@@ -320,7 +337,11 @@ make -j
 ./nekocode_ai session-command ai_session_20250727_123456 "insert-preview src/main.cpp end '// End of file'"
 ./nekocode_ai session-command ai_session_20250727_123456 "insert-confirm INS_001"
 
-# View editing history
+# Move lines between files (NEW! No copy/paste needed!)
+./nekocode_ai session-command ai_session_20250727_123456 "movelines-preview utils.js 45 20 helpers.js 10"
+./nekocode_ai session-command ai_session_20250727_123456 "movelines-confirm movelines_456"
+
+# View editing history  
 ./nekocode_ai session-command ai_session_20250727_123456 edit-history
 ./nekocode_ai session-command ai_session_20250727_123456 "edit-show ED_001"
 ```
@@ -436,6 +457,8 @@ NekoCode now provides comprehensive member variable analysis across all supporte
 | `insert-confirm <preview_id>` | Execute insertion |
 | `edit-history` | Show recent edit operations (20 items) |
 | `edit-show <id>` | Show detailed edit information |
+| `movelines-preview <srcfile> <start> <count> <dstfile> <pos>` | Preview line movement between files |
+| `movelines-confirm <preview_id>` | Execute line movement |
 
 ## 🔧 設定オプション
 

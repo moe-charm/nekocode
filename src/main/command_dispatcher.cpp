@@ -4,6 +4,8 @@
 
 #include "nekocode/command_dispatcher.hpp"
 #include "nekocode/command_line_args.hpp"
+#include "nekocode/session_data.hpp"
+#include "nekocode/session_commands.hpp"
 #include <iostream>
 #include <filesystem>
 
@@ -71,6 +73,34 @@ int CommandDispatcher::dispatch(int argc, char* argv[]) {
         }
         return dispatch_session_command(argv[2], argv[3]);
     }
+    // 📝 直接編集コマンド（セッション不要）
+    else if (action == "replace") {
+        return dispatch_replace(argc, argv);
+    }
+    else if (action == "replace-preview") {
+        return dispatch_replace_preview(argc, argv);
+    }
+    else if (action == "replace-confirm") {
+        return dispatch_replace_confirm(argc, argv);
+    }
+    else if (action == "insert") {
+        return dispatch_insert(argc, argv);
+    }
+    else if (action == "insert-preview") {
+        return dispatch_insert_preview(argc, argv);
+    }
+    else if (action == "insert-confirm") {
+        return dispatch_insert_confirm(argc, argv);
+    }
+    else if (action == "movelines") {
+        return dispatch_movelines(argc, argv);
+    }
+    else if (action == "movelines-preview") {
+        return dispatch_movelines_preview(argc, argv);
+    }
+    else if (action == "movelines-confirm") {
+        return dispatch_movelines_confirm(argc, argv);
+    }
 #ifdef NEKOCODE_USE_MEMORY_SYSTEM
     else if (action == "memory") {
         return dispatch_memory(argc - 1, argv + 1);  // Skip "memory" and pass remaining args
@@ -129,6 +159,208 @@ int CommandDispatcher::dispatch_languages() {
 int CommandDispatcher::dispatch_help() {
     show_help();
     return 1;
+}
+
+//=============================================================================
+// 📝 直接編集コマンド実装（セッション不要）
+//=============================================================================
+
+int CommandDispatcher::dispatch_replace(int argc, char* argv[]) {
+    if (argc < 5) {
+        std::cerr << "Error: replace requires file, pattern, and replacement" << std::endl;
+        std::cerr << "Usage: nekocode replace <file> <pattern> <replacement>" << std::endl;
+        return 1;
+    }
+    
+    // 最小限のSessionDataを作成
+    SessionData minimal_session;
+    minimal_session.session_id = "direct_exec";
+    minimal_session.target_path = std::filesystem::current_path();
+    minimal_session.is_directory = true;  // ディレクトリモードで動作
+    
+    SessionCommands commands;
+    auto result = commands.cmd_replace(minimal_session, argv[2], argv[3], argv[4]);
+    
+    std::cout << result.dump(2) << std::endl;
+    return result.contains("error") ? 1 : 0;
+}
+
+int CommandDispatcher::dispatch_replace_preview(int argc, char* argv[]) {
+    if (argc < 5) {
+        std::cerr << "Error: replace-preview requires file, pattern, and replacement" << std::endl;
+        std::cerr << "Usage: nekocode replace-preview <file> <pattern> <replacement>" << std::endl;
+        return 1;
+    }
+    
+    SessionData minimal_session;
+    minimal_session.session_id = "direct_exec";
+    minimal_session.target_path = std::filesystem::current_path();
+    minimal_session.is_directory = true;  // ディレクトリモードで動作
+    
+    SessionCommands commands;
+    auto result = commands.cmd_replace_preview(minimal_session, argv[2], argv[3], argv[4]);
+    
+    std::cout << result.dump(2) << std::endl;
+    return result.contains("error") ? 1 : 0;
+}
+
+int CommandDispatcher::dispatch_replace_confirm(int argc, char* argv[]) {
+    // Phase 2で実装: プレビューIDまたは直接実行の両モード対応
+    if (argc == 3) {
+        // Mode 1: プレビューID指定
+        SessionData minimal_session;
+        minimal_session.session_id = "direct_exec";
+        minimal_session.target_path = std::filesystem::current_path();
+        minimal_session.is_directory = true;  // ディレクトリモードで動作
+        
+        SessionCommands commands;
+        auto result = commands.cmd_replace_confirm(minimal_session, argv[2]);
+        
+        std::cout << result.dump(2) << std::endl;
+        return result.contains("error") ? 1 : 0;
+    } else if (argc >= 5) {
+        // Mode 2: 直接実行（プレビューなし）
+        return dispatch_replace(argc, argv);  // replaceと同じ処理
+    } else {
+        std::cerr << "Error: replace-confirm requires preview ID or file/pattern/replacement" << std::endl;
+        std::cerr << "Usage: nekocode replace-confirm <preview_id>" << std::endl;
+        std::cerr << "   or: nekocode replace-confirm <file> <pattern> <replacement>" << std::endl;
+        return 1;
+    }
+}
+
+int CommandDispatcher::dispatch_insert(int argc, char* argv[]) {
+    if (argc < 5) {
+        std::cerr << "Error: insert requires file, position, and content" << std::endl;
+        std::cerr << "Usage: nekocode insert <file> <position> <content>" << std::endl;
+        return 1;
+    }
+    
+    // 直接実行: プレビュー作成してすぐconfirm
+    SessionData minimal_session;
+    minimal_session.session_id = "direct_exec";
+    minimal_session.target_path = std::filesystem::current_path();
+    minimal_session.is_directory = true;  // ディレクトリモードで動作
+    
+    SessionCommands commands;
+    auto preview = commands.cmd_insert_preview(minimal_session, argv[2], argv[3], argv[4]);
+    
+    if (preview.contains("preview_id")) {
+        auto result = commands.cmd_insert_confirm(minimal_session, preview["preview_id"]);
+        std::cout << result.dump(2) << std::endl;
+        return result.contains("error") ? 1 : 0;
+    } else {
+        std::cout << preview.dump(2) << std::endl;
+        return 1;
+    }
+}
+
+int CommandDispatcher::dispatch_insert_preview(int argc, char* argv[]) {
+    if (argc < 5) {
+        std::cerr << "Error: insert-preview requires file, position, and content" << std::endl;
+        std::cerr << "Usage: nekocode insert-preview <file> <position> <content>" << std::endl;
+        return 1;
+    }
+    
+    SessionData minimal_session;
+    minimal_session.session_id = "direct_exec";
+    minimal_session.target_path = std::filesystem::current_path();
+    minimal_session.is_directory = true;  // ディレクトリモードで動作
+    
+    SessionCommands commands;
+    auto result = commands.cmd_insert_preview(minimal_session, argv[2], argv[3], argv[4]);
+    
+    std::cout << result.dump(2) << std::endl;
+    return result.contains("error") ? 1 : 0;
+}
+
+int CommandDispatcher::dispatch_insert_confirm(int argc, char* argv[]) {
+    if (argc == 3) {
+        // Mode 1: プレビューID指定
+        SessionData minimal_session;
+        minimal_session.session_id = "direct_exec";
+        minimal_session.target_path = std::filesystem::current_path();
+        minimal_session.is_directory = true;  // ディレクトリモードで動作
+        
+        SessionCommands commands;
+        auto result = commands.cmd_insert_confirm(minimal_session, argv[2]);
+        
+        std::cout << result.dump(2) << std::endl;
+        return result.contains("error") ? 1 : 0;
+    } else if (argc >= 5) {
+        // Mode 2: 直接実行
+        return dispatch_insert(argc, argv);
+    } else {
+        std::cerr << "Error: insert-confirm requires preview ID or file/position/content" << std::endl;
+        return 1;
+    }
+}
+
+int CommandDispatcher::dispatch_movelines(int argc, char* argv[]) {
+    if (argc < 7) {
+        std::cerr << "Error: movelines requires source file, start line, count, dest file, and insert line" << std::endl;
+        std::cerr << "Usage: nekocode movelines <srcfile> <start> <count> <dstfile> <position>" << std::endl;
+        return 1;
+    }
+    
+    // 直接実行: プレビュー作成してすぐconfirm
+    SessionData minimal_session;
+    minimal_session.session_id = "direct_exec";
+    minimal_session.target_path = std::filesystem::current_path();
+    minimal_session.is_directory = true;  // ディレクトリモードで動作
+    
+    SessionCommands commands;
+    auto preview = commands.cmd_movelines_preview(minimal_session, argv[2], argv[3], argv[4], argv[5], argv[6]);
+    
+    if (preview.contains("preview_id")) {
+        auto result = commands.cmd_movelines_confirm(minimal_session, preview["preview_id"]);
+        std::cout << result.dump(2) << std::endl;
+        return result.contains("error") ? 1 : 0;
+    } else {
+        std::cout << preview.dump(2) << std::endl;
+        return 1;
+    }
+}
+
+int CommandDispatcher::dispatch_movelines_preview(int argc, char* argv[]) {
+    if (argc < 7) {
+        std::cerr << "Error: movelines-preview requires source file, start line, count, dest file, and insert line" << std::endl;
+        std::cerr << "Usage: nekocode movelines-preview <srcfile> <start> <count> <dstfile> <position>" << std::endl;
+        return 1;
+    }
+    
+    SessionData minimal_session;
+    minimal_session.session_id = "direct_exec";
+    minimal_session.target_path = std::filesystem::current_path();
+    minimal_session.is_directory = true;  // ディレクトリモードで動作
+    
+    SessionCommands commands;
+    auto result = commands.cmd_movelines_preview(minimal_session, argv[2], argv[3], argv[4], argv[5], argv[6]);
+    
+    std::cout << result.dump(2) << std::endl;
+    return result.contains("error") ? 1 : 0;
+}
+
+int CommandDispatcher::dispatch_movelines_confirm(int argc, char* argv[]) {
+    if (argc == 3) {
+        // Mode 1: プレビューID指定
+        SessionData minimal_session;
+        minimal_session.session_id = "direct_exec";
+        minimal_session.target_path = std::filesystem::current_path();
+        minimal_session.is_directory = true;  // ディレクトリモードで動作
+        
+        SessionCommands commands;
+        auto result = commands.cmd_movelines_confirm(minimal_session, argv[2]);
+        
+        std::cout << result.dump(2) << std::endl;
+        return result.contains("error") ? 1 : 0;
+    } else if (argc >= 7) {
+        // Mode 2: 直接実行
+        return dispatch_movelines(argc, argv);
+    } else {
+        std::cerr << "Error: movelines-confirm requires preview ID or full parameters" << std::endl;
+        return 1;
+    }
 }
 
 //=============================================================================
