@@ -50,11 +50,29 @@ python3 --version  # Python 3.8+ 必要
 - `mcp__nekocode__session_complexity` - 🧮 複雑度分析（超高速3ms）
 - `mcp__nekocode__find_files` - 🔎 ファイル検索（超高速3ms）
 
-### ✏️ コード編集機能（NEW！2段階実行で安全）
+### ✏️ コード編集機能（NEW！セッション不要の直接モードも対応！）
+
+#### 🆕 セッション不要の直接編集（最速！）
+**コマンドラインで直接実行：**
+```bash
+# セッション作成不要！即座に実行可能！
+./nekocode_ai replace main.cpp "oldFunction" "newFunction"          # 即実行
+./nekocode_ai replace-preview main.cpp "oldFunction" "newFunction"  # プレビュー
+./nekocode_ai movelines src.js 10 5 dest.js 20                     # 行移動
+./nekocode_ai insert file.py 42 "# New comment"                    # 挿入
+```
+
+#### 🔒 セッションベースの安全編集（2段階実行）
 - `mcp__nekocode__replace_preview` - 📝 置換プレビュー（変更前後の確認）
 - `mcp__nekocode__replace_confirm` - ✅ 置換実行（プレビューID指定）
 - `mcp__nekocode__insert_preview` - 📝 挿入プレビュー（start/end/行番号）
 - `mcp__nekocode__insert_confirm` - ✅ 挿入実行（プレビューID指定）
+
+#### 📝 行移動機能（ファイル間でコード移動！）
+- `mcp__nekocode__movelines_preview` - 📝 行移動プレビュー
+- `mcp__nekocode__movelines_confirm` - ✅ 行移動実行
+
+#### 📋 履歴管理
 - `mcp__nekocode__edit_history` - 📋 編集履歴表示（最新20件）
 - `mcp__nekocode__edit_show` - 🔍 編集詳細表示（ID指定）
 
@@ -121,7 +139,20 @@ result = await mcp__nekocode__analyze("/path/to/project", stats_only=True)
 # → 複雑度解析をスキップして高速化
 ```
 
-### ✏️ コード編集機能 - 安全な2段階実行（NEW!）
+### ✏️ コード編集機能 - 2つのモード（NEW!）
+
+#### 🆕 Mode 1: セッション不要の直接実行（最速！）
+```bash
+# コマンドラインから直接実行（セッション作成不要！）
+./nekocode_ai replace main.cpp "oldFunction" "newFunction"          # 即実行
+./nekocode_ai replace-preview main.cpp "oldFunction" "newFunction"  # プレビュー
+./nekocode_ai replace-confirm preview_123                           # 確定
+
+./nekocode_ai movelines src.js 10 5 dest.js 20                     # 行移動
+./nekocode_ai insert file.py 42 "# New comment"                    # 挿入
+```
+
+#### 🔒 Mode 2: セッションベースの安全実行
 ```python
 # 1. 置換プレビュー（実際には変更しない）
 preview = await mcp__nekocode__replace_preview(
