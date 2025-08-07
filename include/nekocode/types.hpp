@@ -318,6 +318,10 @@ struct AnalysisResult {
     // 生成時刻
     Timestamp generated_at;
     
+    // Phase 3: Universal Symbol情報（オプショナル）
+    // Rustのみ対応、他言語は順次追加
+    std::shared_ptr<class SymbolTable> universal_symbols;
+    
     AnalysisResult() : generated_at(std::chrono::system_clock::now()) {}
     
     void update_statistics() {

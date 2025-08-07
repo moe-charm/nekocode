@@ -43,6 +43,12 @@ struct SessionData {
     // デッドコード解析結果（完全解析時のみ）
     nlohmann::json dead_code_info;
     
+    // Phase 3: Universal Symbol情報（Rustのみ対応）
+    std::shared_ptr<class SymbolTable> universal_symbols;
+    
+    // Rustセッション作成時に自動的にSymbolTableを生成
+    void enhance_with_symbols();
+    
     // JSONシリアライズ
     nlohmann::json to_json() const;
     static SessionData from_json(const nlohmann::json& j);
