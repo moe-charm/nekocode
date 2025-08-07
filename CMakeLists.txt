@@ -148,6 +148,9 @@ set(NEKOCODE_SOURCES
     # Phase 3: Symbol Converters
     ${SRC_DIR}/converters/rust_symbol_converter.cpp
     
+    # Phase 4: Symbol Converters
+    ${SRC_DIR}/converters/js_symbol_converter.cpp
+    
     # ユーティリティ
     ${SRC_DIR}/utils/utf8_utils.cpp
     ${SRC_DIR}/utils/include_analyzer.cpp
