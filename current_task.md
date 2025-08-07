@@ -21,10 +21,11 @@
 - C++17→C++20アップグレード（string::starts_with/ends_with対応）
 - 動作確認済み：symbols配列でclass, function, member_varを出力
 
-### 🔄 **Phase 4.3: C++ Universal Symbol対応** (開始予定)
-- CppSymbolConverter 実装予定
+### ✅ **Phase 4.3: C++ Universal Symbol対応** (完了)
+**コミット**: 予定
+- CppSymbolConverter 完全実装
 - C++特有のnamespace, template, class構造対応
-- 複雑度が高いため慎重な実装が必要
+- 動作確認済み：namespace, class, function, member_varを正常出力
 
 ### ⏳ **Phase 4.4: C#/Go Universal Symbol対応** (未開始)
 - 他言語実装パターンを活用予定
@@ -54,6 +55,27 @@
 **影響**: Universal Symbol変換時に正しいmethodとして認識されない
 **対応**: 将来のPythonAnalyzer改善で解決予定（現在はAnalyzer動作の制限）
 
+### 🐛 **C++ Method分類問題** (Phase 4.3)
+**問題**: C++のクラスメソッドが独立関数として検出される
+```json
+// 現在の出力（問題あり）
+"symbols": [
+  {
+    "symbol_type": "class", 
+    "name": "ConnectionManager",
+    "child_ids": ["field_..."] // メソッドがchildに含まれない
+  },
+  {
+    "symbol_type": "function",  // 本来はmethodであるべき
+    "name": "connect"          // クラスのメソッド
+  }
+]
+```
+
+**原因**: CppAnalyzerがクラスメソッドをclasses[].methods[]でなくfunctions[]に分類している
+**影響**: Universal Symbol変換時に正しいmethodとして認識されない
+**対応**: 将来のCppAnalyzer改善で解決予定（現在はAnalyzer動作の制限）
+
 ### 📝 **将来改善予定項目**
 1. **Pythonメソッド分類の正確化**: PythonAnalyzerでのメソッド/関数判定改善
 2. **TypeScript interface対応**: TS特有のinterface情報の詳細化
@@ -69,7 +91,7 @@
 | **JavaScript** 🟨 | ✅ 完全対応 | class/function完全対応 | Phase 4.1完成 |
 | **TypeScript** 🔷 | ✅ 完全対応 | class/interface/function対応 | Phase 4.1完成 |
 | **Python** 🐍 | ✅ 基本対応 | class/function対応（メソッド分類制限あり） | Phase 4.2完成 |
-| **C++** ⚙️ | ⏳ 実装予定 | namespace/template対応予定 | Phase 4.3開始予定 |
+| **C++** ⚙️ | ✅ 基本対応 | namespace/class/function対応（メソッド分類制限あり） | Phase 4.3完成 |
 | **C#** 🎯 | ⏳ 実装予定 | - | Phase 4.4予定 |
 | **Go** 🐹 | ⏳ 実装予定 | - | Phase 4.4予定 |
 

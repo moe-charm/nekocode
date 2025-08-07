@@ -151,6 +151,7 @@ set(NEKOCODE_SOURCES
     # Phase 4: Symbol Converters
     ${SRC_DIR}/converters/js_symbol_converter.cpp
     ${SRC_DIR}/converters/python_symbol_converter.cpp
+    ${SRC_DIR}/converters/cpp_symbol_converter.cpp
     
     # ユーティリティ
     ${SRC_DIR}/utils/utf8_utils.cpp
