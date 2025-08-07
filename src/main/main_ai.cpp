@@ -19,6 +19,7 @@
 #include "../../src/converters/rust_symbol_converter.hpp"
 #include "../../src/converters/js_symbol_converter.hpp"
 #include "../../src/converters/python_symbol_converter.hpp"
+#include "../../src/converters/cpp_symbol_converter.hpp"
 #include <iostream>
 #include <filesystem>
 #include <chrono>
@@ -288,9 +289,17 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                
+                // ⚙️ C++ Universal Symbol生成
+                if (analysis_result.language == Language::CPP) {
+                    CppSymbolConverter converter;
+                    auto symbol_table = converter.convert_from_analysis_result(analysis_result);
+                    analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
+                }
             } else if (multilang_result.rust_result) {
                 // 🔧 Rust結果処理を追加
                 analysis_result = multilang_result.rust_result.value();
+                
                 
                 // 🌟 Rust Universal Symbol生成
                 if (analysis_result.language == Language::RUST) {
@@ -336,6 +345,11 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                     func_info.end_line = cpp_func.end_line;
                     analysis_result.functions.push_back(func_info);
                 }
+                
+                // ⚙️ C++ Universal Symbol生成 (cpp_result専用)
+                CppSymbolConverter converter;
+                auto symbol_table = converter.convert_from_analysis_result(analysis_result);
+                analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
             } else {
                 // フォールバック
                 analysis_result.file_info = multilang_result.file_info;
@@ -623,9 +637,17 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                
+                // ⚙️ C++ Universal Symbol生成
+                if (analysis_result.language == Language::CPP) {
+                    CppSymbolConverter converter;
+                    auto symbol_table = converter.convert_from_analysis_result(analysis_result);
+                    analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
+                }
             } else if (multilang_result.rust_result) {
                 // 🔧 Rust結果処理を追加
                 analysis_result = multilang_result.rust_result.value();
+                
                 
                 // 🌟 Rust Universal Symbol生成
                 if (analysis_result.language == Language::RUST) {
@@ -671,6 +693,11 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                     func_info.end_line = cpp_func.end_line;
                     analysis_result.functions.push_back(func_info);
                 }
+                
+                // ⚙️ C++ Universal Symbol生成 (cpp_result専用)
+                CppSymbolConverter converter;
+                auto symbol_table = converter.convert_from_analysis_result(analysis_result);
+                analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
             } else {
                 // フォールバック
                 analysis_result.file_info = multilang_result.file_info;
