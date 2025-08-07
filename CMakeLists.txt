@@ -134,7 +134,12 @@ set(NEKOCODE_SOURCES
     ${SRC_DIR}/core/language_detection.cpp
     ${SRC_DIR}/core/session_manager.cpp
     ${SRC_DIR}/core/session_data.cpp
-    ${SRC_DIR}/core/session_commands.cpp
+    # SessionCommands分割後ファイル群（実装保持完了）
+    ${SRC_DIR}/core/cmd/basic_commands.cpp
+    ${SRC_DIR}/core/cmd/structure_commands.cpp
+    ${SRC_DIR}/core/cmd/include_commands.cpp
+    ${SRC_DIR}/core/cmd/search_commands.cpp
+    ${SRC_DIR}/core/cmd/ast_commands.cpp
     
     # フォーマッター
     ${SRC_DIR}/formatters/formatters.cpp
