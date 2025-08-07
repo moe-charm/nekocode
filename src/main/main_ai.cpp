@@ -16,6 +16,7 @@
 #include "nekocode/progress_tracker.hpp"
 #include "nekocode/command_dispatcher.hpp"
 #include "nekocode/command_line_args.hpp"
+#include "../../src/converters/rust_symbol_converter.hpp"
 #include <iostream>
 #include <filesystem>
 #include <chrono>
@@ -274,6 +275,13 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
             } else if (multilang_result.rust_result) {
                 // 🔧 Rust結果処理を追加
                 analysis_result = multilang_result.rust_result.value();
+                
+                // 🌟 Rust Universal Symbol生成
+                if (analysis_result.language == Language::RUST) {
+                    RustSymbolConverter converter;
+                    auto symbol_table = converter.convert_from_analysis_result(analysis_result);
+                    analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
+                }
             } else if (multilang_result.cpp_result) {
                 // 🔥 C++結果をAnalysisResultに手動変換（構造体が異なるため）
                 auto cpp_result = multilang_result.cpp_result.value();
@@ -588,6 +596,13 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
             } else if (multilang_result.rust_result) {
                 // 🔧 Rust結果処理を追加
                 analysis_result = multilang_result.rust_result.value();
+                
+                // 🌟 Rust Universal Symbol生成
+                if (analysis_result.language == Language::RUST) {
+                    RustSymbolConverter converter;
+                    auto symbol_table = converter.convert_from_analysis_result(analysis_result);
+                    analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
+                }
             } else if (multilang_result.cpp_result) {
                 // 🔥 C++結果をAnalysisResultに手動変換（構造体が異なるため）
                 auto cpp_result = multilang_result.cpp_result.value();
