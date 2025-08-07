@@ -104,6 +104,10 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
                     if (!method.parameters.empty()) {
                         method_json["parameters"] = method.parameters;
                     }
+                    // 🆕 Phase 2: メソッドのmetadata出力
+                    if (!method.metadata.empty()) {
+                        method_json["metadata"] = method.metadata;
+                    }
                     methods_json.push_back(method_json);
                 }
                 class_json["methods"] = methods_json;
@@ -129,6 +133,10 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
             }
             if (func.is_arrow_function) {
                 func_json["is_arrow_function"] = true;
+            }
+            // 🆕 Phase 2: 関数のmetadata出力
+            if (!func.metadata.empty()) {
+                func_json["metadata"] = func.metadata;
             }
             functions_json.push_back(func_json);
         }

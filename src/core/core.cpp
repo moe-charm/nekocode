@@ -409,9 +409,9 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                     result.rust_result = rust_result;
                     result.file_info = rust_result.file_info;
                     
-                    std::cerr << "🦀 Rust analyzer used successfully for: " << filename << std::endl;
+                    // Rust analyzer successfully created
                 } else {
-                    std::cerr << "ERROR: Failed to create Rust analyzer for: " << filename << std::endl;
+                    // Failed to create Rust analyzer
                 }
                 break;
             }

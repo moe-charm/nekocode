@@ -1064,6 +1064,12 @@ void RustAnalyzer::fix_impl_method_classification(AnalysisResult& result) {
                     if (!impl.trait_name.empty()) {
                         method_info.metadata["trait_name"] = impl.trait_name;
                     }
+                    // 🆕 Phase 2: アクセス修飾子を統一形式で追加
+                    if (method_info.metadata.count("is_pub")) {
+                        method_info.metadata["access_modifier"] = "pub";
+                    } else {
+                        method_info.metadata["access_modifier"] = "private";  // Rustのデフォルトはprivate
+                    }
                     
                     target_struct->methods.push_back(method_info);
                     is_impl_method = true;
