@@ -29,6 +29,7 @@ class NekoCodeMCPServer:
         self.nekocode_path = self._find_nekocode_binary()
         self.sessions = {}
         self.tools = self._define_tools()
+        self.config = self._load_config()
     
     def _find_nekocode_binary(self) -> str:
         """nekocode_ai バイナリの場所を特定"""
@@ -58,6 +59,38 @@ class NekoCodeMCPServer:
         
         # デフォルト（エラーは実行時に出す）
         return "./bin/nekocode_ai"
+    
+    def _load_config(self) -> Dict:
+        """nekocode_config.json を読み込み（あれば）"""
+        try:
+            # nekocode_ai と同じディレクトリの設定ファイルを探す
+            config_path = os.path.join(
+                os.path.dirname(self.nekocode_path),
+                "nekocode_config.json"
+            )
+            
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    logger.info(f"📋 Config loaded from: {config_path}")
+                    logger.info(f"   History limit: {config.get('memory', {}).get('edit_history', {}).get('max_size_mb', 10)} MB")
+                    return config
+            else:
+                logger.info("📋 Using default config (no config file found)")
+                return {
+                    "memory": {
+                        "edit_history": {"max_size_mb": 10, "min_files_keep": 10},
+                        "edit_previews": {"max_size_mb": 5}
+                    }
+                }
+        except Exception as e:
+            logger.warning(f"⚠️ Config load error: {e}, using defaults")
+            return {
+                "memory": {
+                    "edit_history": {"max_size_mb": 10, "min_files_keep": 10},
+                    "edit_previews": {"max_size_mb": 5}
+                }
+            }
     
     def _define_tools(self) -> List[Dict]:
         """利用可能なツール定義"""
@@ -164,6 +197,32 @@ class NekoCodeMCPServer:
             {
                 "name": "insert_confirm",
                 "description": "✅ 挿入実行（セッション不要・プレビューID指定）",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "preview_id": {"type": "string", "description": "プレビューID"}
+                    },
+                    "required": ["preview_id"]
+                }
+            },
+            {
+                "name": "movelines_preview",
+                "description": "🔄 行移動プレビュー（セッション不要・ファイル間移動）",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "srcfile": {"type": "string", "description": "ソースファイルパス"},
+                        "start_line": {"type": "integer", "description": "開始行番号（1ベース）"},
+                        "line_count": {"type": "integer", "description": "移動行数"},
+                        "dstfile": {"type": "string", "description": "宛先ファイルパス"},
+                        "insert_line": {"type": "integer", "description": "挿入行番号（1ベース）"}
+                    },
+                    "required": ["srcfile", "start_line", "line_count", "dstfile", "insert_line"]
+                }
+            },
+            {
+                "name": "movelines_confirm",
+                "description": "✅ 行移動実行（セッション不要・プレビューID指定）",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -307,6 +366,10 @@ class NekoCodeMCPServer:
                 return await self._tool_insert_preview(arguments)
             elif tool_name == "insert_confirm":
                 return await self._tool_insert_confirm(arguments)
+            elif tool_name == "movelines_preview":
+                return await self._tool_movelines_preview(arguments)
+            elif tool_name == "movelines_confirm":
+                return await self._tool_movelines_confirm(arguments)
             elif tool_name == "edit_history":
                 return await self._tool_edit_history(arguments)
             elif tool_name == "edit_show":
@@ -468,6 +531,34 @@ class NekoCodeMCPServer:
             "content": [{"type": "text", "text": json.dumps(result.get("output", result), indent=2, ensure_ascii=False)}]
         }
     
+    async def _tool_movelines_preview(self, args: Dict) -> Dict:
+        """行移動プレビュー（セッション不要）"""
+        srcfile = args["srcfile"]
+        start_line = str(args["start_line"])
+        line_count = str(args["line_count"])
+        dstfile = args["dstfile"]
+        insert_line = str(args["insert_line"])
+        
+        # 直接コマンド実行（セッション不要）
+        result = await self._run_nekocode([
+            "movelines-preview", srcfile, start_line, line_count, dstfile, insert_line
+        ])
+        
+        return {
+            "content": [{"type": "text", "text": json.dumps(result, indent=2, ensure_ascii=False)}]
+        }
+    
+    async def _tool_movelines_confirm(self, args: Dict) -> Dict:
+        """行移動実行（プレビューID指定）"""
+        preview_id = args["preview_id"]
+        
+        # 直接コマンド実行（セッション不要）
+        result = await self._run_nekocode(["movelines-confirm", preview_id])
+        
+        return {
+            "content": [{"type": "text", "text": json.dumps(result, indent=2, ensure_ascii=False)}]
+        }
+    
     async def _tool_edit_history(self, args: Dict) -> Dict:
         """編集履歴表示（セッション不要）"""
         # セッション不要でedit-historyディレクトリから直接読み込み
@@ -556,6 +647,8 @@ class NekoCodeMCPServer:
         """MCPサーバー実行"""
         logger.info("🐱 NekoCode MCP Server starting...")
         logger.info(f"📂 NekoCode binary: {self.nekocode_path}")
+        logger.info(f"🔧 Config: History {self.config['memory']['edit_history']['max_size_mb']}MB, "
+                   f"Preview {self.config['memory']['edit_previews']['max_size_mb']}MB")
         
         while True:
             try:

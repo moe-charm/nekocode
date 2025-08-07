@@ -134,6 +134,7 @@ set(NEKOCODE_SOURCES
     ${SRC_DIR}/core/language_detection.cpp
     ${SRC_DIR}/core/session_manager.cpp
     ${SRC_DIR}/core/session_data.cpp
+    ${SRC_DIR}/core/config_manager.cpp
     # SessionCommands分割後ファイル群（実装保持完了）
     ${SRC_DIR}/core/cmd/basic_commands.cpp
     ${SRC_DIR}/core/cmd/structure_commands.cpp
@@ -154,6 +155,11 @@ set(NEKOCODE_SOURCES
     
     # コマンド
     ${SRC_DIR}/commands/find_command.cpp
+    
+    # 🔥 Direct Edit機能（セッション不要）
+    ${SRC_DIR}/core/commands/direct_edit/direct_replace.cpp
+    ${SRC_DIR}/core/commands/direct_edit/direct_insert.cpp
+    ${SRC_DIR}/core/commands/direct_edit/direct_movelines.cpp
     
     # 🧠 Memory System - 時間軸Memory革命（条件付きコンパイル）
     $<$<BOOL:${NEKOCODE_ENABLE_MEMORY_SYSTEM}>:${SRC_DIR}/memory/memory_system.cpp>

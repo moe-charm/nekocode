@@ -1,0 +1,43 @@
+{
+  "version": "1.0",
+  "_comment": "NekoCode設定ファイル - このファイルをnekocode_config.jsonとしてコピーして使用",
+  
+  "memory": {
+    "_comment": "メモリ管理設定 - 編集履歴とプレビューファイルの容量制限",
+    
+    "edit_history": {
+      "_comment": "編集履歴の保存設定",
+      "max_size_mb": 10,
+      "_max_size_mb_comment": "編集履歴の最大容量（MB）。これを超えると古いファイルから削除",
+      
+      "min_files_keep": 10,
+      "_min_files_keep_comment": "最低保持ファイル数。容量制限に達しても、この数のファイルは保持"
+    },
+    
+    "edit_previews": {
+      "_comment": "プレビューファイルの保存設定（一時ファイル）",
+      "max_size_mb": 5,
+      "_max_size_mb_comment": "プレビューファイルの最大容量（MB）。短期保存なので小さめ推奨"
+    }
+  },
+  
+  "performance": {
+    "_comment": "パフォーマンス設定",
+    
+    "default_io_threads": 8,
+    "_default_io_threads_comment": "デフォルトのI/Oスレッド数。SSDは16、HDDは1推奨",
+    
+    "storage_type": "auto",
+    "_storage_type_comment": "ストレージタイプ: 'ssd'（高速）, 'hdd'（安全）, 'auto'（自動判定）"
+  },
+  
+  "_usage": {
+    "show_config": "./bin/nekocode_ai config show",
+    "set_value": "./bin/nekocode_ai config set memory.edit_history.max_size_mb 20",
+    "examples": [
+      "小規模プロジェクト: max_size_mb=5, min_files_keep=5",
+      "大規模プロジェクト: max_size_mb=50, min_files_keep=50",
+      "CI/CD環境: max_size_mb=1, min_files_keep=3"
+    ]
+  }
+}

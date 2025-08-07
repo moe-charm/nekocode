@@ -4,6 +4,9 @@ Welcome to the NekoCode documentation!
 
 ## 🆕 Essential Documents
 
+### 📋 **[CLI & MCP Command Reference](CLI_MCP_REFERENCE.md)** 🆕 NEW!
+Complete command reference with CLI ↔️ MCP mapping, Direct Mode editing, and practical examples
+
 ### 🏗️ **[Architecture Guide](ARCHITECTURE.md)** ⭐ MUST READ
 Complete system architecture, data flow, and component relationships
 

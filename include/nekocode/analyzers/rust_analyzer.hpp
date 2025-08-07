@@ -129,6 +129,10 @@ private:
     std::vector<std::string> extract_lifetimes(const std::string& generics);
     LineNumber find_function_end_line(const std::vector<std::string>& lines, size_t start_line);  // 🎯 end_line計算
     std::string extract_function_body(const std::string& content, size_t fn_start_line);  // 🔧 関数ボディ抽出
+    
+    // 🆕 Phase 1: impl分類修正機能
+    void fix_impl_method_classification(AnalysisResult& result);
+    ClassInfo* find_struct_in_classes(std::vector<ClassInfo>& classes, const std::string& struct_name);
 };
 
 } // namespace nekocode
