@@ -1,318 +1,364 @@
-# 🌟 Universal Symbol Revolution - 段階的実装計画
+# 🚀 Phase 3: Rust先行UniversalSymbol実装計画
 
-**目標**: Rust struct-impl関連付けから始まる、全言語統一シンボル管理システム構築
-
----
-
-## 🎯 Phase 1: 最小修正 - Rustのimpl分類修正
-
-### **現在の問題**
-- Rustのimplメソッドが`functions[]`に混在している
-- `struct DatabaseManager`のメソッドが独立関数として分類される
-- 正しくは`classes[].methods[]`に入るべき
-
-### **実装内容**
-```cpp
-// src/analyzers/rust/rust_analyzer.cpp
-void RustAnalyzer::analyze() {
-    // 1. 既存の解析はそのまま維持
-    analyze_structs(content);
-    analyze_impls(content);
-    
-    // 2. 🆕 impl分類修正処理を追加
-    fix_impl_method_classification();
-}
-
-void RustAnalyzer::fix_impl_method_classification() {
-    // implメソッドをfunctions[]からclasses[].methods[]に移動
-    for (const auto& impl : impls_) {
-        auto* target_struct = find_struct_by_name(impl.struct_name);
-        if (target_struct) {
-            // implのメソッドをstructのmethodsに移動
-            for (const auto& method_name : impl.methods) {
-                auto method_func = extract_function_from_list(method_name);
-                if (method_func.has_value()) {
-                    target_struct->methods.push_back(method_func.value());
-                }
-            }
-        }
-    }
-}
-```
-
-### **期待する結果**
-```json
-// 修正前 ❌
-{
-  "classes": [{"name": "DatabaseManager", "methods": []}],
-  "functions": [
-    {"name": "new", "start_line": 16},      // implメソッドが混在
-    {"name": "connect", "start_line": 30},  // implメソッドが混在
-    {"name": "standalone_function", "start_line": 221}
-  ]
-}
-
-// 修正後 ✅
-{
-  "classes": [
-    {
-      "name": "DatabaseManager", 
-      "methods": [
-        {"name": "new", "start_line": 16},
-        {"name": "connect", "start_line": 30}
-      ]
-    }
-  ],
-  "functions": [
-    {"name": "standalone_function", "start_line": 221}  // スタンドアロンのみ
-  ]
-}
-```
-
-**工数見積**: 2-3時間
-**リスク**: 低（既存コード影響最小）
+**最終更新**: 2025-08-08  
+**状況**: ✅ Phase 1,2完了 → Phase 3 Rust縦断実装開始
 
 ---
 
-## 🎯 Phase 2: 中規模修正 - metadata活用でparent_struct追加
+## 📋 Phase 1,2の成果（完了済み）
 
-### **目標**
-- UniversalFunctionInfo.metadataを活用
-- 言語固有情報の統一的格納
-- 将来のmove-struct機能基盤構築
+### ✅ **Phase 1: Rust impl分類修正**
+- implメソッドをfunctions[]からclasses[].methods[]に正しく分類
+- 2025-08-08 コミット済み
 
-### **実装内容**
-```cpp
-// Phase1の成果を活用してメタデータ追加
-void RustAnalyzer::enhance_function_metadata() {
-    // クラスメソッドにparent_struct情報追加
-    for (auto& cls : result.classes) {
-        for (auto& method : cls.methods) {
-            method.metadata["parent_struct"] = cls.name;
-            method.metadata["impl_type"] = determine_impl_type(method, cls);
-            method.metadata["language"] = "rust";
-            method.metadata["access_modifier"] = determine_access_modifier(method);
-        }
-    }
-    
-    // traitメソッドの場合はtrait名も追加
-    for (const auto& impl : impls_) {
-        if (!impl.trait_name.empty()) {
-            // trait実装メソッドの場合
-            enhance_trait_methods_metadata(impl);
-        }
-    }
-}
-```
-
-### **期待するJSON出力**
-```json
-{
-  "classes": [
-    {
-      "name": "DatabaseManager",
-      "methods": [
-        {
-          "name": "new",
-          "start_line": 16,
-          "metadata": {
-            "parent_struct": "DatabaseManager",
-            "impl_type": "inherent",
-            "language": "rust",
-            "access_modifier": "pub"
-          }
-        }
-      ]
-    }
-  ]
-}
-```
-
-**工数見積**: 3-4時間
-**リスク**: 低（既存構造維持）
+### ✅ **Phase 2: Rust metadata拡張**  
+- parent_struct, impl_type, trait_name等のメタデータ追加
+- JSONフォーマッターでmetadata出力対応
+- 2025-08-08 コミット済み
 
 ---
 
-## 🎯 Phase 3: 大規模設計 - UniversalSymbolInfo統一
+## 🎯 Phase 3: Rust先行実装戦略
 
-### **目標**
-- 全言語統一シンボル管理
-- 階層構造の完全表現
-- 次世代解析システム基盤
+### **なぜRust先行？**
+1. **最も準備が整っている** - Phase 1,2でRustは完全実装済み
+2. **端から端まで動くものを作れる** - 設計の妥当性を実証
+3. **リスク最小** - 他言語は既存実装のまま動作継続
+4. **学習効果** - Rustで得た知見を他言語展開に活用
 
-### **設計思想**
+---
+
+## 📊 実装ステップ（Rust縦断方式）
+
+### **Step 3.1: UniversalSymbol基盤構築（1日）**
+
+#### 3.1.1 universal_symbol.hpp作成
 ```cpp
+// include/nekocode/universal_symbol.hpp
+namespace nekocode {
+
 enum class SymbolType {
-    // 構造要素
-    CLASS, STRUCT, INTERFACE, ENUM, TRAIT,
-    // 関数要素
-    FUNCTION, METHOD, CONSTRUCTOR, DESTRUCTOR,
-    // 変数要素
-    VARIABLE, MEMBER_VAR, PARAMETER, PROPERTY,
-    // 組織要素
-    NAMESPACE, MODULE, IMPL_BLOCK
+    // Rust向け優先
+    STRUCT,     // Rustのstruct
+    TRAIT,      // Rustのtrait
+    IMPL_BLOCK, // Rustのimplブロック
+    METHOD,     // メソッド
+    FUNCTION,   // 独立関数
+    MEMBER_VAR, // メンバ変数
+    
+    // 後で他言語向けに追加
+    CLASS,      // JS/TS/C++/C#のclass
+    INTERFACE,  // TS/C#のinterface
+    ENUM,       // 列挙型
+    NAMESPACE,  // 名前空間
+    MODULE,     // モジュール
+    
+    UNKNOWN
 };
 
 struct UniversalSymbolInfo {
-    SymbolType symbol_type;
+    // 基本情報
+    SymbolType symbol_type = SymbolType::UNKNOWN;
     std::string name;
-    std::string parent_context = "";
-    LineNumber start_line = 0, end_line = 0;
+    std::string qualified_name;  // 例: DatabaseManager::new
     
-    // 🌳 階層構造
-    std::vector<UniversalSymbolInfo> children;
+    // 位置情報
+    LineNumber start_line = 0;
+    LineNumber end_line = 0;
     
-    // 🎨 言語固有情報
+    // 階層情報（IDベース管理）
+    std::string symbol_id;      // 例: "struct_DatabaseManager"
+    std::string parent_id;      // 親シンボルのID
+    std::vector<std::string> child_ids;  // 子シンボルのID
+    
+    // Phase 2のmetadataを活用
     std::unordered_map<std::string, std::string> metadata;
     
-    // ⚡ 動的情報
+    // 追加情報
     std::vector<std::string> parameters;
     ComplexityInfo complexity;
-    bool is_async = false;
+    
+    // ID生成ヘルパー
+    static std::string generate_id(SymbolType type, const std::string& name);
 };
+
+}
 ```
 
-### **変換レイヤー設計**
+#### 3.1.2 symbol_table.hpp作成
 ```cpp
-class UniversalSymbolConverter {
+// include/nekocode/symbol_table.hpp
+namespace nekocode {
+
+class SymbolTable {
+private:
+    // IDベースの管理
+    std::unordered_map<std::string, UniversalSymbolInfo> symbols_;
+    std::vector<std::string> root_symbols_;  // トップレベルシンボル
+    
+    // 検索用インデックス
+    std::unordered_map<std::string, std::vector<std::string>> name_index_;
+    
 public:
-    // Phase1,2の成果を活用した変換
-    std::vector<UniversalSymbolInfo> convert_analysis_result(
-        const AnalysisResult& result, Language lang);
+    // 基本操作
+    void add_symbol(const UniversalSymbolInfo& symbol);
+    UniversalSymbolInfo* get_symbol(const std::string& id);
+    const UniversalSymbolInfo* get_symbol(const std::string& id) const;
+    
+    // 階層操作
+    std::vector<UniversalSymbolInfo> get_children(const std::string& parent_id) const;
+    std::vector<UniversalSymbolInfo> get_roots() const;
+    
+    // 検索
+    std::vector<UniversalSymbolInfo> find_by_name(const std::string& name) const;
+    std::vector<UniversalSymbolInfo> get_all_symbols() const;
+    
+    // JSON出力用
+    nlohmann::json to_json() const;
+};
+
+}
+```
+
+---
+
+### **Step 3.2: Rust専用変換レイヤー（2日）**
+
+#### 3.2.1 rust_symbol_converter.hpp
+```cpp
+// src/converters/rust_symbol_converter.hpp
+namespace nekocode {
+
+class RustSymbolConverter {
+private:
+    // ID生成管理
+    std::unordered_set<std::string> used_ids_;
+    
+    std::string generate_unique_id(const std::string& base);
+    
+public:
+    // 既存のAnalysisResultから変換
+    SymbolTable convert_from_analysis_result(const AnalysisResult& result);
+    
+    // 逆変換（互換性のため）
+    AnalysisResult convert_to_analysis_result(const SymbolTable& symbols);
     
 private:
-    UniversalSymbolInfo convert_rust_struct(const ClassInfo& cls);
-    UniversalSymbolInfo convert_rust_function(const FunctionInfo& func);
-    // 他言語用変換メソッド...
+    // 変換ヘルパー
+    UniversalSymbolInfo convert_struct(const ClassInfo& cls);
+    UniversalSymbolInfo convert_method(const FunctionInfo& method, const std::string& parent_struct);
+    UniversalSymbolInfo convert_function(const FunctionInfo& func);
+    UniversalSymbolInfo convert_member_var(const MemberVariable& var, const std::string& parent_struct);
+};
+
+}
+```
+
+#### 3.2.2 実装の要点
+```cpp
+// src/converters/rust_symbol_converter.cpp
+SymbolTable RustSymbolConverter::convert_from_analysis_result(const AnalysisResult& result) {
+    SymbolTable table;
+    
+    // 1. structを変換
+    for (const auto& cls : result.classes) {
+        UniversalSymbolInfo struct_sym;
+        struct_sym.symbol_type = SymbolType::STRUCT;
+        struct_sym.name = cls.name;
+        struct_sym.symbol_id = generate_unique_id("struct_" + cls.name);
+        struct_sym.start_line = cls.start_line;
+        struct_sym.end_line = cls.end_line;
+        
+        // 2. メンバ変数を子要素として追加
+        for (const auto& var : cls.member_variables) {
+            UniversalSymbolInfo var_sym = convert_member_var(var, struct_sym.symbol_id);
+            struct_sym.child_ids.push_back(var_sym.symbol_id);
+            table.add_symbol(var_sym);
+        }
+        
+        // 3. メソッドを子要素として追加（Phase 1,2の成果活用）
+        for (const auto& method : cls.methods) {
+            UniversalSymbolInfo method_sym = convert_method(method, struct_sym.symbol_id);
+            
+            // Phase 2のmetadataを引き継ぎ
+            method_sym.metadata = method.metadata;
+            
+            struct_sym.child_ids.push_back(method_sym.symbol_id);
+            table.add_symbol(method_sym);
+        }
+        
+        table.add_symbol(struct_sym);
+    }
+    
+    // 4. 独立関数を変換
+    for (const auto& func : result.functions) {
+        table.add_symbol(convert_function(func));
+    }
+    
+    return table;
+}
+```
+
+---
+
+### **Step 3.3: SessionData統合（2日）**
+
+#### 3.3.1 AnalysisResult拡張
+```cpp
+// include/nekocode/types.hpp（既存ファイルに追加）
+struct AnalysisResult {
+    // 既存フィールドは全て維持
+    FileInfo file_info;
+    std::vector<ClassInfo> classes;
+    std::vector<FunctionInfo> functions;
+    // ...
+    
+    // 🆕 Rust専用UniversalSymbol（オプショナル）
+    std::shared_ptr<SymbolTable> universal_symbols;
 };
 ```
 
-### **期待するJSON出力**
+#### 3.3.2 SessionData拡張
+```cpp
+// include/nekocode/session.hpp（既存ファイルに追加）
+struct SessionData {
+    // 既存フィールドは全て維持
+    std::string session_id;
+    std::filesystem::path target_path;
+    // ...
+    
+    // 🆕 UniversalSymbol情報（Rustのみ対応）
+    std::shared_ptr<SymbolTable> universal_symbols;
+    
+    // Rustセッション作成時に自動変換
+    void enhance_with_symbols() {
+        if (language == Language::RUST && single_file_result.has_value()) {
+            RustSymbolConverter converter;
+            universal_symbols = std::make_shared<SymbolTable>(
+                converter.convert_from_analysis_result(single_file_result.value())
+            );
+        }
+    }
+};
+```
+
+---
+
+### **Step 3.4: JSON出力とテスト（1日）**
+
+#### 3.4.1 JSON出力拡張
+```cpp
+// src/formatters/formatters.cpp
+std::string AIReportFormatter::format_single_file(const AnalysisResult& result) {
+    nlohmann::json json_result;
+    
+    // 既存出力は全て維持
+    json_result["classes"] = format_classes(result.classes);
+    json_result["functions"] = format_functions(result.functions);
+    
+    // 🆕 Rustの場合のみsymbols追加
+    if (result.universal_symbols) {
+        json_result["symbols"] = result.universal_symbols->to_json();
+    }
+    
+    return json_result.dump(2);
+}
+```
+
+#### 3.4.2 期待されるJSON出力
 ```json
 {
-  "symbols": [
+  "classes": [...],     // 既存出力維持
+  "functions": [...],   // 既存出力維持
+  "symbols": [          // 🆕 Rust専用追加
     {
       "symbol_type": "struct",
-      "name": "DatabaseManager", 
+      "name": "DatabaseManager",
+      "symbol_id": "struct_DatabaseManager",
       "start_line": 7,
-      "metadata": {"language": "rust", "visibility": "pub"},
+      "end_line": 40,
       "children": [
-        {
-          "symbol_type": "method",
-          "name": "new",
-          "start_line": 16,
-          "parent_context": "DatabaseManager",
-          "metadata": {
-            "impl_type": "inherent",
-            "access_modifier": "pub"
-          }
-        },
         {
           "symbol_type": "member_var",
           "name": "host",
-          "start_line": 8,
-          "parent_context": "DatabaseManager"
+          "parent_id": "struct_DatabaseManager"
+        },
+        {
+          "symbol_type": "method",
+          "name": "new",
+          "parent_id": "struct_DatabaseManager",
+          "metadata": {
+            "parent_struct": "DatabaseManager",
+            "impl_type": "inherent",
+            "access_modifier": "pub"
+          }
         }
       ]
-    },
-    {
-      "symbol_type": "function",
-      "name": "standalone_function",
-      "start_line": 221,
-      "parent_context": ""
     }
   ]
 }
 ```
 
-**工数見積**: 1-2週間
-**リスク**: 中（大規模変更、十分なテストが必要）
+---
+
+### **Step 3.5: 他言語展開（各言語1-2日）**
+
+#### 展開順序（Rustの実装を参考に）
+1. **JavaScript/TypeScript** - classベースで類似
+2. **Python** - class/functionが明確
+3. **C++** - 複雑だが重要
+4. **C#** - C++と類似
+5. **Go** - struct/interfaceベース
+
+各言語でRustと同様の手順：
+1. metadata追加（Phase 2相当）
+2. SymbolConverter実装
+3. テストと検証
 
 ---
 
-## 🎯 Phase 4: 最終統一 - SessionData構造統一
+## 📊 スケジュール
 
-### **目標**
-- single_file_result と directory_result の統一
-- API簡素化・保守性向上
-- 既存コードの段階的移行
+| Step | 内容 | 期間 | 状況 |
+|------|------|------|------|
+| 3.1 | UniversalSymbol基盤 | 1日 | 🔄 開始予定 |
+| 3.2 | Rust変換レイヤー | 2日 | ⏳ 待機 |
+| 3.3 | SessionData統合 | 2日 | ⏳ 待機 |
+| 3.4 | JSON出力・テスト | 1日 | ⏳ 待機 |
+| 3.5 | 他言語展開 | 5-10日 | ⏳ 待機 |
 
-### **統一後設計**
-```cpp
-struct SessionData {
-    std::string session_id;
-    std::filesystem::path target_path;
-    bool is_directory;
-    
-    // 🆕 統一結果格納
-    DirectoryAnalysis analysis_result;  // 単一ファイルもfiles[0]に格納
-    
-    // 🆕 Universal Symbol情報
-    std::vector<UniversalSymbolInfo> universal_symbols;
-    
-    // 互換性維持
-    nlohmann::json quick_stats;
-    std::vector<CommandHistory> command_history;
-};
-```
-
-### **移行戦略**
-```cpp
-// 既存APIは互換ラッパーで維持
-class SessionDataCompat {
-public:
-    // 既存コード用の互換インターフェース
-    const AnalysisResult& get_single_file_result() const {
-        if (!is_directory && !analysis_result.files.empty()) {
-            return analysis_result.files[0];
-        }
-        throw std::runtime_error("Not a single file session");
-    }
-    
-    // 新APIは直接アクセス
-    const DirectoryAnalysis& get_analysis_result() const {
-        return analysis_result;
-    }
-};
-```
-
-**工数見積**: 1週間
-**リスク**: 中（既存コード影響大、慎重な移行が必要）
+**Rust完全対応まで**: 6日  
+**全言語対応まで**: 11-16日
 
 ---
 
-## 📋 実装スケジュール
+## ⚠️ リスク管理
 
-| Phase | 期間 | 主要成果物 | リスク |
-|-------|------|-----------|--------|
-| Phase 1 | 1日 | Rust impl分類修正 | 低 |
-| Phase 2 | 2日 | metadata拡張 | 低 |
-| Phase 3 | 2週間 | UniversalSymbolInfo | 中 |
-| Phase 4 | 1週間 | SessionData統一 | 中 |
+### **既存機能への影響**
+- ❌ 既存のclasses/functions出力は変更しない
+- ❌ 既存のSessionData構造は破壊しない
+- ✅ Rustのみ追加機能として実装
 
-**総工数**: 約3週間
-**最小MVP**: Phase 1完了で基本機能実現
-
----
-
-## ⚠️ 重要な注意点
-
-### **後方互換性の徹底維持**
-- 既存のmove-class機能は動作継続必須
-- SessionDataのJSON形式は段階的拡張
-- 既存APIは互換ラッパーで保護
-
-### **テスト駆動開発**
-- 各Phase完了時に動作確認
-- Rustのテストファイルで検証
-- レグレッションテスト必須
-
-### **段階的リリース**
-- Phase 1完了時点でリリース可能
-- Phase 2でメタデータ機能提供
-- Phase 3で次世代機能解放
+### **ロールバック計画**
+- 各Stepごとに独立コミット
+- universal_symbolsはnullptrチェックで保護
+- 問題があれば該当コミットのみrevert
 
 ---
 
-**最終更新**: 2025-08-08  
-**状況**: Phase 1準備完了 - 実装開始準備OK!
+## 🎯 次のアクション
+
+### **今すぐ開始: Step 3.1.1**
+1. `include/nekocode/universal_symbol.hpp`作成
+2. 基本的な構造体定義
+3. Rust向けSymbolType定義
+4. コンパイル確認
+
+### **続いて: Step 3.1.2**
+1. `include/nekocode/symbol_table.hpp`作成
+2. 基本的なシンボル管理機能
+3. 階層構造の管理
+
+---
+
+**準備完了！Rust先行実装を開始します！** 🚀
