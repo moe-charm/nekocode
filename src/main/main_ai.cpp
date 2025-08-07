@@ -18,6 +18,7 @@
 #include "nekocode/command_line_args.hpp"
 #include "../../src/converters/rust_symbol_converter.hpp"
 #include "../../src/converters/js_symbol_converter.hpp"
+#include "../../src/converters/python_symbol_converter.hpp"
 #include <iostream>
 #include <filesystem>
 #include <chrono>
@@ -277,6 +278,13 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 // 🌟 JavaScript/TypeScript Universal Symbol生成
                 if (analysis_result.language == Language::JAVASCRIPT || analysis_result.language == Language::TYPESCRIPT) {
                     JSSymbolConverter converter;
+                    auto symbol_table = converter.convert_from_analysis_result(analysis_result);
+                    analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
+                }
+                
+                // 🐍 Python Universal Symbol生成
+                if (analysis_result.language == Language::PYTHON) {
+                    PythonSymbolConverter converter;
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
@@ -605,6 +613,13 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                 // 🌟 JavaScript/TypeScript Universal Symbol生成
                 if (analysis_result.language == Language::JAVASCRIPT || analysis_result.language == Language::TYPESCRIPT) {
                     JSSymbolConverter converter;
+                    auto symbol_table = converter.convert_from_analysis_result(analysis_result);
+                    analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
+                }
+                
+                // 🐍 Python Universal Symbol生成
+                if (analysis_result.language == Language::PYTHON) {
+                    PythonSymbolConverter converter;
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }

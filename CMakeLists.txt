@@ -13,8 +13,8 @@ project(NekoCodeCpp VERSION 1.0.0 LANGUAGES C CXX)
 # - 並列処理対応
 #=============================================================================
 
-# C++17必須
-set(CMAKE_CXX_STANDARD 17)
+# C++20必須（string::starts_with/ends_with対応）
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # std::regex使用防止オプション（開発者向け警告）
@@ -150,6 +150,7 @@ set(NEKOCODE_SOURCES
     
     # Phase 4: Symbol Converters
     ${SRC_DIR}/converters/js_symbol_converter.cpp
+    ${SRC_DIR}/converters/python_symbol_converter.cpp
     
     # ユーティリティ
     ${SRC_DIR}/utils/utf8_utils.cpp
@@ -261,8 +262,8 @@ target_link_libraries(nekocode_static
     Threads::Threads
 )
 
-# C++17 features
-target_compile_features(nekocode_static PUBLIC cxx_std_17)
+# C++20 features
+target_compile_features(nekocode_static PUBLIC cxx_std_20)
 
 #=============================================================================
 # 🤖 AI Tool - Claude Code最適化実行ファイル
