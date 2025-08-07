@@ -2,6 +2,7 @@
 
 > 🤖 **Claude Code Users: [PROJECT_OVERVIEW.txt](PROJECT_OVERVIEW.txt) ← START HERE!**  
 > 📚 **Quick Guide: [CLAUDE_QUICKSTART.md](CLAUDE_QUICKSTART.md) ← 3-step setup**  
+> 📋 **NEW! [CLI & MCP Reference](docs/CLI_MCP_REFERENCE.md) ← Complete command guide**  
 > 📖 **Full Docs: [docs/claude-code/](docs/claude-code/) ← All Claude Code documentation**
 
 [![Code Analyzer](https://img.shields.io/badge/Code-Analyzer-blue.svg)](https://github.com/moe-charm/nekocode)

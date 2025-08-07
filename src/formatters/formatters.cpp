@@ -92,6 +92,23 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
                 class_json["member_variables"] = member_vars_json;
             }
             
+            // 🆕 メソッド情報を追加（Phase1対応！）
+            if (!cls.methods.empty()) {
+                nlohmann::json methods_json = nlohmann::json::array();
+                for (const auto& method : cls.methods) {
+                    nlohmann::json method_json = {
+                        {"name", method.name},
+                        {"start_line", method.start_line},
+                        {"end_line", method.end_line}
+                    };
+                    if (!method.parameters.empty()) {
+                        method_json["parameters"] = method.parameters;
+                    }
+                    methods_json.push_back(method_json);
+                }
+                class_json["methods"] = methods_json;
+            }
+            
             classes_json.push_back(class_json);
         }
         json_result["classes"] = classes_json;

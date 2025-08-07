@@ -179,6 +179,10 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
     result.file_info.comment_lines = comment_lines;
     result.file_info.empty_lines = empty_lines;
     
+    // 🆕 Phase 1: impl分類修正処理を追加
+    NEKOCODE_PERF_CHECKPOINT("impl_classification");
+    fix_impl_method_classification(result);
+    
     // 🔥 重要：統計情報を更新！
     NEKOCODE_PERF_CHECKPOINT("statistics");
     result.update_statistics();
@@ -434,6 +438,9 @@ void RustAnalyzer::analyze_traits(const std::string& content) {
 //=============================================================================
 
 void RustAnalyzer::analyze_impls(const std::string& content) {
+    using namespace nekocode::debug;
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Starting impl block analysis with method detection");
+    
     std::istringstream stream(content);
     std::string line;
     size_t line_number = 1;
@@ -441,26 +448,73 @@ void RustAnalyzer::analyze_impls(const std::string& content) {
     // implパターン: impl<T> Trait for Struct または impl<T> Struct
     std::regex impl_pattern(R"(^\s*impl(?:<[^>]+>)?\s+(?:(\w+)\s+for\s+)?(\w+))");
     
+    // 関数定義パターン（impl内メソッド用）
+    std::regex fn_pattern(R"(^\s*(pub(?:\([^)]+\))?\s+)?(async\s+)?(unsafe\s+)?(const\s+)?fn\s+(\w+))");
+    
+    ImplInfo* current_impl = nullptr;
+    int brace_level = 0;
+    bool in_impl_block = false;
+    
     while (std::getline(stream, line)) {
-        std::smatch match;
-        if (std::regex_search(line, match, impl_pattern)) {
+        // impl開始検出
+        std::smatch impl_match;
+        if (std::regex_search(line, impl_match, impl_pattern)) {
             ImplInfo impl_info;
             
-            if (!match[1].str().empty()) {
+            if (!impl_match[1].str().empty()) {
                 // impl Trait for Struct パターン
-                impl_info.trait_name = match[1].str();
-                impl_info.struct_name = match[2].str();
+                impl_info.trait_name = impl_match[1].str();
+                impl_info.struct_name = impl_match[2].str();
             } else {
                 // impl Struct パターン
-                impl_info.struct_name = match[2].str();
+                impl_info.struct_name = impl_match[2].str();
             }
             
             impl_info.line_number = line_number;
             impls_.push_back(impl_info);
+            current_impl = &impls_.back();
+            brace_level = 0;
+            in_impl_block = true;
+            
+            NEKOCODE_LOG_TRACE("RustAnalyzer", "Found impl block for " + impl_info.struct_name + 
+                              (impl_info.trait_name.empty() ? " (inherent)" : " (trait: " + impl_info.trait_name + ")") +
+                              " at line " + std::to_string(line_number));
+        }
+        
+        // ブレースレベル追跡
+        for (char c : line) {
+            if (c == '{') brace_level++;
+            else if (c == '}') brace_level--;
+        }
+        
+        // impl内関数検出
+        if (in_impl_block && current_impl && brace_level > 0) {
+            std::smatch fn_match;
+            if (std::regex_search(line, fn_match, fn_pattern)) {
+                std::string method_name = fn_match[5].str();
+                current_impl->methods.push_back(method_name);
+                
+                NEKOCODE_LOG_TRACE("RustAnalyzer", "Found method '" + method_name + 
+                                  "' in impl " + current_impl->struct_name + 
+                                  " at line " + std::to_string(line_number));
+            }
+        }
+        
+        // impl終了検出
+        if (in_impl_block && brace_level <= 0 && line.find('}') != std::string::npos) {
+            in_impl_block = false;
+            if (current_impl) {
+                NEKOCODE_LOG_DEBUG("RustAnalyzer", "Completed impl block for " + current_impl->struct_name + 
+                                  " with " + std::to_string(current_impl->methods.size()) + " methods");
+            }
+            current_impl = nullptr;
         }
         
         line_number++;
     }
+    
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Impl analysis completed - found " + 
+                      std::to_string(impls_.size()) + " impl blocks");
 }
 
 //=============================================================================
@@ -976,6 +1030,75 @@ LineNumber RustAnalyzer::find_function_end_line(const std::vector<std::string>& 
     
     // 見つからない場合は開始行+10を返す
     return static_cast<LineNumber>(std::min(start_line + 10, lines.size()));
+}
+
+//=============================================================================
+// 🆕 Phase 1: impl分類修正処理
+//=============================================================================
+
+void RustAnalyzer::fix_impl_method_classification(AnalysisResult& result) {
+    using namespace nekocode::debug;
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Starting impl method classification fix");
+    
+    
+    // implメソッドをfunctions[]からclasses[].methods[]に移動
+    std::vector<FunctionInfo> remaining_functions;
+    
+    for (const auto& func : result.functions) {
+        bool is_impl_method = false;
+        
+        // このfunctionがどのimplのメソッドか確認
+        for (const auto& impl : impls_) {
+            auto it = std::find(impl.methods.begin(), impl.methods.end(), func.name);
+            if (it != impl.methods.end()) {
+                // implメソッド発見！対応するstructのclassesに移動
+                auto* target_struct = find_struct_in_classes(result.classes, impl.struct_name);
+                if (target_struct) {
+                    // FunctionInfo を ClassInfo.methods に追加
+                    FunctionInfo method_info = func;
+                    
+                    // Phase 2用のメタデータ追加（先取り）
+                    method_info.metadata["parent_struct"] = impl.struct_name;
+                    method_info.metadata["impl_type"] = impl.trait_name.empty() ? "inherent" : "trait";
+                    method_info.metadata["language"] = "rust";
+                    if (!impl.trait_name.empty()) {
+                        method_info.metadata["trait_name"] = impl.trait_name;
+                    }
+                    
+                    target_struct->methods.push_back(method_info);
+                    is_impl_method = true;
+                    
+                    NEKOCODE_LOG_TRACE("RustAnalyzer", "Moved method '" + func.name + 
+                                      "' from functions[] to " + impl.struct_name + ".methods[]");
+                    break;
+                }
+            }
+        }
+        
+        // implメソッドでなければfunctions[]に残す
+        if (!is_impl_method) {
+            remaining_functions.push_back(func);
+        }
+    }
+    
+    // functions[]を更新
+    result.functions = remaining_functions;
+    
+    NEKOCODE_LOG_DEBUG("RustAnalyzer", "Impl method classification completed - " + 
+                      std::to_string(result.functions.size()) + " standalone functions remaining");
+}
+
+//=============================================================================
+// 🆕 ヘルパー関数
+//=============================================================================
+
+ClassInfo* RustAnalyzer::find_struct_in_classes(std::vector<ClassInfo>& classes, const std::string& struct_name) {
+    for (auto& class_info : classes) {
+        if (class_info.name == struct_name) {
+            return &class_info;
+        }
+    }
+    return nullptr;
 }
 
 } // namespace nekocode

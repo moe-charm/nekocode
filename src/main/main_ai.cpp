@@ -80,6 +80,10 @@ ACTIONS:
     SESSION MODE（詳細解析用）:
     session-create <path>       セッション作成
     session-command <id> <cmd>  セッションコマンド実行
+    
+    SYSTEM COMMANDS:
+    config show                 設定表示
+    config set <key> <value>    設定変更
     memory <command>            Memory System（時間軸Memory革命）
     languages                   サポート言語一覧表示
 

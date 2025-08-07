@@ -3,12 +3,14 @@
 //=============================================================================
 
 #include "nekocode/session_commands.hpp"
+#include "../commands/direct_edit/direct_edit_common.hpp"
 #include <algorithm>
 #include <iostream>
 #include <numeric>
 #include <fstream>
 #include <set>
 #include <filesystem>
+#include <limits>
 
 namespace nekocode {
 
@@ -491,6 +493,157 @@ nlohmann::json SessionCommands::cmd_calls_detailed(const SessionData& session, c
         {"result", "Not implemented yet - moved to SessionCommands"},
         {"summary", "Calls detailed feature pending implementation"}
     };
+}
+
+//=============================================================================
+// 🔄 move-class実装 - クラス単位の移動機能
+//=============================================================================
+
+nlohmann::json SessionCommands::cmd_move_class(const SessionData& session,
+                                               const std::vector<std::string>& args) const {
+    nlohmann::json result = {
+        {"command", "move-class"}
+    };
+    
+    // 引数チェック
+    if (args.size() < 3) {
+        result["error"] = "Usage: move-class <class_name> <src_file> <dst_file>";
+        result["example"] = "move-class IncludeAnalyzer src/core/cmd/include_commands.cpp src/utils/include_analyzer.cpp";
+        return result;
+    }
+    
+    const std::string& class_name = args[0];
+    const std::string& src_file = args[1];
+    const std::string& dst_file = args[2];
+    
+    // クラス情報を検索
+    std::optional<ClassInfo> target_class;
+    
+    if (session.is_directory) {
+        // ディレクトリセッションの場合
+        for (const auto& file : session.directory_result.files) {
+            // ファイルパスをチェック（相対パスと絶対パスの両方を考慮）
+            std::filesystem::path file_path = file.file_info.path;
+            std::filesystem::path src_path(src_file);
+            
+            // パスの正規化と比較
+            if (file_path == src_path || 
+                file_path.filename() == src_path.filename() ||
+                file_path.string().find(src_file) != std::string::npos ||
+                src_file.find(file_path.string()) != std::string::npos) {
+                
+                // クラスを検索
+                for (const auto& cls : file.classes) {
+                    if (cls.name == class_name) {
+                        target_class = cls;
+                        break;
+                    }
+                }
+                
+                if (target_class.has_value()) {
+                    break;
+                }
+            }
+        }
+    } else {
+        // 単一ファイルセッションの場合
+        // ファイルパスが一致するか確認
+        std::filesystem::path session_path = session.single_file_result.file_info.path;
+        std::filesystem::path src_path(src_file);
+        
+        if (session_path == src_path || 
+            session_path.filename() == src_path.filename()) {
+            
+            // クラスを検索
+            for (const auto& cls : session.single_file_result.classes) {
+                if (cls.name == class_name) {
+                    target_class = cls;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // クラスが見つからない場合
+    if (!target_class.has_value()) {
+        result["error"] = "Class not found: " + class_name;
+        result["details"] = {
+            {"class_name", class_name},
+            {"file", src_file},
+            {"hint", "Make sure the class exists in the specified file"}
+        };
+        
+        // 利用可能なクラスを提案
+        std::vector<std::string> available_classes;
+        if (session.is_directory) {
+            for (const auto& file : session.directory_result.files) {
+                for (const auto& cls : file.classes) {
+                    available_classes.push_back(cls.name);
+                }
+            }
+        } else {
+            for (const auto& cls : session.single_file_result.classes) {
+                available_classes.push_back(cls.name);
+            }
+        }
+        
+        if (!available_classes.empty()) {
+            result["available_classes"] = available_classes;
+        }
+        
+        return result;
+    }
+    
+    // movelines-preview を内部で呼び出し
+    size_t line_count = target_class->end_line - target_class->start_line + 1;
+    
+    // DirectEdit名前空間の関数を呼び出し
+    auto preview_result = DirectEdit::movelines_preview(
+        src_file,
+        static_cast<int>(target_class->start_line),
+        static_cast<int>(line_count),
+        dst_file,
+        std::numeric_limits<int>::max()  // 末尾に挿入
+    );
+    
+    // エラーチェック
+    if (preview_result.contains("error")) {
+        result["error"] = preview_result["error"];
+        return result;
+    }
+    
+    // 成功時の追加情報
+    result["preview_id"] = preview_result.value("preview_id", "");
+    result["operation"] = "move-class";
+    result["class_name"] = class_name;
+    result["source"] = {
+        {"file", src_file},
+        {"lines", std::to_string(target_class->start_line) + "-" + std::to_string(target_class->end_line)},
+        {"size", std::to_string(line_count) + " lines"}
+    };
+    result["destination"] = {
+        {"file", dst_file},
+        {"position", "end"}
+    };
+    
+    // 警告メッセージ
+    std::vector<std::string> warnings;
+    warnings.push_back("Remember to update include statements");
+    warnings.push_back("Check for usage of " + class_name + " in other files");
+    if (line_count > 100) {
+        warnings.push_back("Large class (" + std::to_string(line_count) + " lines) - verify the move carefully");
+    }
+    result["warnings"] = warnings;
+    
+    result["summary"] = "Preview created for moving class " + class_name + 
+                       " (" + std::to_string(line_count) + " lines) from " + 
+                       src_file + " to " + dst_file;
+    
+    result["next_step"] = "Use 'movelines-confirm " + 
+                         result["preview_id"].get<std::string>() + 
+                         "' to execute the move";
+    
+    return result;
 }
 
 } // namespace nekocode

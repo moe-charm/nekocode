@@ -84,6 +84,19 @@ private:
     /// movelines-confirm コマンド処理
     int dispatch_movelines_confirm(int argc, char* argv[]);
 
+    //=========================================================================
+    // 🔧 設定管理コマンド
+    //=========================================================================
+    
+    /// config コマンド処理
+    int dispatch_config(int argc, char* argv[]);
+    
+    /// config show 処理
+    int dispatch_config_show();
+    
+    /// config set 処理
+    int dispatch_config_set(const std::string& key, const std::string& value);
+
 #ifdef NEKOCODE_USE_MEMORY_SYSTEM
     /// memory コマンド処理（Memory System統合）
     int dispatch_memory(int argc, char* argv[]);

@@ -382,6 +382,19 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
             }
             
             result = session_commands_.cmd_dependency_analyze(session, filename);
+        } else if (command.substr(0, 11) == "move-class ") {
+            // move-class <class_name> <src_file> <dst_file>
+            std::string args_str = command.substr(11);
+            
+            // 引数を分割（スペース区切り）
+            std::vector<std::string> args;
+            std::stringstream ss(args_str);
+            std::string arg;
+            while (ss >> arg) {
+                args.push_back(arg);
+            }
+            
+            result = session_commands_.cmd_move_class(session, args);
         } else if (command == "help") {
             result = session_commands_.cmd_help();
         } else if (command.substr(0, 16) == "replace-preview ") {
@@ -567,6 +580,7 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
                 {"error", "Unknown command: " + command},
                 {"available_commands", {"stats", "files", "complexity", 
                                         "structure", "calls", "find <term>", 
+                                        "move-class <class> <src> <dst>",
                                         "include-graph", "include-cycles", "include-impact",
                                         "include-unused", "include-optimize", "duplicates", 
                                         "large-files", "todo", "complexity-ranking", 
