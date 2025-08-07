@@ -6,6 +6,8 @@
 //=============================================================================
 
 #include "nekocode/session_data.hpp"
+#include "nekocode/symbol_table.hpp"
+#include "../../src/converters/rust_symbol_converter.hpp"
 #include <sstream>
 #include <iomanip>
 #include <ctime>
@@ -549,6 +551,24 @@ Timestamp string_to_timestamp(const std::string& str) {
     std::istringstream ss(str);
     ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S");
     return std::chrono::system_clock::from_time_t(std::mktime(&tm));
+}
+
+//=============================================================================
+// Phase 3: Universal Symbol Enhancement
+//=============================================================================
+
+void SessionData::enhance_with_symbols() {
+    // Rust言語の場合のみUniversal Symbolを生成
+    if (!is_directory && single_file_result.language == Language::RUST) {
+        RustSymbolConverter converter;
+        auto symbol_table = converter.convert_from_analysis_result(single_file_result);
+        
+        // SessionDataとAnalysisResultの両方に保存
+        universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
+        single_file_result.universal_symbols = universal_symbols;
+    }
+    // ディレクトリ解析の場合は将来対応
+    // TODO: DirectoryAnalysisでもRustファイルを検出して変換
 }
 
 } // namespace nekocode

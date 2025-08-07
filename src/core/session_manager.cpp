@@ -38,6 +38,9 @@ std::string SessionManager::create_session(const std::filesystem::path& target_p
     session.single_file_result = result;
     session.quick_stats = extract_quick_stats(result);
     
+    // Phase 3: Rust言語の場合はUniversal Symbolを生成
+    session.enhance_with_symbols();
+    
     save_session(session);
     
     return session.session_id;
