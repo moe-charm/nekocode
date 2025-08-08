@@ -1203,9 +1203,11 @@ protected:
         
         // 🚀 Phase 5: 統一検出システムでもUniversal Symbol生成
         // 注意：早期設定を削除したので、ここで必ず生成する
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[DEBUG] Starting Universal Symbol generation for JavaScript" << std::endl;
         std::cerr << "[DEBUG] Classes: " << result.classes.size() 
                   << ", Functions: " << result.functions.size() << std::endl;
+#endif
         
         auto symbol_table = std::make_shared<SymbolTable>();
         int class_counter = 0;
@@ -1231,7 +1233,9 @@ protected:
             symbol_table->add_symbol(std::move(symbol));
             
             // クラスメソッドのシンボル生成
+#ifdef NEKOCODE_DEBUG_SYMBOLS
             std::cerr << "[DEBUG] Class " << class_info.name << " has " << class_info.methods.size() << " methods" << std::endl;
+#endif
             for (const auto& method : class_info.methods) {
                 UniversalSymbolInfo method_symbol;
                 method_symbol.symbol_id = "method_" + method.name + "_" + std::to_string(method_counter++);
@@ -1241,9 +1245,11 @@ protected:
                 method_symbol.metadata["language"] = "javascript";
                 method_symbol.metadata["class"] = class_info.name;
                 
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[DEBUG] Adding method symbol: " << method.name 
                           << " from class " << class_info.name
                           << " with ID: " << method_symbol.symbol_id << std::endl;
+#endif
                 
                 symbol_table->add_symbol(std::move(method_symbol));
             }

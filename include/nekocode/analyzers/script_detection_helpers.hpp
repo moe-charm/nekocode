@@ -182,7 +182,9 @@ public:
         std::vector<ClassInfo>& classes,
         const std::string& content
     ) {
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[DEBUG detect_class_methods] Starting. Classes count: " << classes.size() << std::endl;
+#endif
         
         std::istringstream stream(content);
         std::string line;
@@ -206,10 +208,12 @@ public:
         while (std::getline(stream, line)) {
             line_number++;
             
+#ifdef NEKOCODE_DEBUG_SYMBOLS
             std::cerr << "[DEBUG] Line " << line_number << ": [" << line << "]" 
                       << " brace_depth=" << brace_depth 
                       << " class_brace_depth=" << class_brace_depth
                       << " current_class=" << (current_class ? current_class->name : "null") << std::endl;
+#endif
             
             // ブレース深度更新（先に処理）
             int old_brace_depth = brace_depth;
@@ -224,13 +228,17 @@ public:
             // クラス開始時の深度設定（classキーワードがある行の後の深度を記録）
             if (current_class && class_brace_depth == -1 && line.find('{') != std::string::npos) {
                 class_brace_depth = old_brace_depth;  // クラスの中身がある深度を記録（深度1）
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[DEBUG] Entered class " << current_class->name 
                           << " at content depth=" << class_brace_depth << std::endl;
+#endif
             }
             
             // クラス終了チェック（深度が0になったらクラス終了）
             if (current_class && brace_depth == 0 && old_brace_depth > 0) {
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[DEBUG] Exited class " << current_class->name << std::endl;
+#endif
                 current_class = nullptr;
                 class_brace_depth = -1;
             }
@@ -261,9 +269,11 @@ public:
                         // 全てのパターンでmatch[1]がメソッド名
                         method_name = match[1].str();
                         
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                         std::cerr << "[DEBUG detect_class_methods] Found method: " << method_name 
                                   << " in class " << current_class->name
                                   << " at line " << line_number << std::endl;
+#endif
                         
                         // コンストラクタ名をクラス名と同じにしない
                         if (method_name != current_class->name && method_name != "constructor") {
@@ -280,9 +290,11 @@ public:
                             }
                             
                             current_class->methods.push_back(method);
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                             std::cerr << "[DEBUG detect_class_methods] Added method " << method_name 
                                       << " to class " << current_class->name
                                       << ". Total methods: " << current_class->methods.size() << std::endl;
+#endif
                         } else if (method_name == "constructor") {
                             // コンストラクターも追加します
                             FunctionInfo constructor;
@@ -292,9 +304,11 @@ public:
                             constructor.metadata["is_constructor"] = "true";
                             
                             current_class->methods.push_back(constructor);
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                             std::cerr << "[DEBUG detect_class_methods] Added constructor to class " 
                                       << current_class->name
                                       << ". Total methods: " << current_class->methods.size() << std::endl;
+#endif
                         }
                         break;
                     }
