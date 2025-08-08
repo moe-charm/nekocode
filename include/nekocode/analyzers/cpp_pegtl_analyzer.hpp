@@ -13,6 +13,9 @@
 #include "base_analyzer.hpp"
 #include "nekocode/analyzers/cpp_minimal_grammar.hpp"
 #include "nekocode/debug_logger.hpp"
+// 🚀 Phase 5: Universal Symbol直接生成
+#include "nekocode/universal_symbol.hpp"
+#include "nekocode/symbol_table.hpp"
 #include <tao/pegtl.hpp>
 #include <vector>
 #include <string>
@@ -50,6 +53,50 @@ struct CppParseState {
     // 現在の解析位置情報
     size_t current_line = 1;
     std::string current_content;
+    
+    // 🚀 Phase 5: Universal Symbol直接生成
+    std::shared_ptr<SymbolTable> symbol_table;      // Universal Symbolテーブル
+    std::unordered_map<std::string, int> id_counters; // ID生成用カウンター
+    
+    // コンストラクタ
+    CppParseState() {
+        // 🚀 Phase 5: Universal Symbol初期化
+        symbol_table = std::make_shared<SymbolTable>();
+    }
+    
+    // 🚀 Phase 5: Universal Symbol生成メソッド
+    std::string generate_unique_id(const std::string& base) {
+        id_counters[base]++;
+        return base + "_" + std::to_string(id_counters[base] - 1);
+    }
+    
+    void add_test_class_symbol(const std::string& class_name, std::uint32_t start_line) {
+        UniversalSymbolInfo symbol;
+        symbol.symbol_id = generate_unique_id("class_" + class_name);
+        symbol.symbol_type = SymbolType::CLASS;
+        symbol.name = class_name;
+        symbol.start_line = start_line;
+        symbol.metadata["language"] = "cpp";
+        
+        std::cerr << "[Phase 5 Test] C++ adding class symbol: " << class_name 
+                  << " with ID: " << symbol.symbol_id << std::endl;
+        
+        symbol_table->add_symbol(std::move(symbol));
+    }
+    
+    void add_test_function_symbol(const std::string& function_name, std::uint32_t start_line) {
+        UniversalSymbolInfo symbol;
+        symbol.symbol_id = generate_unique_id("function_" + function_name);
+        symbol.symbol_type = SymbolType::FUNCTION;
+        symbol.name = function_name;
+        symbol.start_line = start_line;
+        symbol.metadata["language"] = "cpp";
+        
+        std::cerr << "[Phase 5 Test] C++ adding function symbol: " << function_name 
+                  << " with ID: " << symbol.symbol_id << std::endl;
+        
+        symbol_table->add_symbol(std::move(symbol));
+    }
     
     void update_line_from_position(size_t pos) {
         current_line = 1;
@@ -133,6 +180,9 @@ struct cpp_action<cpp::minimal_grammar::simple_class> {
                 class_info.name = matched.substr(name_start, name_end - name_start);
                 class_info.start_line = state.current_line;
                 state.classes.push_back(class_info);
+                
+                // 🚀 Phase 5: Universal Symbol直接生成
+                state.add_test_class_symbol(class_info.name, class_info.start_line);
             }
         }
     }
@@ -202,6 +252,9 @@ struct cpp_action<cpp::minimal_grammar::simple_function> {
                 func_info.name = matched.substr(name_start, name_end - name_start);
                 func_info.start_line = state.current_line;
                 state.functions.push_back(func_info);
+                
+                // 🚀 Phase 5: Universal Symbol直接生成
+                state.add_test_function_symbol(func_info.name, func_info.start_line);
             }
         }
     }
@@ -362,6 +415,23 @@ public:
         // std::cerr << "🔥 Final return: result.stats.class_count=" << result.stats.class_count 
         //           << ", result.stats.function_count=" << result.stats.function_count 
         //           << ", result.commented_lines.size()=" << result.commented_lines.size() << std::endl;
+        
+        // 🚀 Phase 5: Universal Symbol直接生成（CppParseStateから取得）
+        try {
+            CppParseState state;  // 上で作成されたstateを再利用したいが、スコープ外なので一時的に新しいstateを作成
+            state.current_content = content;
+            tao::pegtl::string_input input(content, filename);
+            tao::pegtl::parse<cpp::minimal_grammar::cpp_minimal, cpp_action>(input, state);
+            
+            if (state.symbol_table && state.symbol_table->get_all_symbols().size() > 0) {
+                result.universal_symbols = state.symbol_table;
+                std::cerr << "[Phase 5] C++ analyzer generated " 
+                          << state.symbol_table->get_all_symbols().size() 
+                          << " Universal Symbols" << std::endl;
+            }
+        } catch (...) {
+            // Phase 5のエラーは無視（メイン解析に影響しない）
+        }
         
         return result;
     }
