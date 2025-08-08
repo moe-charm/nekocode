@@ -172,6 +172,9 @@ AnalysisResult GoAnalyzer::analyze(const std::string& content, const std::string
                 func_info.metadata["return_count"] = std::to_string(go_func.return_types.size());
             }
             result.functions.push_back(func_info);
+            
+            // 🚀 Phase 5: Universal Symbol直接生成
+            add_test_function_symbol(go_func.name, go_func.line_number);
         }
         
         // 🔥 重要：統計情報を更新！
@@ -181,6 +184,14 @@ AnalysisResult GoAnalyzer::analyze(const std::string& content, const std::string
                   << goroutines_.size() << " goroutines, "
                   << channels_.size() << " channels, "
                   << go_functions_.size() << " functions detected" << std::endl;
+        
+        // 🚀 Phase 5: Universal Symbol結果設定
+        if (symbol_table_ && symbol_table_->get_all_symbols().size() > 0) {
+            result.universal_symbols = symbol_table_;
+            std::cerr << "[Phase 5] Go analyzer generated " 
+                      << symbol_table_->get_all_symbols().size() 
+                      << " Universal Symbols" << std::endl;
+        }
         
     } catch (const std::exception& e) {
         std::cerr << "🚨 Go Analysis Error: " << e.what() << std::endl;
@@ -536,6 +547,55 @@ int GoAnalyzer::calculate_go_complexity(const std::string& content) {
     complexity += goroutines_.size() * 3; // Goroutines add significant complexity
     
     return complexity;
+}
+
+//=============================================================================
+// 🚀 Phase 5: Universal Symbol生成メソッド実装
+//=============================================================================
+
+void GoAnalyzer::initialize_symbol_table() {
+    if (!symbol_table_) {
+        symbol_table_ = std::make_shared<SymbolTable>();
+        id_counters_.clear();
+    }
+}
+
+std::string GoAnalyzer::generate_unique_id(const std::string& base) {
+    id_counters_[base]++;
+    return base + "_" + std::to_string(id_counters_[base] - 1);
+}
+
+void GoAnalyzer::add_test_struct_symbol(const std::string& struct_name, std::uint32_t start_line) {
+    initialize_symbol_table();
+    
+    UniversalSymbolInfo symbol;
+    symbol.symbol_id = generate_unique_id("struct_" + struct_name);
+    symbol.symbol_type = SymbolType::CLASS;  // Go structをclassとして扱う
+    symbol.name = struct_name;
+    symbol.start_line = start_line;
+    symbol.metadata["language"] = "go";
+    symbol.metadata["type"] = "struct";
+    
+    std::cerr << "[Phase 5 Test] Go adding struct symbol: " << struct_name 
+              << " with ID: " << symbol.symbol_id << std::endl;
+    
+    symbol_table_->add_symbol(std::move(symbol));
+}
+
+void GoAnalyzer::add_test_function_symbol(const std::string& function_name, std::uint32_t start_line) {
+    initialize_symbol_table();
+    
+    UniversalSymbolInfo symbol;
+    symbol.symbol_id = generate_unique_id("function_" + function_name);
+    symbol.symbol_type = SymbolType::FUNCTION;
+    symbol.name = function_name;
+    symbol.start_line = start_line;
+    symbol.metadata["language"] = "go";
+    
+    std::cerr << "[Phase 5 Test] Go adding function symbol: " << function_name 
+              << " with ID: " << symbol.symbol_id << std::endl;
+    
+    symbol_table_->add_symbol(std::move(symbol));
 }
 
 } // namespace nekocode

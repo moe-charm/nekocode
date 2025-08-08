@@ -227,9 +227,19 @@ private:
     std::unordered_set<std::string> imports_;
     std::string package_name_;
     
+    // 🚀 Phase 5: Universal Symbol直接生成
+    std::shared_ptr<SymbolTable> symbol_table_;         // Universal Symbolテーブル  
+    std::unordered_map<std::string, int> id_counters_;  // ID生成用カウンター
+    
     // Helper methods
     void reset_state();
     int calculate_go_complexity(const std::string& content);
+    
+    // 🚀 Phase 5: Universal Symbol生成メソッド
+    void initialize_symbol_table();
+    std::string generate_unique_id(const std::string& base);
+    void add_test_struct_symbol(const std::string& struct_name, std::uint32_t start_line);
+    void add_test_function_symbol(const std::string& function_name, std::uint32_t start_line);
     std::vector<std::string> extract_imports(const std::string& content);
     std::string extract_package_name(const std::string& content);
 };
