@@ -177,6 +177,132 @@ public:
         return classes;
     }
     
+    /// 🚀 JavaScriptクラスメソッド検出（Phase 5緊急対応）
+    static void detect_class_methods(
+        std::vector<ClassInfo>& classes,
+        const std::string& content
+    ) {
+        std::cerr << "[DEBUG detect_class_methods] Starting. Classes count: " << classes.size() << std::endl;
+        
+        std::istringstream stream(content);
+        std::string line;
+        size_t line_number = 0;
+        
+        // 現在解析中のクラスを追跡
+        ClassInfo* current_class = nullptr;
+        int brace_depth = 0;
+        int class_brace_depth = -1;
+        
+        // JavaScriptクラスメソッドパターン
+        std::regex method_patterns[] = {
+            std::regex(R"(^\s+(\w+)\s*\([^)]*\)\s*\{)"),                    // 　　methodName() {
+            std::regex(R"(^\s+async\s+(\w+)\s*\([^)]*\)\s*\{)"),             // 　　async methodName() {
+            std::regex(R"(^\s+static\s+(\w+)\s*\([^)]*\)\s*\{)"),           // 　　static methodName() {
+            std::regex(R"(^\s+static\s+async\s+(\w+)\s*\([^)]*\)\s*\{)"),   // 　　static async methodName() {
+            std::regex(R"(^\s+async\s+static\s+(\w+)\s*\([^)]*\)\s*\{)"),   // 　　async static methodName() {
+            std::regex(R"(^\s*(\w+)\s*\([^)]*\)\s*\{)")                     // methodName() { （フォールバック）
+        };
+        
+        while (std::getline(stream, line)) {
+            line_number++;
+            
+            std::cerr << "[DEBUG] Line " << line_number << ": [" << line << "]" 
+                      << " brace_depth=" << brace_depth 
+                      << " class_brace_depth=" << class_brace_depth
+                      << " current_class=" << (current_class ? current_class->name : "null") << std::endl;
+            
+            // ブレース深度更新（先に処理）
+            int old_brace_depth = brace_depth;
+            for (char c : line) {
+                if (c == '{') {
+                    brace_depth++;
+                } else if (c == '}') {
+                    brace_depth--;
+                }
+            }
+            
+            // クラス開始時の深度設定（classキーワードがある行の後の深度を記録）
+            if (current_class && class_brace_depth == -1 && line.find('{') != std::string::npos) {
+                class_brace_depth = old_brace_depth;  // クラスの中身がある深度を記録（深度1）
+                std::cerr << "[DEBUG] Entered class " << current_class->name 
+                          << " at content depth=" << class_brace_depth << std::endl;
+            }
+            
+            // クラス終了チェック（深度が0になったらクラス終了）
+            if (current_class && brace_depth == 0 && old_brace_depth > 0) {
+                std::cerr << "[DEBUG] Exited class " << current_class->name << std::endl;
+                current_class = nullptr;
+                class_brace_depth = -1;
+            }
+            
+            // クラス開始チェック
+            std::regex class_start_pattern(R"(^\s*(?:export\s+)?class\s+(\w+))");
+            std::smatch class_match;
+            if (std::regex_search(line, class_match, class_start_pattern)) {
+                std::string class_name = class_match[1].str();
+                // 対応するクラスを検索
+                for (auto& cls : classes) {
+                    if (cls.name == class_name) {
+                        current_class = &cls;
+                        break;
+                    }
+                }
+                continue;
+            }
+            
+            // クラス内でのみメソッド検出（修正版：クラス内かつ深度1の行）
+            if (current_class && old_brace_depth == 1 && class_brace_depth >= 0) {
+                for (size_t i = 0; i < sizeof(method_patterns) / sizeof(method_patterns[0]); i++) {
+                    std::smatch match;
+                    if (std::regex_search(line, match, method_patterns[i])) {
+                        std::string method_name;
+                        
+                        // パターンに応じてメソッド名抽出
+                        // 全てのパターンでmatch[1]がメソッド名
+                        method_name = match[1].str();
+                        
+                        std::cerr << "[DEBUG detect_class_methods] Found method: " << method_name 
+                                  << " in class " << current_class->name
+                                  << " at line " << line_number << std::endl;
+                        
+                        // コンストラクタ名をクラス名と同じにしない
+                        if (method_name != current_class->name && method_name != "constructor") {
+                            FunctionInfo method;
+                            method.name = method_name;
+                            method.start_line = static_cast<uint32_t>(line_number);
+                            method.metadata["is_class_method"] = "true";
+                            
+                            if (line.find("async") != std::string::npos) {
+                                method.is_async = true;
+                            }
+                            if (line.find("static") != std::string::npos) {
+                                method.metadata["is_static"] = "true";
+                            }
+                            
+                            current_class->methods.push_back(method);
+                            std::cerr << "[DEBUG detect_class_methods] Added method " << method_name 
+                                      << " to class " << current_class->name
+                                      << ". Total methods: " << current_class->methods.size() << std::endl;
+                        } else if (method_name == "constructor") {
+                            // コンストラクターも追加します
+                            FunctionInfo constructor;
+                            constructor.name = "constructor";
+                            constructor.start_line = static_cast<uint32_t>(line_number);
+                            constructor.metadata["is_class_method"] = "true";
+                            constructor.metadata["is_constructor"] = "true";
+                            
+                            current_class->methods.push_back(constructor);
+                            std::cerr << "[DEBUG detect_class_methods] Added constructor to class " 
+                                      << current_class->name
+                                      << ". Total methods: " << current_class->methods.size() << std::endl;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
     /// 重複チェックヘルパー（既存名前セット構築）
     static std::set<std::string> build_existing_names_set(
         const std::vector<FunctionInfo>& functions,

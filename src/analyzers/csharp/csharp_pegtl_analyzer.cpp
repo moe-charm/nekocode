@@ -171,6 +171,9 @@ struct action<csharp::minimal_grammar::constructor> {
                 constructor_info.start_line = state.current_line;
                 state.current_methods.push_back(constructor_info);
                 // Extracted constructor name
+                
+                // 🚀 Phase 5: Universal Symbol直接生成
+                state.add_test_method_symbol(constructor_info.name, constructor_info.start_line);
             }
         }
     }
@@ -205,6 +208,9 @@ struct action<csharp::minimal_grammar::property_arrow> {
                 property_info.start_line = state.current_line;
                 state.current_methods.push_back(property_info);
                 // Extracted property (arrow) name
+                
+                // 🚀 Phase 5: Universal Symbol直接生成
+                state.add_test_method_symbol(property_info.name, property_info.start_line);
             }
         }
     }
@@ -239,6 +245,9 @@ struct action<csharp::minimal_grammar::property_getset> {
                 property_info.start_line = state.current_line;
                 state.current_methods.push_back(property_info);
                 // Extracted property (get/set) name
+                
+                // 🚀 Phase 5: Universal Symbol直接生成
+                state.add_test_method_symbol(property_info.name, property_info.start_line);
             }
         }
     }
@@ -314,6 +323,9 @@ AnalysisResult CSharpPEGTLAnalyzer::analyze(const std::string& content, const st
     }
     state.result.file_info.code_lines = code_lines;
     
+    // 🚨 一時的にPEGTL解析を無効化（namespace対応まで）
+    bool parse_failed = true;  // 常にLine-basedフォールバックを使用
+    /*
     try {
         // PEGTL解析実行
         tao::pegtl::string_input input(content, filename);
@@ -326,15 +338,18 @@ AnalysisResult CSharpPEGTLAnalyzer::analyze(const std::string& content, const st
         
     } catch (const tao::pegtl::parse_error& e) {
         // パースエラー処理（エラーログを出力して空の結果を返す）
-        // PEGTL parse error
+        // PEGTL parse error - Force line-based fallback
+        parse_failed = true;
         // 部分的な結果でも返す
     }
+    */
     
     // 複雑度計算（ハイブリッド戦略の前に実行）
     state.result.complexity = calculate_complexity(content);
     
     // 🚀 C#ハイブリッド戦略: JavaScript/TypeScript/C++成功パターン移植
-    if (needs_csharp_line_based_fallback(state.result, content)) {
+    // PEGTLパースエラー時は必ずLine-basedフォールバックを実行
+    if (parse_failed || needs_csharp_line_based_fallback(state.result, content)) {
         apply_csharp_line_based_analysis(state.result, content, filename);
         // C# Line-based analysis completed
         
@@ -438,10 +453,17 @@ void CSharpPEGTLAnalyzer::apply_csharp_line_based_analysis(AnalysisResult& resul
     }
     
     // C#特化の行ベース解析
+    std::ofstream debug_file("/tmp/csharp_line_count.txt", std::ios::trunc);
+    debug_file << "Total lines to process: " << all_lines.size() << std::endl;
+    
     while (std::getline(stream, line)) {
+        debug_file << "Processing line " << line_number << ": [" << line << "]" << std::endl;
         extract_csharp_elements_from_line(line, line_number, result, existing_classes, existing_functions, all_lines);
         line_number++;
     }
+    
+    debug_file << "Finished processing " << (line_number - 1) << " lines" << std::endl;
+    debug_file.close();
 }
 
 void CSharpPEGTLAnalyzer::extract_csharp_elements_from_line(const std::string& line, size_t line_number,
@@ -450,8 +472,9 @@ void CSharpPEGTLAnalyzer::extract_csharp_elements_from_line(const std::string& l
                                        std::set<std::string>& existing_functions,
                                        const std::vector<std::string>& all_lines) {
     
+    try {
     // 🚀 デバッグファイル出力（詳細マッチング調査用）
-    static std::ofstream debug_file("/tmp/csharp_regex_debug.txt", std::ios::app);
+    std::ofstream debug_file("/tmp/csharp_regex_debug.txt", std::ios::app);
     debug_file << "\n=== LINE " << line_number << " ===\n";
     debug_file << "Content: [" << line << "]\n";
     
@@ -477,8 +500,68 @@ void CSharpPEGTLAnalyzer::extract_csharp_elements_from_line(const std::string& l
         debug_file << "NO MATCH\n";
     }
     
+    // パターン2: メソッド検出（通常メソッド、コンストラクタ、プロパティ）
+    // 通常メソッド: [修飾子] 戻り値型 メソッド名(引数)
+    // 修正版: 修飾子のスペースを適切に処理、複数の修飾子に対応
+    std::regex method_pattern(R"(^\s*(?:(?:public|private|protected|internal)\s+)?(?:(?:static|virtual|override|async|sealed|abstract|partial|readonly)\s+)*(?:void|bool|int|string|float|double|decimal|byte|short|long|char|object|Task|List|Dictionary|IEnumerable|[\w<>\[\]]+)\s+(\w+)\s*\()");
+    
+    debug_file << "Testing method_pattern... ";
+    if (std::regex_search(line, match, method_pattern)) {
+        std::string method_name = match[1].str();
+        debug_file << "MATCHED! method_name=[" << method_name << "]\n";
+        if (existing_functions.find(method_name) == existing_functions.end()) {
+            FunctionInfo func_info;
+            func_info.name = method_name;
+            func_info.start_line = line_number;
+            func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+            result.functions.push_back(func_info);
+            existing_functions.insert(method_name);
+            debug_file << "Added new method: " << method_name << "\n";
+        } else {
+            debug_file << "Method already exists, skipped\n";
+        }
+    } else {
+        debug_file << "NO MATCH\n";
+    }
+    
+    // パターン3: コンストラクタ（クラス名と同じ名前のメソッド）
+    std::regex constructor_pattern(R"(^\s*(?:public|private|protected|internal)?\s*(\w+)\s*\([^)]*\)\s*(?::|$\{))");
+    
+    debug_file << "Testing constructor_pattern... ";
+    if (std::regex_search(line, match, constructor_pattern)) {
+        std::string constructor_name = match[1].str();
+        // クラス名と一致する可能性が高い（簡易チェック）
+        if (existing_classes.find(constructor_name) != existing_classes.end() &&
+            existing_functions.find(constructor_name + "()") == existing_functions.end()) {
+            debug_file << "MATCHED! constructor_name=[" << constructor_name << "]\n";
+            FunctionInfo func_info;
+            func_info.name = constructor_name + "()";  // コンストラクタ明示
+            func_info.start_line = line_number;
+            func_info.end_line = find_function_end_line(all_lines, line_number - 1);
+            result.functions.push_back(func_info);
+            existing_functions.insert(func_info.name);
+            debug_file << "Added new constructor: " << func_info.name << "\n";
+        } else {
+            debug_file << "Not a constructor or already exists\n";
+        }
+    } else {
+        debug_file << "NO MATCH\n";
+    }
+    
     // デバッグファイルをflush（即座に書き込み）
     debug_file.flush();
+    
+    } catch (const std::regex_error& e) {
+        std::ofstream error_file("/tmp/csharp_regex_error.txt", std::ios::app);
+        error_file << "REGEX ERROR at line " << line_number << ": " << e.what() << std::endl;
+        error_file << "Line content: [" << line << "]" << std::endl;
+        error_file.close();
+    } catch (const std::exception& e) {
+        std::ofstream error_file("/tmp/csharp_regex_error.txt", std::ios::app);
+        error_file << "EXCEPTION at line " << line_number << ": " << e.what() << std::endl;
+        error_file << "Line content: [" << line << "]" << std::endl;
+        error_file.close();
+    }
 }
 
 uint32_t CSharpPEGTLAnalyzer::find_function_end_line(const std::vector<std::string>& lines, size_t start_line) {
