@@ -13,6 +13,10 @@
 #include <vector>
 #include <string>
 
+// 🚀 Phase 5: Universal Symbol直接生成
+#include "nekocode/universal_symbol.hpp"
+#include "nekocode/symbol_table.hpp"
+
 namespace nekocode {
 
 //=============================================================================
@@ -31,6 +35,50 @@ struct PythonParseState {
     // 現在の解析位置情報
     size_t current_line = 1;
     std::string current_content;
+    
+    // 🚀 Phase 5: Universal Symbol直接生成 
+    std::shared_ptr<SymbolTable> symbol_table;
+    std::unordered_map<std::string, int> id_counters;
+    
+    // コンストラクタ
+    PythonParseState() {
+        symbol_table = std::make_shared<SymbolTable>();
+    }
+    
+    std::string generate_unique_id(const std::string& base) {
+        int& counter = id_counters[base];
+        return base + "_" + std::to_string(counter++);
+    }
+    
+    /// 🐍 テスト用: Pythonクラス Symbol生成
+    void add_test_class_symbol(const std::string& class_name, std::uint32_t start_line) {
+        UniversalSymbolInfo symbol;
+        symbol.symbol_id = generate_unique_id("class_" + class_name);
+        symbol.symbol_type = SymbolType::CLASS;
+        symbol.name = class_name;
+        symbol.start_line = start_line;
+        symbol.metadata["language"] = "python";
+        
+        std::cerr << "[Phase 5 Test] Python adding class symbol: " << class_name 
+                  << " with ID: " << symbol.symbol_id << std::endl;
+        
+        symbol_table->add_symbol(std::move(symbol));
+    }
+    
+    /// 🐍 テスト用: Python関数 Symbol生成
+    void add_test_function_symbol(const std::string& func_name, std::uint32_t start_line) {
+        UniversalSymbolInfo symbol;
+        symbol.symbol_id = generate_unique_id("function_" + func_name);
+        symbol.symbol_type = SymbolType::FUNCTION;
+        symbol.name = func_name;
+        symbol.start_line = start_line;
+        symbol.metadata["language"] = "python";
+        
+        std::cerr << "[Phase 5 Test] Python adding function symbol: " << func_name 
+                  << " with ID: " << symbol.symbol_id << std::endl;
+        
+        symbol_table->add_symbol(std::move(symbol));
+    }
     
     void update_line_from_content(const std::string& matched_text) {
         // 改行数をカウントして行番号更新
@@ -72,10 +120,14 @@ struct python_action<python::minimal_grammar::python_class> {
             }
             
             if (name_end > name_start) {
+                std::string class_name = matched.substr(name_start, name_end - name_start);
                 ClassInfo class_info;
-                class_info.name = matched.substr(name_start, name_end - name_start);
+                class_info.name = class_name;
                 class_info.start_line = state.current_line;
                 state.classes.push_back(class_info);
+                
+                // 🚀 Phase 5 テスト: Universal Symbol直接生成
+                state.add_test_class_symbol(class_name, state.current_line);
             }
         }
     }
@@ -108,6 +160,9 @@ struct python_action<python::minimal_grammar::python_function> {
                 func_info.name = matched.substr(name_start, name_end - name_start);
                 func_info.start_line = state.current_line;
                 state.functions.push_back(func_info);
+                
+                // 🚀 Phase 5: Universal Symbol直接生成
+                state.add_test_function_symbol(func_info.name, func_info.start_line);
             }
         }
     }
@@ -279,6 +334,23 @@ public:
         
         // 統計更新
         result.update_statistics();
+        
+        // 🚀 Phase 5: Universal Symbol直接生成（PythonParseStateから取得）
+        try {
+            PythonParseState state;  // 上で作成されたstateを再利用したいが、スコープ外なので一時的に新しいstateを作成
+            state.current_content = content;
+            tao::pegtl::string_input input(content, filename);
+            tao::pegtl::parse<python::minimal_grammar::python_minimal, python_action>(input, state);
+            
+            if (state.symbol_table && state.symbol_table->get_all_symbols().size() > 0) {
+                result.universal_symbols = state.symbol_table;
+                std::cerr << "[Phase 5] Python analyzer generated " 
+                          << state.symbol_table->get_all_symbols().size() 
+                          << " Universal Symbols" << std::endl;
+            }
+        } catch (...) {
+            // Phase 5のエラーは無視（メイン解析に影響しない）
+        }
         
         return result;
     }

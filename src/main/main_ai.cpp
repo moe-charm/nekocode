@@ -298,12 +298,15 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 }
                 */
                 
-                // 🐍 Python Universal Symbol生成
+                // 🚀 Phase 5テスト: Python Symbol Converter無効化
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 if (analysis_result.language == Language::PYTHON) {
                     PythonSymbolConverter converter;
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                */
                 
                 // ⚙️ C++ Universal Symbol生成
                 if (analysis_result.language == Language::CPP) {
@@ -660,12 +663,15 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                 }
                 */
                 
-                // 🐍 Python Universal Symbol生成
+                // 🚀 Phase 5テスト: Python Symbol Converter無効化
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 if (analysis_result.language == Language::PYTHON) {
                     PythonSymbolConverter converter;
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                */
                 
                 // ⚙️ C++ Universal Symbol生成
                 if (analysis_result.language == Language::CPP) {
