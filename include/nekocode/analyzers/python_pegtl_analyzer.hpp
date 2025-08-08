@@ -336,6 +336,9 @@ public:
         // 🔍 Python メンバ変数検出（JavaScript成功パターン移植）
         detect_member_variables(result, content);
         
+        // 🚀 重要: クラス-メソッド関連付け処理（JavaScript成功パターン適用）
+        associate_methods_with_classes(result, content);
+        
         // 統計更新
         result.update_statistics();
         
@@ -1048,6 +1051,98 @@ private:
         
         // 3点以上でコードらしいと判定
         return code_score >= 3;
+    }
+    
+    //=========================================================================
+    // 🚀 クラス-メソッド関連付け処理（JavaScript成功パターン適用）
+    //=========================================================================
+    
+    void associate_methods_with_classes(AnalysisResult& result, const std::string& content) {
+        // デバッグ出力一時的にコメントアウト
+        // std::cerr << "[DEBUG associate_methods_with_classes] Starting. Classes: " << result.classes.size() 
+        //           << ", Functions: " << result.functions.size() << std::endl;
+        if (result.classes.empty() || result.functions.empty()) {
+            // std::cerr << "[DEBUG associate_methods_with_classes] Early return - empty classes or functions" << std::endl;
+            return; // 何もすることがない
+        }
+        
+        std::istringstream stream(content);
+        std::string line;
+        size_t line_number = 0;
+        
+        // 現在のクラス追跡
+        ClassInfo* current_class = nullptr;
+        int base_indent = -1; // クラス定義のインデントレベル
+        int class_body_indent = -1; // クラス本体のインデントレベル
+        
+        while (std::getline(stream, line)) {
+            line_number++;
+            
+            // インデントレベル計算
+            int line_indent = 0;
+            for (char c : line) {
+                if (c == ' ') line_indent++;
+                else if (c == '\t') line_indent += 4; // タブは4スペース相当
+                else break;
+            }
+            
+            // 空行・コメント行をスキップ
+            std::string trimmed = line;
+            size_t first_non_space = trimmed.find_first_not_of(" \t");
+            if (first_non_space == std::string::npos || trimmed[first_non_space] == '#') {
+                continue;
+            }
+            
+            // クラス開始検出
+            if (trimmed.find("class ") != std::string::npos) {
+                // std::cerr << "[DEBUG associate_methods_with_classes] Found class at line " << line_number << std::endl;
+                // 対応するクラスを検索
+                for (auto& cls : result.classes) {
+                    if (cls.start_line == line_number) {
+                        current_class = &cls;
+                        base_indent = line_indent;
+                        class_body_indent = -1; // リセット
+                        // std::cerr << "[DEBUG associate_methods_with_classes] Matched class: " << cls.name << std::endl;
+                        break;
+                    }
+                }
+                continue;
+            }
+            
+            // クラス本体のインデントレベル設定
+            if (current_class && class_body_indent == -1 && line_indent > base_indent) {
+                class_body_indent = line_indent;
+            }
+            
+            // クラス終了判定
+            if (current_class && line_indent <= base_indent && 
+                trimmed.find("class ") == std::string::npos) {
+                current_class = nullptr;
+                base_indent = -1;
+                class_body_indent = -1;
+            }
+            
+            // メソッド検出（クラス内でdef文）
+            if (current_class && class_body_indent != -1 && 
+                line_indent == class_body_indent && trimmed.find("def ") != std::string::npos) {
+                // std::cerr << "[DEBUG associate_methods_with_classes] Found method at line " << line_number 
+                //           << " in class " << current_class->name << std::endl;
+                
+                // 対応する関数をresult.functionsから検索
+                for (auto it = result.functions.begin(); it != result.functions.end(); ++it) {
+                    if (it->start_line == line_number) {
+                        // std::cerr << "[DEBUG associate_methods_with_classes] Moving method " << it->name 
+                        //           << " to class " << current_class->name << std::endl;
+                        // メソッドとしてクラスに移動
+                        current_class->methods.push_back(*it);
+                        
+                        // functionsリストから削除（メソッドなので独立関数ではない）
+                        result.functions.erase(it);
+                        break;
+                    }
+                }
+            }
+        }
     }
 };
 

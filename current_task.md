@@ -1,13 +1,26 @@
-# 🧪 Phase 5完了後: Session Mode包括的テスト計画
+# 🔧 ビルド問題修復とPython method検出修正
 
-**最終更新**: 2025-08-08 18:00  
-**状況**: ✅ **Phase 5 Universal Symbol完成** → 🧪 **Session Mode統合テスト開始**
+**最終更新**: 2025-08-09 01:15  
+**状況**: 🚨 **ビルド失敗中** → Pythonメソッド検出実装済み（テスト保留）
 
 ---
 
-## 🎯 **Session Mode包括的テスト目的**
+## 🚨 **現在の問題状況**
 
-Phase 5で実装したUniversal Symbol Native Generationが、実際のSession環境で正しく動作することを確認する。これはPhase 6 move-class機能の前提条件となる重要なテスト。
+### **ビルド失敗の原因**
+- CMakeビルドで多数の`-Wunused-parameter`警告がエラーとして扱われる
+- `-Werror`フラグが有効になっているらしい（CMakeLists.txtには明示的な記述なし）
+- bashコマンドが動作しない状態
+
+### **Python method検出修復状況**
+- ✅ `associate_methods_with_classes`メソッド実装完了
+- ✅ インデントベースでメソッドをクラスに関連付ける処理追加
+- ⏳ ビルド失敗のためテスト未実施
+
+### **実施済み対策**
+1. CMakeLists.txtに`-Wno-unused-parameter -Wno-unused-variable`追加
+2. デバッグ出力を一時的にコメントアウト
+3. `associate_methods_with_classes`メソッド全体を一時的にコメントアウト（ビルド問題切り分けのため）
 
 ---
 
