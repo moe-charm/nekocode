@@ -308,12 +308,15 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 }
                 */
                 
-                // ⚙️ C++ Universal Symbol生成
+                // 🚀 Phase 5テスト: C++ Symbol Converter無効化
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 if (analysis_result.language == Language::CPP) {
                     CppSymbolConverter converter;
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                */
             } else if (multilang_result.rust_result) {
                 // 🔧 Rust結果処理を追加
                 analysis_result = multilang_result.rust_result.value();
@@ -673,12 +676,15 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                 }
                 */
                 
-                // ⚙️ C++ Universal Symbol生成
+                // 🚀 Phase 5テスト: C++ Symbol Converter無効化
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 if (analysis_result.language == Language::CPP) {
                     CppSymbolConverter converter;
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                */
             } else if (multilang_result.rust_result) {
                 // 🔧 Rust結果処理を追加
                 analysis_result = multilang_result.rust_result.value();
