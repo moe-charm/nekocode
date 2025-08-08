@@ -59,8 +59,10 @@ struct PythonParseState {
         symbol.start_line = start_line;
         symbol.metadata["language"] = "python";
         
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[Phase 5 Test] Python adding class symbol: " << class_name 
                   << " with ID: " << symbol.symbol_id << std::endl;
+#endif
         
         symbol_table->add_symbol(std::move(symbol));
     }
@@ -74,8 +76,10 @@ struct PythonParseState {
         symbol.start_line = start_line;
         symbol.metadata["language"] = "python";
         
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[Phase 5 Test] Python adding function symbol: " << func_name 
                   << " with ID: " << symbol.symbol_id << std::endl;
+#endif
         
         symbol_table->add_symbol(std::move(symbol));
     }

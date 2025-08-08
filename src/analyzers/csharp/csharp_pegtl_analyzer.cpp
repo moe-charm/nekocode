@@ -31,8 +31,10 @@ void CSharpParseState::add_test_class_symbol(const std::string& class_name, std:
     symbol.start_line = start_line;
     symbol.metadata["language"] = "csharp";
     
+#ifdef NEKOCODE_DEBUG_SYMBOLS
     std::cerr << "[Phase 5 Test] C# adding class symbol: " << class_name 
               << " with ID: " << symbol.symbol_id << std::endl;
+#endif
     
     symbol_table->add_symbol(std::move(symbol));
 }
@@ -45,8 +47,10 @@ void CSharpParseState::add_test_method_symbol(const std::string& method_name, st
     symbol.start_line = start_line;
     symbol.metadata["language"] = "csharp";
     
+#ifdef NEKOCODE_DEBUG_SYMBOLS
     std::cerr << "[Phase 5 Test] C# adding method symbol: " << method_name 
               << " with ID: " << symbol.symbol_id << std::endl;
+#endif
     
     symbol_table->add_symbol(std::move(symbol));
 }

@@ -105,8 +105,10 @@ struct JavaScriptParseState {
         symbol.start_line = start_line;
         symbol.metadata["language"] = "javascript";
         
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[Phase 5 Test] Adding class symbol: " << class_name 
                   << " with ID: " << symbol.symbol_id << std::endl;
+#endif
         
         symbol_table->add_symbol(std::move(symbol));
     }
@@ -973,8 +975,10 @@ public:
                 result.universal_symbols = state.symbol_table;
                 std::cerr << "[DEBUG JS] After setting: result.universal_symbols is " 
                           << (result.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[Phase 5 Test] JS Universal Symbols generated: " 
                           << (state.symbol_table ? state.symbol_table->size() : 0) << " symbols" << std::endl;
+#endif
                 
                 // デバッグ出力
                 //// std::cerr << "[DEBUG] Functions found: " << result.functions.size() << std::endl;
