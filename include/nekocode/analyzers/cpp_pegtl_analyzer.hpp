@@ -429,9 +429,11 @@ public:
             
             if (state.symbol_table && state.symbol_table->get_all_symbols().size() > 0) {
                 result.universal_symbols = state.symbol_table;
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[Phase 5] C++ analyzer generated " 
                           << state.symbol_table->get_all_symbols().size() 
                           << " Universal Symbols" << std::endl;
+#endif
             }
         } catch (...) {
             // Phase 5のエラーは無視（メイン解析に影響しない）
