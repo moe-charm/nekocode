@@ -12,6 +12,9 @@
 //=============================================================================
 
 #include "base_analyzer.hpp"
+// 🚀 Phase 5: Universal Symbol直接生成
+#include "nekocode/universal_symbol.hpp"
+#include "nekocode/symbol_table.hpp"
 #include <tao/pegtl.hpp>
 #include <unordered_set>
 
