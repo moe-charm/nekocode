@@ -78,8 +78,10 @@ struct CppParseState {
         symbol.start_line = start_line;
         symbol.metadata["language"] = "cpp";
         
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[Phase 5 Test] C++ adding class symbol: " << class_name 
                   << " with ID: " << symbol.symbol_id << std::endl;
+#endif
         
         symbol_table->add_symbol(std::move(symbol));
     }
@@ -92,8 +94,10 @@ struct CppParseState {
         symbol.start_line = start_line;
         symbol.metadata["language"] = "cpp";
         
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[Phase 5 Test] C++ adding function symbol: " << function_name 
                   << " with ID: " << symbol.symbol_id << std::endl;
+#endif
         
         symbol_table->add_symbol(std::move(symbol));
     }

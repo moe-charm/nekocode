@@ -1151,8 +1151,10 @@ void RustAnalyzer::add_test_struct_symbol(const std::string& struct_name, std::u
     symbol.metadata["language"] = "rust";
     symbol.metadata["type"] = "struct";
     
+#ifdef NEKOCODE_DEBUG_SYMBOLS
     std::cerr << "[Phase 5 Test] Rust adding struct symbol: " << struct_name 
               << " with ID: " << symbol.symbol_id << std::endl;
+#endif
     
     symbol_table_->add_symbol(std::move(symbol));
 }
@@ -1168,8 +1170,10 @@ void RustAnalyzer::add_test_enum_symbol(const std::string& enum_name, std::uint3
     symbol.metadata["language"] = "rust";
     symbol.metadata["type"] = "enum";
     
+#ifdef NEKOCODE_DEBUG_SYMBOLS
     std::cerr << "[Phase 5 Test] Rust adding enum symbol: " << enum_name 
               << " with ID: " << symbol.symbol_id << std::endl;
+#endif
     
     symbol_table_->add_symbol(std::move(symbol));
 }
@@ -1184,8 +1188,10 @@ void RustAnalyzer::add_test_function_symbol(const std::string& function_name, st
     symbol.start_line = start_line;
     symbol.metadata["language"] = "rust";
     
+#ifdef NEKOCODE_DEBUG_SYMBOLS
     std::cerr << "[Phase 5 Test] Rust adding function symbol: " << function_name 
               << " with ID: " << symbol.symbol_id << std::endl;
+#endif
     
     symbol_table_->add_symbol(std::move(symbol));
 }

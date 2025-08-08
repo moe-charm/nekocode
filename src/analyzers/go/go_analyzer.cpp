@@ -576,8 +576,10 @@ void GoAnalyzer::add_test_struct_symbol(const std::string& struct_name, std::uin
     symbol.metadata["language"] = "go";
     symbol.metadata["type"] = "struct";
     
+#ifdef NEKOCODE_DEBUG_SYMBOLS
     std::cerr << "[Phase 5 Test] Go adding struct symbol: " << struct_name 
               << " with ID: " << symbol.symbol_id << std::endl;
+#endif
     
     symbol_table_->add_symbol(std::move(symbol));
 }
@@ -592,8 +594,10 @@ void GoAnalyzer::add_test_function_symbol(const std::string& function_name, std:
     symbol.start_line = start_line;
     symbol.metadata["language"] = "go";
     
+#ifdef NEKOCODE_DEBUG_SYMBOLS
     std::cerr << "[Phase 5 Test] Go adding function symbol: " << function_name 
               << " with ID: " << symbol.symbol_id << std::endl;
+#endif
     
     symbol_table_->add_symbol(std::move(symbol));
 }
