@@ -445,7 +445,7 @@ protected:
         
 #ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[DEBUG] Python Universal Symbol generation completed. Total symbols: " 
-                  << symbol_table->get_symbols().size() << std::endl;
+                  << symbol_table->get_all_symbols().size() << std::endl;
 #endif
     }
 };
