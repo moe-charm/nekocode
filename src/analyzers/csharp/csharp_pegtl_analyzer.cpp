@@ -81,7 +81,7 @@ struct action<csharp::minimal_grammar::class_header> {
     static void apply(const ParseInput& in, CSharpParseState& state) {
         ClassInfo class_info;
         std::string decl = in.string();
-        std::cerr << "DEBUG: Found class header: " << decl << std::endl;
+        // Found class header
         
         // "class"の後の識別子を抽出
         size_t class_pos = decl.find("class");
@@ -97,7 +97,7 @@ struct action<csharp::minimal_grammar::class_header> {
                 class_info.name = class_name;
                 class_info.start_line = state.current_line;
                 state.current_classes.push_back(class_info);
-                std::cerr << "DEBUG: Extracted class name: " << class_info.name << std::endl;
+                // Extracted class name
                 
                 // 🚀 Phase 5: Universal Symbol直接生成
                 state.add_test_class_symbol(class_info.name, class_info.start_line);
@@ -113,7 +113,7 @@ struct action<csharp::minimal_grammar::normal_method> {
     static void apply(const ParseInput& in, CSharpParseState& state) {
         FunctionInfo method_info;
         std::string decl = in.string();
-        std::cerr << "DEBUG: Found normal method: " << decl << std::endl;
+        // Found normal method
         
         // パラメータリストの前の識別子を探す（改良版）
         size_t paren_pos = decl.find('(');
@@ -132,7 +132,7 @@ struct action<csharp::minimal_grammar::normal_method> {
                 method_info.name = decl.substr(name_start, name_end - name_start);
                 method_info.start_line = state.current_line;
                 state.current_methods.push_back(method_info);
-                std::cerr << "DEBUG: Extracted normal method name: " << method_info.name << std::endl;
+                // Extracted normal method name
                 
                 // 🚀 Phase 5: Universal Symbol直接生成
                 state.add_test_method_symbol(method_info.name, method_info.start_line);
@@ -148,7 +148,7 @@ struct action<csharp::minimal_grammar::constructor> {
     static void apply(const ParseInput& in, CSharpParseState& state) {
         FunctionInfo constructor_info;
         std::string decl = in.string();
-        std::cerr << "DEBUG: Found constructor: " << decl << std::endl;
+        // Found constructor
         
         // コンストラクタ名を抽出（修飾子の後の最初の識別子）
         size_t paren_pos = decl.find('(');
@@ -170,7 +170,7 @@ struct action<csharp::minimal_grammar::constructor> {
                 constructor_info.name = temp.substr(name_start, name_end - name_start) + "()"; // コンストラクタ明示
                 constructor_info.start_line = state.current_line;
                 state.current_methods.push_back(constructor_info);
-                std::cerr << "DEBUG: Extracted constructor name: " << constructor_info.name << std::endl;
+                // Extracted constructor name
             }
         }
     }
@@ -183,7 +183,7 @@ struct action<csharp::minimal_grammar::property_arrow> {
     static void apply(const ParseInput& in, CSharpParseState& state) {
         FunctionInfo property_info;
         std::string decl = in.string();
-        std::cerr << "DEBUG: Found property (arrow): " << decl << std::endl;
+        // Found property (arrow)
         
         // =>の前の識別子を探す
         size_t arrow_pos = decl.find("=>");
@@ -204,7 +204,7 @@ struct action<csharp::minimal_grammar::property_arrow> {
                 property_info.name = "property:" + before_arrow.substr(name_start, name_end - name_start);
                 property_info.start_line = state.current_line;
                 state.current_methods.push_back(property_info);
-                std::cerr << "DEBUG: Extracted property (arrow) name: " << property_info.name << std::endl;
+                // Extracted property (arrow) name
             }
         }
     }
@@ -217,7 +217,7 @@ struct action<csharp::minimal_grammar::property_getset> {
     static void apply(const ParseInput& in, CSharpParseState& state) {
         FunctionInfo property_info;
         std::string decl = in.string();
-        std::cerr << "DEBUG: Found property (get/set): " << decl << std::endl;
+        // Found property (get/set)
         
         // {の前の識別子を探す
         size_t brace_pos = decl.find('{');
@@ -238,7 +238,7 @@ struct action<csharp::minimal_grammar::property_getset> {
                 property_info.name = "property:" + before_brace.substr(name_start, name_end - name_start);
                 property_info.start_line = state.current_line;
                 state.current_methods.push_back(property_info);
-                std::cerr << "DEBUG: Extracted property (get/set) name: " << property_info.name << std::endl;
+                // Extracted property (get/set) name
             }
         }
     }
@@ -251,7 +251,7 @@ struct action<csharp::minimal_grammar::method_decl> {
     static void apply(const ParseInput& /*in*/, CSharpParseState& /*state*/) {
         // 新文法では個別のアクションが処理するため、ここは空でOK
         if (g_debug_mode) {
-            std::cerr << "DEBUG: method_decl triggered (handled by specific actions)" << std::endl;
+            // method_decl triggered (handled by specific actions)
         }
     }
 };
@@ -263,7 +263,7 @@ struct action<csharp::minimal_grammar::method_decl> {
 //=============================================================================
 
 CSharpPEGTLAnalyzer::CSharpPEGTLAnalyzer() {
-    std::cerr << "DEBUG: CSharpPEGTLAnalyzer constructor called" << std::endl;
+    // Constructor
 }
 
 Language CSharpPEGTLAnalyzer::get_language() const {
@@ -271,7 +271,6 @@ Language CSharpPEGTLAnalyzer::get_language() const {
 }
 
 std::string CSharpPEGTLAnalyzer::get_language_name() const {
-    std::cerr << "DEBUG: CSharpPEGTLAnalyzer::get_language_name() called" << std::endl;
     return "C# (PEGTL)";
 }
 
@@ -280,7 +279,6 @@ std::vector<std::string> CSharpPEGTLAnalyzer::get_supported_extensions() const {
 }
 
 AnalysisResult CSharpPEGTLAnalyzer::analyze(const std::string& content, const std::string& filename) {
-    std::cerr << "DEBUG: CSharpPEGTLAnalyzer::analyze() called for " << filename << std::endl;
     
     // 🚀 デバッグファイル初期化（新しい解析開始）
     {
@@ -318,11 +316,8 @@ AnalysisResult CSharpPEGTLAnalyzer::analyze(const std::string& content, const st
     
     try {
         // PEGTL解析実行
-        std::cerr << "DEBUG: Starting PEGTL parse for " << filename << std::endl;
-        std::cerr << "DEBUG: Content length: " << content.length() << " bytes" << std::endl;
         tao::pegtl::string_input input(content, filename);
         bool parse_success = tao::pegtl::parse<csharp::minimal_grammar::csharp_minimal, csharp_actions::action>(input, state);
-        std::cerr << "DEBUG: Parse result: " << (parse_success ? "SUCCESS" : "FAILED") << std::endl;
         
         // 結果を統合
         state.result.classes = std::move(state.current_classes);
@@ -360,9 +355,11 @@ AnalysisResult CSharpPEGTLAnalyzer::analyze(const std::string& content, const st
                 state.add_test_method_symbol(func_info.name, func_info.start_line);
             }
             
+#ifdef NEKOCODE_DEBUG_SYMBOLS
             std::cerr << "[Phase 5 Fallback] C# Line-based generated " 
                       << state.symbol_table->get_all_symbols().size() 
                       << " Universal Symbols" << std::endl;
+#endif
         }
     } else {
         std::cerr << "⚠️  C# Hybrid Strategy NOT triggered" << std::endl;
@@ -374,9 +371,11 @@ AnalysisResult CSharpPEGTLAnalyzer::analyze(const std::string& content, const st
     // 🚀 Phase 5: Universal Symbol直接生成（CSharpParseStateから取得）
     if (state.symbol_table && state.symbol_table->get_all_symbols().size() > 0) {
         state.result.universal_symbols = state.symbol_table;
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[Phase 5] C# analyzer generated " 
                   << state.symbol_table->get_all_symbols().size() 
                   << " Universal Symbols" << std::endl;
+#endif
     }
     
     return state.result;

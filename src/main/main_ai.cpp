@@ -296,22 +296,30 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
             } else if (multilang_result.js_result) {
                 // 🔧 修正: ビフォア状態確認
                 const auto& js_result_ref = multilang_result.js_result.value();
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[DEBUG main_ai.cpp] Before copy: js_result.universal_symbols is "
                           << (js_result_ref.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
+#endif
                 
                 // 通常の代入
                 analysis_result = js_result_ref;
                 
                 // 🔍 DEBUG: Universal Symbols状態確認
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[DEBUG main_ai.cpp] After copy assignment: analysis_result.universal_symbols is "
                           << (analysis_result.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
+#endif
                 
                 // 🚒 緊急修正: 明示的にuniversal_symbolsをコピー
                 if (js_result_ref.universal_symbols && !analysis_result.universal_symbols) {
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                     std::cerr << "[DEBUG main_ai.cpp] Manually copying universal_symbols..." << std::endl;
+#endif
                     analysis_result.universal_symbols = js_result_ref.universal_symbols;
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                     std::cerr << "[DEBUG main_ai.cpp] After manual copy: analysis_result.universal_symbols is "
                               << (analysis_result.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
+#endif
                 }
                 
                 // 🚀 Phase 5テスト: JavaScript/TypeScript Symbol Converter無効化
@@ -694,22 +702,30 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
             } else if (multilang_result.js_result) {
                 // 🔧 修正: ビフォア状態確認
                 const auto& js_result_ref = multilang_result.js_result.value();
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[DEBUG main_ai.cpp] Before copy: js_result.universal_symbols is "
                           << (js_result_ref.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
+#endif
                 
                 // 通常の代入
                 analysis_result = js_result_ref;
                 
                 // 🔍 DEBUG: Universal Symbols状態確認
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[DEBUG main_ai.cpp] After copy assignment: analysis_result.universal_symbols is "
                           << (analysis_result.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
+#endif
                 
                 // 🚒 緊急修正: 明示的にuniversal_symbolsをコピー
                 if (js_result_ref.universal_symbols && !analysis_result.universal_symbols) {
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                     std::cerr << "[DEBUG main_ai.cpp] Manually copying universal_symbols..." << std::endl;
+#endif
                     analysis_result.universal_symbols = js_result_ref.universal_symbols;
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                     std::cerr << "[DEBUG main_ai.cpp] After manual copy: analysis_result.universal_symbols is "
                               << (analysis_result.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
+#endif
                 }
                 
                 // 🚀 Phase 5テスト: JavaScript/TypeScript Symbol Converter無効化

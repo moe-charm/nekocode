@@ -142,9 +142,13 @@ Result<AnalysisResult> NekoCodeCore::analyze_content(const std::string& content,
                 // 🚀 Phase 5: Universal Symbolsをコピー（必須！）
                 if (pg_result.universal_symbols) {
                     result.universal_symbols = pg_result.universal_symbols;
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                     std::cerr << "[DEBUG core.cpp] Copied universal_symbols from PEGTL result" << std::endl;
+#endif
                 } else {
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                     std::cerr << "[DEBUG core.cpp] No universal_symbols in PEGTL result" << std::endl;
+#endif
                 }
             }
         }

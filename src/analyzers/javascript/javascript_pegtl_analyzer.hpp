@@ -970,11 +970,15 @@ public:
                 result.exports = std::move(state.exports);
                 
                 // 🚀 Phase 5 テスト: Universal Symbols結果設定
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[DEBUG JS] Before setting: state.symbol_table is " 
                           << (state.symbol_table ? "NOT NULL" : "NULL") << std::endl;
+#endif
                 result.universal_symbols = state.symbol_table;
+#ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[DEBUG JS] After setting: result.universal_symbols is " 
                           << (result.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
+#endif
 #ifdef NEKOCODE_DEBUG_SYMBOLS
                 std::cerr << "[Phase 5 Test] JS Universal Symbols generated: " 
                           << (state.symbol_table ? state.symbol_table->size() : 0) << " symbols" << std::endl;
