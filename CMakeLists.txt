@@ -164,6 +164,9 @@ set(NEKOCODE_SOURCES
     # ファインダー機能
     ${SRC_DIR}/finders/symbol_finder.cpp
     
+    # 依存関係解析
+    ${SRC_DIR}/core/dependency_graph.cpp
+    
     # コマンド
     ${SRC_DIR}/commands/find_command.cpp
     

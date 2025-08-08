@@ -152,4 +152,4 @@ nyash/
 /project_fixes_example.yaml
 /tidy_fixes.yaml
 /tidy_test.yaml
-/result.json
+/result.json/tmp/test-projects

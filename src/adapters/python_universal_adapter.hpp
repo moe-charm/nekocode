@@ -77,7 +77,7 @@ public:
         enhance_result_with_python_features(legacy_result);
         
         // 🚀 Phase 5: Universal Symbols生成（BaseAnalyzer共通関数を使用）
-        this->generate_universal_symbols(legacy_result, "python");
+        generate_universal_symbols(legacy_result);
         
         return legacy_result;
     }
