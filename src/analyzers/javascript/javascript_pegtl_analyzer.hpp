@@ -113,6 +113,43 @@ struct JavaScriptParseState {
         symbol_table->add_symbol(std::move(symbol));
     }
     
+    /// 🌟 メソッドSymbol生成
+    void add_test_method_symbol(const std::string& method_name, std::uint32_t start_line, const std::string& class_name = "") {
+        UniversalSymbolInfo symbol;
+        symbol.symbol_id = generate_unique_id("method_" + method_name);
+        symbol.symbol_type = SymbolType::FUNCTION;
+        symbol.name = method_name;
+        symbol.start_line = start_line;
+        symbol.metadata["language"] = "javascript";
+        if (!class_name.empty()) {
+            symbol.metadata["class"] = class_name;
+        }
+        
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+        std::cerr << "[Phase 5 Test] Adding method symbol: " << method_name 
+                  << " with ID: " << symbol.symbol_id << std::endl;
+#endif
+        
+        symbol_table->add_symbol(std::move(symbol));
+    }
+    
+    /// 🌟 関数Symbol生成
+    void add_test_function_symbol(const std::string& func_name, std::uint32_t start_line) {
+        UniversalSymbolInfo symbol;
+        symbol.symbol_id = generate_unique_id("function_" + func_name);
+        symbol.symbol_type = SymbolType::FUNCTION;
+        symbol.name = func_name;
+        symbol.start_line = start_line;
+        symbol.metadata["language"] = "javascript";
+        
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+        std::cerr << "[Phase 5 Test] Adding function symbol: " << func_name 
+                  << " with ID: " << symbol.symbol_id << std::endl;
+#endif
+        
+        symbol_table->add_symbol(std::move(symbol));
+    }
+    
     // 🌳 AST構築メソッド
     
     /// 新しいASTノードを現在のスコープに追加
@@ -407,6 +444,9 @@ struct javascript_action<javascript::minimal_grammar::simple_function> {
                 func_info.start_line = state.current_line;
                 state.functions.push_back(func_info);
                 
+                // 🚀 Phase 5: Universal Symbol生成
+                state.add_test_function_symbol(func_name, state.current_line);
+                
                 // std::cerr << "[AST] Found simple function: " << func_name << " at line " << state.current_line << std::endl;
             }
         }
@@ -442,6 +482,9 @@ struct javascript_action<javascript::minimal_grammar::async_function> {
                 func_info.start_line = state.current_line;
                 func_info.is_async = true;
                 state.functions.push_back(func_info);
+                
+                // 🚀 Phase 5: Universal Symbol生成
+                state.add_test_function_symbol(func_info.name, state.current_line);
                 // std::cerr << "[DEBUG] Found async function: " << func_info.name << " at line " << func_info.start_line << std::endl;
             }
         }
@@ -476,6 +519,9 @@ struct javascript_action<javascript::minimal_grammar::simple_arrow> {
                 func_info.start_line = state.current_line;
                 func_info.is_arrow_function = true;
                 state.functions.push_back(func_info);
+                
+                // 🚀 Phase 5: Universal Symbol生成
+                state.add_test_function_symbol(func_info.name, state.current_line);
             }
         }
     }
@@ -511,6 +557,9 @@ struct javascript_action<javascript::minimal_grammar::async_arrow> {
                 func_info.is_arrow_function = true;
                 func_info.is_async = true;
                 state.functions.push_back(func_info);
+                
+                // 🚀 Phase 5: Universal Symbol生成
+                state.add_test_function_symbol(func_info.name, state.current_line);
                 // std::cerr << "[DEBUG] Found async arrow: " << func_info.name << " at line " << func_info.start_line << std::endl;
             }
         }
@@ -657,6 +706,9 @@ struct javascript_action<javascript::minimal_grammar::function_decl> {
                 func_info.start_line = state.current_line;
                 func_info.is_async = (matched.find("async") != std::string::npos);
                 state.functions.push_back(func_info);
+                
+                // 🚀 Phase 5: Universal Symbol生成
+                state.add_test_function_symbol(func_info.name, state.current_line);
             }
         }
     }
@@ -690,6 +742,9 @@ struct javascript_action<javascript::minimal_grammar::export_function> {
                 func_info.start_line = state.current_line;
                 // func_info.is_exported = true;  // TODO: FunctionInfoにこのフィールド追加
                 state.functions.push_back(func_info);
+                
+                // 🚀 Phase 5: Universal Symbol生成
+                state.add_test_function_symbol(matched.substr(name_start, name_end - name_start), state.current_line);
             }
         }
     }
@@ -729,6 +784,9 @@ struct javascript_action<javascript::minimal_grammar::arrow_function> {
             func_info.is_arrow_function = true;
             func_info.is_async = (matched.find("async") != std::string::npos);
             state.functions.push_back(func_info);
+            
+            // 🚀 Phase 5: Universal Symbol生成
+            state.add_test_function_symbol(func_info.name, state.current_line);
         }
     }
 };
@@ -780,6 +838,9 @@ struct javascript_action<javascript::minimal_grammar::class_header> {
                 }
                 
                 state.classes.push_back(class_info);
+                
+                // 🚀 Phase 5: Universal Symbol生成
+                state.add_test_class_symbol(class_info.name, class_info.start_line);
             }
         }
     }
@@ -837,6 +898,16 @@ struct javascript_action<javascript::minimal_grammar::class_method> {
             }
             func_info.metadata["is_class_method"] = "true";
             state.functions.push_back(func_info);
+            
+            // 🚀 Phase 5修正: クラスのmethodsフィールドにも追加
+            if (!state.classes.empty()) {
+                state.classes.back().methods.push_back(func_info);
+                // Universal Symbol生成
+                state.add_test_method_symbol(method_name, state.current_line, state.classes.back().name);
+            } else {
+                // クラス外のメソッド（稀なケース）
+                state.add_test_method_symbol(method_name, state.current_line);
+            }
             
             // std::cerr << "[AST] Found class method: " << method_name << " at line " << state.current_line << std::endl;
         }
@@ -1128,14 +1199,25 @@ protected:
         result.functions.insert(result.functions.end(), basic_functions.begin(), basic_functions.end());
         result.classes.insert(result.classes.end(), classes.begin(), classes.end());
         
+        // 🚀 Phase 5緊急対応: クラスメソッドを検出
+        ScriptDetectionHelpers::detect_class_methods(result.classes, content);
+        
         // 🚀 Phase 5: 統一検出システムでもUniversal Symbol生成
-        // 既存のUniversal Symbolがある場合は保持
-        auto symbol_table = result.universal_symbols ? result.universal_symbols : std::make_shared<SymbolTable>();
-        int class_counter = symbol_table->size();  // 既存のシンボル数から開始
+        // 既存のUniversal Symbolがある場合はスキップ（重複防止）
+        if (result.universal_symbols && result.universal_symbols->size() > 0) {
+            // 既にUniversal Symbolsが生成されている場合は、メソッドのみ追加
+            return;
+        }
+        
+        auto symbol_table = std::make_shared<SymbolTable>();
+        int class_counter = 0;
         int function_counter = 0;
         
-        // クラスのUniversal Symbol生成
-        for (const auto& class_info : classes) {
+        // クラスとメソッドのUniversal Symbol生成
+        int method_counter = 0;
+        // classesではなくresult.classesを使用（統一検出システムの結果を使用）
+        for (const auto& class_info : result.classes) {
+            // クラス自体のシンボル
             UniversalSymbolInfo symbol;
             symbol.symbol_id = "class_" + class_info.name + "_" + std::to_string(class_counter++);
             symbol.symbol_type = SymbolType::CLASS;
@@ -1149,6 +1231,25 @@ protected:
 #endif
             
             symbol_table->add_symbol(std::move(symbol));
+            
+            // クラスメソッドのシンボル生成
+            for (const auto& method : class_info.methods) {
+                UniversalSymbolInfo method_symbol;
+                method_symbol.symbol_id = "method_" + method.name + "_" + std::to_string(method_counter++);
+                method_symbol.symbol_type = SymbolType::FUNCTION;
+                method_symbol.name = method.name;
+                method_symbol.start_line = method.start_line;
+                method_symbol.metadata["language"] = "javascript";
+                method_symbol.metadata["class"] = class_info.name;
+                
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+                std::cerr << "[Phase 5 Unified] Adding method symbol: " << method.name 
+                          << " from class " << class_info.name
+                          << " with ID: " << method_symbol.symbol_id << std::endl;
+#endif
+                
+                symbol_table->add_symbol(std::move(method_symbol));
+            }
         }
         
         // 関数のUniversal Symbol生成
