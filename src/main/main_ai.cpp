@@ -20,6 +20,7 @@
 #include "../../src/converters/js_symbol_converter.hpp"
 #include "../../src/converters/python_symbol_converter.hpp"
 #include "../../src/converters/cpp_symbol_converter.hpp"
+#include "../../src/converters/csharp_symbol_converter.hpp"
 #include <iostream>
 #include <filesystem>
 #include <chrono>
@@ -273,6 +274,17 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
             
             if (multilang_result.csharp_result) {
                 analysis_result = multilang_result.csharp_result.value();
+                
+                // 🔥 C# Universal Symbol生成
+                std::cerr << "🔍 DEBUG: C# branch - analysis_result.language = " << static_cast<int>(analysis_result.language) << std::endl;
+                if (analysis_result.language == Language::CSHARP) {
+                    std::cerr << "🔥 C# Universal Symbol conversion started. Classes: " << analysis_result.classes.size() 
+                              << ", Functions: " << analysis_result.functions.size() << std::endl;
+                    CSharpSymbolConverter converter;
+                    auto symbol_table = converter.convert_from_analysis_result(analysis_result);
+                    std::cerr << "🔥 C# Universal Symbols generated: " << symbol_table.get_all_symbols().size() << std::endl;
+                    analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
+                }
             } else if (multilang_result.js_result) {
                 analysis_result = multilang_result.js_result.value();
                 
@@ -621,6 +633,17 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
             
             if (multilang_result.csharp_result) {
                 analysis_result = multilang_result.csharp_result.value();
+                
+                // 🔥 C# Universal Symbol生成
+                std::cerr << "🔍 DEBUG: C# branch - analysis_result.language = " << static_cast<int>(analysis_result.language) << std::endl;
+                if (analysis_result.language == Language::CSHARP) {
+                    std::cerr << "🔥 C# Universal Symbol conversion started. Classes: " << analysis_result.classes.size() 
+                              << ", Functions: " << analysis_result.functions.size() << std::endl;
+                    CSharpSymbolConverter converter;
+                    auto symbol_table = converter.convert_from_analysis_result(analysis_result);
+                    std::cerr << "🔥 C# Universal Symbols generated: " << symbol_table.get_all_symbols().size() << std::endl;
+                    analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
+                }
             } else if (multilang_result.js_result) {
                 analysis_result = multilang_result.js_result.value();
                 
