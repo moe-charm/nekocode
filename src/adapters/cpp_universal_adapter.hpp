@@ -385,7 +385,7 @@ protected:
         for (const auto& class_info : result.classes) {
             UniversalSymbolInfo class_symbol;
             class_symbol.symbol_id = "class_" + class_info.name + "_" + std::to_string(class_counter++);
-            class_symbol.symbol_type = "class";
+            class_symbol.symbol_type = SymbolType::CLASS;
             class_symbol.name = class_info.name;
             class_symbol.start_line = class_info.start_line;
             class_symbol.metadata["language"] = "cpp";
@@ -404,7 +404,7 @@ protected:
             for (const auto& method : class_info.methods) {
                 UniversalSymbolInfo method_symbol;
                 method_symbol.symbol_id = "method_" + method.name + "_" + std::to_string(method_counter++);
-                method_symbol.symbol_type = "function";
+                method_symbol.symbol_type = SymbolType::FUNCTION;
                 method_symbol.name = method.name;
                 method_symbol.start_line = method.start_line;
                 method_symbol.metadata["language"] = "cpp";
@@ -439,7 +439,7 @@ protected:
             if (!is_method) {
                 UniversalSymbolInfo func_symbol;
                 func_symbol.symbol_id = "function_" + func_info.name + "_" + std::to_string(function_counter++);
-                func_symbol.symbol_type = "function";
+                func_symbol.symbol_type = SymbolType::FUNCTION;
                 func_symbol.name = func_info.name;
                 func_symbol.start_line = func_info.start_line;
                 func_symbol.metadata["language"] = "cpp";
