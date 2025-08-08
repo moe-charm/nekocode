@@ -288,12 +288,15 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
             } else if (multilang_result.js_result) {
                 analysis_result = multilang_result.js_result.value();
                 
-                // 🌟 JavaScript/TypeScript Universal Symbol生成
+                // 🚀 Phase 5テスト: JavaScript/TypeScript Symbol Converter無効化
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 if (analysis_result.language == Language::JAVASCRIPT || analysis_result.language == Language::TYPESCRIPT) {
                     JSSymbolConverter converter;
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                */
                 
                 // 🐍 Python Universal Symbol生成
                 if (analysis_result.language == Language::PYTHON) {
@@ -647,12 +650,15 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
             } else if (multilang_result.js_result) {
                 analysis_result = multilang_result.js_result.value();
                 
-                // 🌟 JavaScript/TypeScript Universal Symbol生成
+                // 🚀 Phase 5テスト: JavaScript/TypeScript Symbol Converter無効化
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 if (analysis_result.language == Language::JAVASCRIPT || analysis_result.language == Language::TYPESCRIPT) {
                     JSSymbolConverter converter;
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                */
                 
                 // 🐍 Python Universal Symbol生成
                 if (analysis_result.language == Language::PYTHON) {
