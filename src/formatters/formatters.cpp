@@ -266,7 +266,11 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
     }
     
     // 🌟 Phase 3: Universal Symbol情報（Rustのみ対応）
+    std::cerr << "[DEBUG] Formatter: result.universal_symbols is " 
+              << (result.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
     if (result.universal_symbols) {
+        std::cerr << "[DEBUG] Formatter: universal_symbols size = " 
+                  << result.universal_symbols->size() << std::endl;
         json_result["symbols"] = result.universal_symbols->to_json();
     }
     

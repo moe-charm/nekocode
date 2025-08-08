@@ -138,6 +138,14 @@ Result<AnalysisResult> NekoCodeCore::analyze_content(const std::string& content,
                 
                 // 🆕 CRITICAL FIX: commented_lines配列をコピー（欠落していた！）
                 result.commented_lines = pg_result.commented_lines;
+                
+                // 🚀 Phase 5: Universal Symbolsをコピー（必須！）
+                if (pg_result.universal_symbols) {
+                    result.universal_symbols = pg_result.universal_symbols;
+                    std::cerr << "[DEBUG core.cpp] Copied universal_symbols from PEGTL result" << std::endl;
+                } else {
+                    std::cerr << "[DEBUG core.cpp] No universal_symbols in PEGTL result" << std::endl;
+                }
             }
         }
         
