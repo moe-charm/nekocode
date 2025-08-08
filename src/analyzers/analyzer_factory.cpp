@@ -91,8 +91,8 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
     
     // JavaScript
     if (ext == ".js" || ext == ".mjs" || ext == ".jsx" || ext == ".cjs") {
-        // PEGTL版を使用（std::regex版から移行）
-        return std::make_unique<JavaScriptPEGTLAnalyzer>();
+        // 🚀 Universal AST Adapter を使用
+        return std::make_unique<adapters::JavaScriptUniversalAdapter>();
     }
     
     // TypeScript
@@ -104,8 +104,8 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
     // C++
     if (ext == ".cpp" || ext == ".cxx" || ext == ".cc" || 
         ext == ".hpp" || ext == ".hxx" || ext == ".hh" || ext == ".h++") {
-        // 🔧 修正済みAnalyzerを使用（関数複雑度計算対応）
-        return std::make_unique<CppLanguageAnalyzer>();
+        // ⚙️ Universal AST Adapter を使用
+        return std::make_unique<adapters::CppUniversalAdapter>();
     }
     
     // C (注意: .h は曖昧なので内容で判断が必要)
@@ -115,32 +115,32 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
     
     // Python
     if (ext == ".py" || ext == ".pyw" || ext == ".pyi") {
-        // PEGTL版を使用（メンバ変数検出対応）
-        return std::make_unique<PythonPEGTLAnalyzer>();
+        // 🐍 Universal AST Adapter を使用
+        return std::make_unique<adapters::PythonUniversalAdapter>();
     }
     
     // C#
     if (ext == ".cs" || ext == ".csx") {
-        // PEGTL版を使用（メンバ変数検出対応）
-        return std::make_unique<CSharpPEGTLAnalyzer>();
+        // 💎 Universal AST Adapter を使用
+        return std::make_unique<adapters::CSharpUniversalAdapter>();
     }
     
     // Go
     if (ext == ".go") {
-        // Go言語解析エンジン（Goroutine & Channel detection）
-        return std::make_unique<GoAnalyzer>();
+        // 🟢 Universal AST Adapter を使用
+        return std::make_unique<adapters::GoUniversalAdapter>();
     }
     
     // Rust
     if (ext == ".rs") {
-        // Rust言語解析エンジン（trait, impl, macro detection）
-        return std::make_unique<RustAnalyzer>();
+        // 🦀 Universal AST Adapter を使用
+        return std::make_unique<adapters::RustUniversalAdapter>();
     }
     
     // .h ファイルはデフォルトでC++として扱う
     if (ext == ".h") {
-        // PEGTL版を使用（Claude Code支援作戦）
-        return std::make_unique<CppPEGTLAnalyzer>();
+        // ⚙️ Universal AST Adapter を使用
+        return std::make_unique<adapters::CppUniversalAdapter>();
     }
     
     return nullptr;

@@ -199,9 +199,11 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
     // 🚀 Phase 5: Universal Symbol結果設定
     if (symbol_table_ && symbol_table_->get_all_symbols().size() > 0) {
         result.universal_symbols = symbol_table_;
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[Phase 5] Rust analyzer generated " 
                   << symbol_table_->get_all_symbols().size() 
                   << " Universal Symbols" << std::endl;
+#endif
     }
     
     // 統計情報をログに出力

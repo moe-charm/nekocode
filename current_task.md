@@ -416,11 +416,11 @@ fn create_cache() -> CacheManager {
 | 言語 | Session作成 | Symbols生成数 | list-symbols | get-symbol | JSON出力 | 総合評価 |
 |------|------------|--------------|-------------|------------|----------|----------|
 | JavaScript | ✅ | 5 (class+methods) | ✅ find使用 | ✅ ast-query使用 | ✅ Complete | ✅ **成功** |
-| Python | ⏳ | - | ⏳ | ⏳ | ⏳ | ⏳ |
-| C++ | ⏳ | - | ⏳ | ⏳ | ⏳ | ⏳ |
-| C# | ⏳ | - | ⏳ | ⏳ | ⏳ | ⏳ |
-| Go | ⏳ | - | ⏳ | ⏳ | ⏳ | ⏳ |
-| Rust | ⏳ | - | ⏳ | ⏳ | ⏳ | ⏳ |
+| Python | ✅ | 1 (class only) | ✅ find使用 | ✅ 利用可能 | ⚠️ Partial | ⚠️ **部分的成功** |
+| C++ | ✅ | 0 (未生成) | ❌ 機能なし | ❌ 機能なし | ❌ Empty | ❌ **失敗** |
+| C# | ✅ | 5 (2class+3methods) | ✅ find使用 | ✅ 利用可能 | ✅ Complete | ✅ **成功** |
+| Go | ✅ | 4 (structs+funcs) | ✅ find使用 | ✅ 利用可能 | ⚠️ Logs残存 | ⚠️ **部分的成功** |
+| Rust | ✅ | 7 (struct+trait+methods) | ✅ find使用 | ✅ 利用可能 | ⚠️ Logs残存 | ⚠️ **部分的成功** |
 
 **凡例**: ✅ 成功 / ⚠️ 部分的成功 / ❌ 失敗 / ⏳ 未実施
 
