@@ -380,6 +380,27 @@ public:
             apply_csharp_line_based_analysis(state.result, content, filename);
             std::cerr << "✅ C# Line-based analysis completed. Classes: " << state.result.classes.size() 
                       << ", Functions: " << state.result.functions.size() << std::endl;
+            
+            // 🚀 Phase 5: Line-basedフォールバック結果からUniversal Symbol生成
+            if (!state.result.classes.empty() || !state.result.functions.empty()) {
+                if (!state.symbol_table) {
+                    state.symbol_table = std::make_shared<SymbolTable>();
+                }
+                
+                // クラスからUniversal Symbol生成
+                for (const auto& class_info : state.result.classes) {
+                    state.add_test_class_symbol(class_info.name, class_info.start_line);
+                }
+                
+                // 関数からUniversal Symbol生成  
+                for (const auto& func_info : state.result.functions) {
+                    state.add_test_method_symbol(func_info.name, func_info.start_line);
+                }
+                
+                std::cerr << "[Phase 5 Fallback] C# Line-based generated " 
+                          << state.symbol_table->get_all_symbols().size() 
+                          << " Universal Symbols" << std::endl;
+            }
         } else {
             std::cerr << "⚠️  C# Hybrid Strategy NOT triggered" << std::endl;
         }
