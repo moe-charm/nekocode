@@ -73,7 +73,9 @@ void GoAnalyzer::reset_state() {
 }
 
 AnalysisResult GoAnalyzer::analyze(const std::string& content, const std::string& filename) {
+#ifdef NEKOCODE_DEBUG_SYMBOLS
     std::cerr << "🐹 Go Analyzer: Starting analysis..." << std::endl;
+#endif
     
     reset_state();
     
@@ -180,21 +182,27 @@ AnalysisResult GoAnalyzer::analyze(const std::string& content, const std::string
         // 🔥 重要：統計情報を更新！
         result.update_statistics();
         
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "🐹 Go Analysis Complete: " 
                   << goroutines_.size() << " goroutines, "
                   << channels_.size() << " channels, "
                   << go_functions_.size() << " functions detected" << std::endl;
+#endif
         
         // 🚀 Phase 5: Universal Symbol結果設定
         if (symbol_table_ && symbol_table_->get_all_symbols().size() > 0) {
             result.universal_symbols = symbol_table_;
+#ifdef NEKOCODE_DEBUG_SYMBOLS
             std::cerr << "[Phase 5] Go analyzer generated " 
                       << symbol_table_->get_all_symbols().size() 
                       << " Universal Symbols" << std::endl;
+#endif
         }
         
     } catch (const std::exception& e) {
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "🚨 Go Analysis Error: " << e.what() << std::endl;
+#endif
         result.complexity.cyclomatic_complexity = 1; // fallback
     }
     

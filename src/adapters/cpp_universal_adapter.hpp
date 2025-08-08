@@ -71,6 +71,9 @@ public:
         // Phase 4: C++特化機能の追加
         enhance_result_with_cpp_features(legacy_result);
         
+        // 🚀 Phase 5: Universal Symbols生成（JavaScript成功パターンを適用）
+        generate_universal_symbols(legacy_result);
+        
         return legacy_result;
     }
     
@@ -360,6 +363,103 @@ protected:
         for (const auto& child : node->children) {
             find_namespaces_recursive(child.get(), namespaces);
         }
+    }
+    
+    //=========================================================================
+    // 🚀 Universal Symbols生成エンジン（JavaScript成功パターン適用）
+    //=========================================================================
+    
+    void generate_universal_symbols(AnalysisResult& result) {
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+        std::cerr << "[DEBUG] Starting Universal Symbol generation for C++" << std::endl;
+        std::cerr << "[DEBUG] Classes: " << result.classes.size() 
+                  << ", Functions: " << result.functions.size() << std::endl;
+#endif
+        
+        auto symbol_table = std::make_shared<SymbolTable>();
+        int class_counter = 0;
+        int method_counter = 0;
+        int function_counter = 0;
+        
+        // クラス情報からUniversal Symbol生成
+        for (const auto& class_info : result.classes) {
+            UniversalSymbolInfo class_symbol;
+            class_symbol.symbol_id = "class_" + class_info.name + "_" + std::to_string(class_counter++);
+            class_symbol.symbol_type = "class";
+            class_symbol.name = class_info.name;
+            class_symbol.start_line = class_info.start_line;
+            class_symbol.metadata["language"] = "cpp";
+            
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+            std::cerr << "[DEBUG] Adding class symbol: " << class_info.name 
+                      << " with ID: " << class_symbol.symbol_id << std::endl;
+#endif
+            
+            symbol_table->add_symbol(std::move(class_symbol));
+            
+            // クラスメソッドのシンボル生成
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+            std::cerr << "[DEBUG] Class " << class_info.name << " has " << class_info.methods.size() << " methods" << std::endl;
+#endif
+            for (const auto& method : class_info.methods) {
+                UniversalSymbolInfo method_symbol;
+                method_symbol.symbol_id = "method_" + method.name + "_" + std::to_string(method_counter++);
+                method_symbol.symbol_type = "function";
+                method_symbol.name = method.name;
+                method_symbol.start_line = method.start_line;
+                method_symbol.metadata["language"] = "cpp";
+                method_symbol.metadata["class"] = class_info.name;
+                
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+                std::cerr << "[DEBUG] Adding method symbol: " << method.name 
+                          << " from class " << class_info.name
+                          << " with ID: " << method_symbol.symbol_id << std::endl;
+#endif
+                
+                symbol_table->add_symbol(std::move(method_symbol));
+            }
+        }
+        
+        // 独立関数のシンボル生成（クラス外の関数）
+        for (const auto& func_info : result.functions) {
+            // クラス内メソッドかどうかチェック
+            bool is_method = false;
+            for (const auto& cls : result.classes) {
+                for (const auto& method : cls.methods) {
+                    if (method.name == func_info.name && 
+                        method.start_line == func_info.start_line) {
+                        is_method = true;
+                        break;
+                    }
+                }
+                if (is_method) break;
+            }
+            
+            // クラス外の独立関数のみ追加
+            if (!is_method) {
+                UniversalSymbolInfo func_symbol;
+                func_symbol.symbol_id = "function_" + func_info.name + "_" + std::to_string(function_counter++);
+                func_symbol.symbol_type = "function";
+                func_symbol.name = func_info.name;
+                func_symbol.start_line = func_info.start_line;
+                func_symbol.metadata["language"] = "cpp";
+                
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+                std::cerr << "[DEBUG] Adding function symbol: " << func_info.name 
+                          << " with ID: " << func_symbol.symbol_id << std::endl;
+#endif
+                
+                symbol_table->add_symbol(std::move(func_symbol));
+            }
+        }
+        
+        // 結果にUniversal Symbolsを設定
+        result.universal_symbols = symbol_table;
+        
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+        std::cerr << "[DEBUG] C++ Universal Symbol generation completed. Total symbols: " 
+                  << symbol_table->get_symbols().size() << std::endl;
+#endif
     }
 };
 
