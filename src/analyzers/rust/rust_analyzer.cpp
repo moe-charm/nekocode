@@ -93,6 +93,9 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
         }
         
         result.functions.push_back(func_info);
+        
+        // 🚀 Phase 5: Universal Symbol直接生成
+        add_test_function_symbol(rust_func.name, rust_func.line_number);
     }
     
     // 構造体をクラスとして扱う
@@ -104,6 +107,9 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
             class_info.metadata["is_pub"] = "true";
         }
         result.classes.push_back(class_info);
+        
+        // 🚀 Phase 5: Universal Symbol直接生成
+        add_test_struct_symbol(rust_struct.name, rust_struct.line_number);
     }
     
     // 列挙型もクラスとして扱う
@@ -113,6 +119,9 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
         class_info.start_line = rust_enum.line_number;
         class_info.metadata["type"] = "enum";
         result.classes.push_back(class_info);
+        
+        // 🚀 Phase 5: Universal Symbol直接生成
+        add_test_enum_symbol(rust_enum.name, rust_enum.line_number);
     }
     
     // 🎯 メンバ変数検出（新機能）
@@ -186,6 +195,14 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
     // 🔥 重要：統計情報を更新！
     NEKOCODE_PERF_CHECKPOINT("statistics");
     result.update_statistics();
+    
+    // 🚀 Phase 5: Universal Symbol結果設定
+    if (symbol_table_ && symbol_table_->get_all_symbols().size() > 0) {
+        result.universal_symbols = symbol_table_;
+        std::cerr << "[Phase 5] Rust analyzer generated " 
+                  << symbol_table_->get_all_symbols().size() 
+                  << " Universal Symbols" << std::endl;
+    }
     
     // 統計情報をログに出力
     stats.total_lines = result.file_info.total_lines;
@@ -1105,6 +1122,72 @@ ClassInfo* RustAnalyzer::find_struct_in_classes(std::vector<ClassInfo>& classes,
         }
     }
     return nullptr;
+}
+
+//=============================================================================
+// 🚀 Phase 5: Universal Symbol生成メソッド実装
+//=============================================================================
+
+void RustAnalyzer::initialize_symbol_table() {
+    if (!symbol_table_) {
+        symbol_table_ = std::make_shared<SymbolTable>();
+        id_counters_.clear();
+    }
+}
+
+std::string RustAnalyzer::generate_unique_id(const std::string& base) {
+    id_counters_[base]++;
+    return base + "_" + std::to_string(id_counters_[base] - 1);
+}
+
+void RustAnalyzer::add_test_struct_symbol(const std::string& struct_name, std::uint32_t start_line) {
+    initialize_symbol_table();
+    
+    UniversalSymbolInfo symbol;
+    symbol.symbol_id = generate_unique_id("struct_" + struct_name);
+    symbol.symbol_type = SymbolType::CLASS;  // Rust structをclassとして扱う
+    symbol.name = struct_name;
+    symbol.start_line = start_line;
+    symbol.metadata["language"] = "rust";
+    symbol.metadata["type"] = "struct";
+    
+    std::cerr << "[Phase 5 Test] Rust adding struct symbol: " << struct_name 
+              << " with ID: " << symbol.symbol_id << std::endl;
+    
+    symbol_table_->add_symbol(std::move(symbol));
+}
+
+void RustAnalyzer::add_test_enum_symbol(const std::string& enum_name, std::uint32_t start_line) {
+    initialize_symbol_table();
+    
+    UniversalSymbolInfo symbol;
+    symbol.symbol_id = generate_unique_id("enum_" + enum_name);
+    symbol.symbol_type = SymbolType::CLASS;  // Rust enumをclassとして扱う
+    symbol.name = enum_name;
+    symbol.start_line = start_line;
+    symbol.metadata["language"] = "rust";
+    symbol.metadata["type"] = "enum";
+    
+    std::cerr << "[Phase 5 Test] Rust adding enum symbol: " << enum_name 
+              << " with ID: " << symbol.symbol_id << std::endl;
+    
+    symbol_table_->add_symbol(std::move(symbol));
+}
+
+void RustAnalyzer::add_test_function_symbol(const std::string& function_name, std::uint32_t start_line) {
+    initialize_symbol_table();
+    
+    UniversalSymbolInfo symbol;
+    symbol.symbol_id = generate_unique_id("function_" + function_name);
+    symbol.symbol_type = SymbolType::FUNCTION;
+    symbol.name = function_name;
+    symbol.start_line = start_line;
+    symbol.metadata["language"] = "rust";
+    
+    std::cerr << "[Phase 5 Test] Rust adding function symbol: " << function_name 
+              << " with ID: " << symbol.symbol_id << std::endl;
+    
+    symbol_table_->add_symbol(std::move(symbol));
 }
 
 } // namespace nekocode

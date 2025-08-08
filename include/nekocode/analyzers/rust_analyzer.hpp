@@ -12,6 +12,9 @@
 //=============================================================================
 
 #include "base_analyzer.hpp"
+// 🚀 Phase 5: Universal Symbol直接生成
+#include "nekocode/universal_symbol.hpp"
+#include "nekocode/symbol_table.hpp"
 #include <regex>
 #include <string>
 #include <vector>
@@ -106,6 +109,10 @@ private:
     std::vector<ImplInfo> impls_;
     std::vector<MacroInfo> macros_;
     
+    // 🚀 Phase 5: Universal Symbol直接生成
+    std::shared_ptr<SymbolTable> symbol_table_;         // Universal Symbolテーブル  
+    std::unordered_map<std::string, int> id_counters_;  // ID生成用カウンター
+    
     // 解析メソッド
     void analyze_functions(const std::string& content);
     void analyze_structs(const std::string& content);
@@ -133,6 +140,13 @@ private:
     // 🆕 Phase 1: impl分類修正機能
     void fix_impl_method_classification(AnalysisResult& result);
     ClassInfo* find_struct_in_classes(std::vector<ClassInfo>& classes, const std::string& struct_name);
+    
+    // 🚀 Phase 5: Universal Symbol生成メソッド
+    void initialize_symbol_table();
+    std::string generate_unique_id(const std::string& base);
+    void add_test_struct_symbol(const std::string& struct_name, std::uint32_t start_line);
+    void add_test_enum_symbol(const std::string& enum_name, std::uint32_t start_line);
+    void add_test_function_symbol(const std::string& function_name, std::uint32_t start_line);
 };
 
 } // namespace nekocode
