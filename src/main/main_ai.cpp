@@ -277,6 +277,9 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 
                 // 🔥 C# Universal Symbol生成
                 std::cerr << "🔍 DEBUG: C# branch - analysis_result.language = " << static_cast<int>(analysis_result.language) << std::endl;
+                // 🚀 Phase 5テスト: C# Symbol Converter無効化
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 if (analysis_result.language == Language::CSHARP) {
                     std::cerr << "🔥 C# Universal Symbol conversion started. Classes: " << analysis_result.classes.size() 
                               << ", Functions: " << analysis_result.functions.size() << std::endl;
@@ -285,6 +288,7 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                     std::cerr << "🔥 C# Universal Symbols generated: " << symbol_table.get_all_symbols().size() << std::endl;
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                */
             } else if (multilang_result.js_result) {
                 analysis_result = multilang_result.js_result.value();
                 
@@ -645,6 +649,9 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                 
                 // 🔥 C# Universal Symbol生成
                 std::cerr << "🔍 DEBUG: C# branch - analysis_result.language = " << static_cast<int>(analysis_result.language) << std::endl;
+                // 🚀 Phase 5テスト: C# Symbol Converter無効化
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 if (analysis_result.language == Language::CSHARP) {
                     std::cerr << "🔥 C# Universal Symbol conversion started. Classes: " << analysis_result.classes.size() 
                               << ", Functions: " << analysis_result.functions.size() << std::endl;
@@ -653,6 +660,7 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                     std::cerr << "🔥 C# Universal Symbols generated: " << symbol_table.get_all_symbols().size() << std::endl;
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                */
             } else if (multilang_result.js_result) {
                 analysis_result = multilang_result.js_result.value();
                 
