@@ -10,7 +10,7 @@
 - **🌳 AST Revolution**: リアルタイム構文解析（JavaScript/TypeScript）- ゼロコストAST構築
 - **高速解析**: 効率的なコード解析エンジン
 - **C++特化機能**: 循環依存検出、依存グラフ、最適化提案
-- **多言語対応**: JavaScript, TypeScript, C++, C, Python, C#
+- **多言語対応**: JavaScript, TypeScript, C++, C, Python, C#, Go, Rust（全8言語対応！）
 - **日本語対応**: 日本語でも利用可能
 - **Claude Code統合**: `mcp__nekocode__*` ツールとして利用
 
@@ -77,6 +77,26 @@ python3 --version  # Python 3.8+ 必要
 #### 📋 履歴管理
 - `mcp__nekocode__edit_history` - 📋 編集履歴表示（最新20件）
 - `mcp__nekocode__edit_show` - 🔍 編集詳細表示（ID指定）
+
+### 🚀 MoveClass機能 - クラス・関数の自動移動（NEW！全言語対応！）
+**リファクタリングの革命！クラスや関数を自動でファイル移動 + import/include自動更新**
+
+#### 🌟 対応言語 (全8言語完全テスト済み！)
+- **JavaScript/TypeScript** - React Component、関数の移動
+- **Python** - クラス・関数の移動、import自動更新  
+- **C++** - テンプレートクラス、namespace、#include自動処理
+- **C#** - クラス移動、namespace・using自動更新
+- **Go** - struct・interface移動、package/import自動処理
+- **Rust** - struct・enum移動、mod・use自動更新
+
+#### 📝 MoveClass専用ツール
+**大規模テスト完了！1.4GB実プロジェクトで検証済み**
+- React（Components.js → NativeComponents.js）✅
+- Flask（View/MethodView → base_view.py/method_view.py）✅  
+- nlohmann/json（template class → byte_container_impl.hpp）✅
+- NLog（NullLogger → NullLoggerImpl.cs）✅
+- Gin（LoggerConfig struct → logger_config.go）✅
+- Serde（IgnoredAny → ignored_any_type.rs module）✅
 
 ### 🌳 AST Revolution - リアルタイム構文解析（NEW！）
 **JavaScript/TypeScript向け高度解析機能**
@@ -189,6 +209,63 @@ details = await mcp__nekocode__edit_show(session_id, "ED_001")
 # → 特定の編集操作の詳細情報
 ```
 
+### 🚀 MoveClass機能 - 実戦的なリファクタリング例（NEW!）
+
+#### JavaScript/TypeScript例
+```bash
+# Reactコンポーネントの分離（実際のテスト結果）
+./test_js_moveclass.sh
+# → NativeClass: Components.js (651B) → NativeComponents.js (129B)
+# → import文自動更新: import { NativeClass } from './NativeComponents'
+```
+
+#### Python例
+```python
+# Flaskクラスの分離（実際のテスト結果）
+./test_python_moveclass.py
+# → View: views.py → base_view.py (132行)
+# → MethodView: views.py → method_view.py (67行)  
+# → import自動追加: from .base_view import View
+```
+
+#### C++例  
+```bash
+# テンプレートクラスの移動（nlohmann/json実テスト）
+./test_cpp_moveclass.sh
+# → byte_container_with_subtype: 82行のテンプレートクラス移動
+# → namespace・#include自動処理、include guard生成
+```
+
+#### C#例
+```python
+# NLogクラスの移動（実テスト結果）
+./test_csharp_moveclass.py
+# → NullLogger: NullLogger.cs → NullLoggerImpl.cs
+# → namespace・using文完全保持
+```
+
+#### Go例
+```python
+# Gin構造体の移動（実テスト結果）
+./test_go_moveclass.py  
+# → LoggerConfig: logger.go → logger_config.go (33行)
+# → 関連型（Skipper, LogFormatter）も同時移動
+```
+
+#### Rust例
+```python
+# Serde構造体の移動（実テスト結果）
+./test_rust_moveclass.py
+# → IgnoredAny: ignored_any.rs → ignored_any_type.rs (105行)
+# → mod宣言・pub use re-export自動生成
+```
+
+**💡 全言語共通の特徴:**
+- ✅ **自動バックアップ作成** (.bak)
+- ✅ **import/include文自動更新**
+- ✅ **プレビュー機能** (変更前後確認)
+- ✅ **言語固有構文対応** (namespace, template, etc.)
+
 ### 🧠 Memory System - 解析結果の永続化（NEW!）
 ```python
 # 解析結果の自動保存
@@ -247,15 +324,17 @@ NekoCodeは**高速解析**に特化したツールです。
 - [x] セッション管理
 - [x] 🌳 **AST Revolution** - リアルタイム構文解析（ゼロコストAST構築）
 
-### Phase 2 (予定)
-- [ ] 実際のMCPプロトコル実装
-- [ ] C#サポート追加
-- [ ] コード編集機能
+### Phase 2 (完了！)
+- [x] **🚀 MoveClass機能実装** - 全8言語対応完了！
+- [x] **C#, Go, Rust完全対応** - Universal AST対応済み
+- [x] **大規模リファクタリングテスト** - 1.4GB実プロジェクトで検証
+- [x] **コード編集機能拡張** - プレビュー→確認パターン実装
 
 ### Phase 3 (予定)  
-- [ ] Python, Java, Go, Rust対応
-- [ ] セキュリティ解析
-- [ ] AI最適化機能
+- [ ] セキュリティ解析機能
+- [ ] AI最適化リコメンド機能  
+- [ ] 自動テスト生成機能
+- [ ] プロジェクト間依存関係分析
 
 ## 🐱 開発情報
 

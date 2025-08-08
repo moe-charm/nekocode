@@ -18,7 +18,7 @@
 
 Revolutionary **multi-language code analyzer** delivering **10-100x faster performance** than alternatives! 
 Specialized for **AI-powered code review**, **static analysis**, and **complexity detection** across 
-**C++, TypeScript, JavaScript, Python, C#** with **Claude Code optimization**.
+**8 languages: JavaScript, TypeScript, C++, C, Python, C#, Go, Rust** with **Claude Code optimization**.
 
 **🏆 Proven Enterprise Results:** 
 - TypeScript Compiler → **2,362 functions detected** 

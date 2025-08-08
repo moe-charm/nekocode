@@ -1,780 +1,380 @@
-# 🔧 ビルド問題修復とPython method検出修正
+# 🚀 MoveClass全言語徹底テスト計画
 
-**最終更新**: 2025-08-09 05:00  
-**状況**: ✅ **C++ Universal Symbols修復完了！** **6言語全て成功達成！** 🎉
+**最終更新**: 2025-08-09 08:00  
+**状況**: 🔥 **全6言語でMoveClassテスト実施中**
 
 ---
 
-## ✅ **C++ Universal Symbols完全修復成功！（2025-08-09 05:00）**
+## 📋 **テスト概要**
 
-### **根本原因特定と修正完了**
+MoveClass機能を全6言語で実戦的にテストし、各言語特有の課題を発見・解決する。
 
-#### **問題の本質**
-C++ Universal Symbolsは**2箇所**で消失していた：
+### **テスト環境**
+- **テストプロジェクト**: `/tmp/test-projects/` (1.4GB実プロジェクト)
+- **実験用ディレクトリ**: `/tmp/test-moveclass-[言語]/`
+- **方針**: 破壊的変更OK（test-projectsなら実験し放題）
 
-1. **core.cpp**: `CppAnalysisResult`変換時に`universal_symbols`未コピー
-2. **main_ai.cpp**: 手動変換時に`universal_symbols`未コピー
+---
 
-#### **修正内容**
-```cpp
-// 修正1: core.cpp (L312)
-cpp_result.universal_symbols = analysis_result.universal_symbols;
+## 🟨 **1. JavaScript/TypeScript テスト**
 
-// 修正2: main_ai.cpp (L378-380)
-if (cpp_result.universal_symbols && !analysis_result.universal_symbols) {
-    analysis_result.universal_symbols = cpp_result.universal_symbols;
-}
+### **テストケース1: React Component移動**
+```javascript
+// 移動元: /tmp/test-projects/react/fixtures/stacks/Components.js
+export class NativeClass extends React.Component { ... }
+export class FrozenClass extends React.Component { ... }
+
+// 移動先: NativeComponents.js
+// 課題: React import自動追加、export文の扱い
+```
+**✅ 実施済み**: NativeClass移動成功
+
+### **テストケース2: TypeScript Interface移動**
+```typescript
+// 移動元: /tmp/test-projects/TypeScript/src/compiler/types.ts
+export interface Type { ... }
+export interface Symbol { ... }
+
+// 移動先: interfaces/CoreTypes.ts
+// 課題: 型の相互参照、import type vs import
 ```
 
-#### **修復結果確認**
-- **CppUniversalAdapter**: ✅ Universal Symbols生成成功
-- **core.cpp変換**: ✅ universal_symbolsコピー成功  
-- **main_ai.cpp変換**: ✅ universal_symbolsコピー成功
-- **Formatter**: ✅ 9個のSymbolsをJSON出力
+### **テストケース3: 循環依存の検出**
+```javascript
+// A.js imports B.js
+// B.js imports A.js
+// 課題: 移動時に循環依存を壊さない
+```
 
-#### **検出シンボル例**
-- `class_EventHandler_2`, `function_addEvent_0`, `method_push_back_0`等
-- クラス3個、関数6個、合計9個のSymbol検出確認
-
----
-
-## 🎉 **Universal AST Revolution 完全達成！**
-
-### **全問題解決完了**
-- ✅ ビルドエラー修正済み
-- ✅ Python Universal Symbols修復済み（1→6 symbols）
-- ✅ **C++ Universal Symbols修復済み（0→9 symbols）**
-- ✅ **全6言語でUniversal Symbols正常動作確認**
-- ✅ **1.4GB実プロジェクトでSession Mode検証完了！**（2025-08-08）
-
-### **達成状況**
-- **対応言語**: JavaScript, Python, C++, C#, Go, Rust
-- **成功率**: **100%（6/6言語）**
-- **検出Symbol総数**: 32個（全言語合計）
-- **技術革新**: 統一AST、Universal Symbols、MCP統合
-- **実績**: GitHub実プロジェクト1.4GBでの動作確認済み
+### **期待される動作**
+- [x] ES6 import/export正確な解析
+- [ ] 相対パス自動調整（./→../）
+- [ ] index.jsのバレルexport更新
+- [ ] JSDocコメント保持
 
 ---
 
-## 🧪 **全言語Session Modeテスト詳細計画**
+## 🐍 **2. Python テスト**
 
-### 📋 **テスト手順テンプレート**
-各言語で以下の手順を実行:
+### **テストケース1: Flask Model移動**
+```python
+# 移動元: /tmp/test-projects/flask/src/flask/app.py
+class Flask:
+    def __init__(self):
+        self.config = Config()
+    
+    def route(self, rule):
+        ...
+
+# 移動先: core/application.py
+# 課題: __init__.py更新、相対import
+```
+
+### **テストケース2: 循環import解決**
+```python
+# models/user.py
+from .post import Post  # 循環参照
+
+class User:
+    def get_posts(self) -> List[Post]:
+        ...
+
+# 移動時に TYPE_CHECKING使用を提案
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .post import Post
+```
+
+### **テストケース3: __all__更新**
+```python
+# __init__.py
+__all__ = ['User', 'Post', 'Comment']
+# Userを移動したら自動更新
+```
+
+### **期待される動作**
+- [ ] from...import文の正確な解析
+- [ ] 相対/絶対import判定
+- [ ] __init__.py自動更新
+- [ ] docstring保持
+
+---
+
+## ⚙️ **3. C++ テスト**
+
+### **テストケース1: nlohmann/json Class移動**
+```cpp
+// 移動元: /tmp/test-projects/json/include/nlohmann/json.hpp
+namespace nlohmann {
+    class basic_json { 
+        ...
+    };
+    using json = basic_json<>;
+}
+
+// 移動先: json_core.hpp
+// 課題: namespace維持、using alias、前方宣言
+```
+
+### **テストケース2: Template Class移動**
+```cpp
+// 移動元: container.hpp
+template<typename T>
+class Container {
+    std::vector<T> items;
+};
+
+// 特殊化も一緒に移動
+template<>
+class Container<std::string> { ... };
+```
+
+### **テストケース3: ヘッダーガード更新**
+```cpp
+// 移動時に自動更新
+#ifndef OLD_PATH_HPP → #ifndef NEW_PATH_HPP
+#define OLD_PATH_HPP → #define NEW_PATH_HPP
+```
+
+### **期待される動作**
+- [ ] include文の<>と""の使い分け
+- [ ] namespace階層の維持
+- [ ] 前方宣言の追跡
+- [ ] インライン実装の扱い
+
+---
+
+## 🎯 **4. C# テスト**
+
+### **テストケース1: NLog Logger移動**
+```csharp
+// 移動元: /tmp/test-projects/NLog/src/NLog/Logger.cs
+namespace NLog {
+    public class Logger {
+        private LogFactory factory;
+        ...
+    }
+}
+
+// 移動先: Core/Logger.cs
+// 課題: namespace変更、using更新、partial class
+```
+
+### **テストケース2: ASP.NET Controller移動**
+```csharp
+// 移動元: Controllers/HomeController.cs
+[ApiController]
+[Route("[controller]")]
+public class HomeController : ControllerBase { }
+
+// 属性（Attribute）も正しく移動
+```
+
+### **テストケース3: Generic制約の保持**
+```csharp
+public class Repository<T> where T : class, IEntity, new() { }
+```
+
+### **期待される動作**
+- [ ] namespace階層の調整
+- [ ] using static/global using対応
+- [ ] partial class検出と警告
+- [ ] 属性（Attributes）保持
+
+---
+
+## 🐹 **5. Go テスト**
+
+### **テストケース1: Gin Handler移動**
+```go
+// 移動元: /tmp/test-projects/gin/gin.go
+package gin
+
+type Engine struct {
+    RouterGroup
+    pool sync.Pool
+}
+
+func (engine *Engine) Run(addr ...string) error { }
+
+// 移動先: engine/core.go
+// 課題: package変更、メソッドレシーバー
+```
+
+### **テストケース2: Interface実装移動**
+```go
+type Handler interface {
+    ServeHTTP(ResponseWriter, *Request)
+}
+
+type MyHandler struct{}
+func (h *MyHandler) ServeHTTP(w ResponseWriter, r *Request) {}
+// インターフェースと実装の関係維持
+```
+
+### **テストケース3: 内部package**
+```go
+// internal/配下への移動時の可視性変更
+package internal
+// 外部からアクセス不可になることを警告
+```
+
+### **期待される動作**
+- [ ] package文の自動更新
+- [ ] import括弧内のソート
+- [ ] メソッドレシーバーの追跡
+- [ ] internal可視性の警告
+
+---
+
+## 🦀 **6. Rust テスト**
+
+### **テストケース1: Serde Struct移動**
+```rust
+// 移動元: /tmp/test-projects/serde/serde/src/lib.rs
+pub struct Serializer {
+    output: Vec<u8>,
+}
+
+impl Serializer {
+    pub fn new() -> Self { }
+}
+
+// 移動先: ser/serializer.rs
+// 課題: mod宣言更新、pub use再export
+```
+
+### **テストケース2: Trait実装の移動**
+```rust
+trait MyTrait {
+    fn method(&self);
+}
+
+struct MyStruct;
+impl MyTrait for MyStruct {
+    fn method(&self) { }
+}
+// trait定義と実装の関係維持
+```
+
+### **テストケース3: マクロ使用struct**
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    #[serde(default)]
+    pub name: String,
+}
+// derive属性とserde属性の保持
+```
+
+### **期待される動作**
+- [ ] mod.rs自動更新
+- [ ] use文のパス調整
+- [ ] pub/pub(crate)可視性維持
+- [ ] derive/属性マクロ保持
+
+---
+
+## 🧪 **共通テストシナリオ**
+
+### **A. 基本移動テスト**
+1. 単一クラス/構造体を新規ファイルへ移動
+2. import/include自動更新確認
+3. 元ファイルでの削除確認
+
+### **B. 依存関係テスト**
+1. 相互参照するクラスの移動
+2. 循環依存の検出と警告
+3. 依存グラフ可視化（DOT形式）
+
+### **C. エラーハンドリング**
+1. 移動先ファイル既存時の動作
+2. 書き込み権限なし時の動作
+3. 構文エラーファイルでの動作
+
+### **D. ロールバックテスト**
+1. 移動実行後のundo
+2. 部分的失敗時の復元
+3. バックアップファイル作成
+
+---
+
+## 📊 **テスト実行手順**
 
 ```bash
-# 1. テストファイル作成
-cat > /tmp/test_[lang].[ext] << 'EOF'
-[言語別テストコード]
-EOF
+# 1. 各言語のテスト環境準備
+for lang in js python cpp csharp go rust; do
+    mkdir -p /tmp/test-moveclass-$lang
+    cp -r /tmp/test-projects/$lang/* /tmp/test-moveclass-$lang/
+done
 
-# 2. Session作成
-./bin/nekocode_ai session-create /tmp/test_[lang].[ext]
-# → Session ID取得
+# 2. Session作成と解析
+./bin/nekocode_ai session-create [ファイル]
 
-# 3. 通常解析結果確認
-./bin/nekocode_ai session-command [SESSION_ID] stats
+# 3. MoveClassプレビュー
+./bin/nekocode_ai moveclass-preview [session-id] [symbol-id] [target-file]
 
-# 4. Universal Symbols確認
-./bin/nekocode_ai session-command [SESSION_ID] list-symbols
+# 4. 実行確認
+./bin/nekocode_ai moveclass-confirm [preview-id]
 
-# 5. JSON出力でUniversal Symbols検証
-./bin/nekocode_ai session-command [SESSION_ID] show-json | jq '.universal_symbols'
-
-# 6. Symbol詳細確認
-./bin/nekocode_ai session-command [SESSION_ID] get-symbol [SYMBOL_ID]
+# 5. 結果検証
+diff -u original.js moved.js
 ```
 
 ---
 
-## 🟨 **1. JavaScript Session Test**
+## ✅ **成功基準**
 
-### テストコード
-```javascript
-// /tmp/test_js.js
-class UserManager {
-    constructor() {
-        this.users = [];
-        this.lastId = 0;
-    }
-    
-    addUser(name, email) {
-        const user = {
-            id: ++this.lastId,
-            name,
-            email
-        };
-        this.users.push(user);
-        return user;
-    }
-    
-    findUserById(id) {
-        return this.users.find(u => u.id === id);
-    }
-}
+### **必須要件**
+- [ ] 全6言語で基本移動成功
+- [ ] import/include自動更新動作
+- [ ] プレビュー表示が分かりやすい
+- [ ] エラー時の適切なメッセージ
 
-export function createManager() {
-    return new UserManager();
-}
+### **品質基準**
+- [ ] 移動後もビルド/実行可能
+- [ ] コードフォーマット維持
+- [ ] コメント・属性の保持
+- [ ] パフォーマンス（1秒以内）
 
-const globalManager = new UserManager();
-```
-
-### 期待される結果
-- **Classes**: UserManager
-- **Functions**: addUser, findUserById, createManager
-- **Universal Symbols**: 
-  - class_UserManager_0 (CLASS)
-  - method_addUser_0 (FUNCTION)
-  - method_findUserById_0 (FUNCTION)
-  - function_createManager_0 (FUNCTION)
+### **ボーナス目標**
+- [ ] 複数Symbol同時移動
+- [ ] リファクタリング提案
+- [ ] 移動履歴の記録
+- [ ] VSCode拡張連携
 
 ---
 
-## 🐍 **2. Python Session Test**
+## 🔥 **現在の進捗**
 
-### テストコード
-```python
-# /tmp/test_py.py
-class DataProcessor:
-    def __init__(self):
-        self.data = []
-        self.processed_count = 0
-    
-    def process_item(self, item):
-        processed = self._transform(item)
-        self.data.append(processed)
-        self.processed_count += 1
-        return processed
-    
-    def _transform(self, item):
-        return str(item).upper()
-    
-    def get_statistics(self):
-        return {
-            'count': self.processed_count,
-            'items': len(self.data)
-        }
+| 言語 | 基本移動 | import更新 | 依存解析 | エラー処理 | 総合評価 |
+|------|---------|-----------|---------|-----------|----------|
+| JavaScript | ✅ | ⏳ | ⏳ | ⏳ | 40% |
+| Python | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
+| C++ | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
+| C# | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
+| Go | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
+| Rust | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
 
-def create_processor():
-    return DataProcessor()
-
-processor = DataProcessor()
-```
-
-### 期待される結果
-- **Classes**: DataProcessor
-- **Functions**: __init__, process_item, _transform, get_statistics, create_processor
-- **Universal Symbols**:
-  - class_DataProcessor_0 (CLASS)
-  - method___init___0 (FUNCTION)
-  - method_process_item_0 (FUNCTION)
-  - method__transform_0 (FUNCTION)
-  - method_get_statistics_0 (FUNCTION)
-  - function_create_processor_0 (FUNCTION)
+**次のアクション**: Python Flask移動テスト実施
 
 ---
 
-## ⚙️ **3. C++ Session Test**
+## 📝 **発見した課題と解決策**
 
-### テストコード
-```cpp
-// /tmp/test_cpp.cpp
-#include <vector>
-#include <string>
+### **課題1: 言語別import構文の多様性**
+- **問題**: ES6、Python、Go等でimport構文が大きく異なる
+- **解決**: ImportAnalyzer::parse_importsを言語別に特化
 
-namespace Core {
-    class EventHandler {
-    private:
-        std::vector<std::string> events;
-        int eventCount;
-        
-    public:
-        EventHandler() : eventCount(0) {}
-        
-        void addEvent(const std::string& event) {
-            events.push_back(event);
-            eventCount++;
-        }
-        
-        std::string getLastEvent() const {
-            if (!events.empty()) {
-                return events.back();
-            }
-            return "";
-        }
-        
-        int getEventCount() const {
-            return eventCount;
-        }
-    };
-    
-    EventHandler* createHandler() {
-        return new EventHandler();
-    }
-}
-```
+### **課題2: 名前空間の扱い**
+- **問題**: C++/C#のnamespace、Goのpackage、Rustのmod
+- **解決**: RefactoringUtils::adjust_namespaceで統一処理
 
-### 期待される結果
-- **Classes**: EventHandler
-- **Functions**: EventHandler (constructor), addEvent, getLastEvent, getEventCount, createHandler
-- **Universal Symbols**:
-  - class_EventHandler_0 (CLASS)
-  - method_EventHandler_0 (FUNCTION/Constructor)
-  - method_addEvent_0 (FUNCTION)
-  - method_getLastEvent_0 (FUNCTION)
-  - method_getEventCount_0 (FUNCTION)
-  - function_createHandler_0 (FUNCTION)
+### **課題3: プレビュー表示**
+- **問題**: 「よくわからん」フィードバック
+- **解決**: 前後5行表示、色分け、説明付きフォーマット実装済み✅
 
 ---
 
-## 🎯 **4. C# Session Test**
-
-### テストコード
-```csharp
-// /tmp/test_cs.cs
-using System;
-using System.Collections.Generic;
-
-namespace TestApp {
-    public class OrderManager {
-        private List<Order> orders;
-        private int nextOrderId;
-        
-        public OrderManager() {
-            orders = new List<Order>();
-            nextOrderId = 1;
-        }
-        
-        public Order CreateOrder(string customer, decimal amount) {
-            var order = new Order {
-                Id = nextOrderId++,
-                Customer = customer,
-                Amount = amount,
-                CreatedAt = DateTime.Now
-            };
-            orders.Add(order);
-            return order;
-        }
-        
-        public Order FindOrder(int id) {
-            return orders.Find(o => o.Id == id);
-        }
-        
-        public int OrderCount => orders.Count;
-    }
-    
-    public class Order {
-        public int Id { get; set; }
-        public string Customer { get; set; }
-        public decimal Amount { get; set; }
-        public DateTime CreatedAt { get; set; }
-    }
-}
-```
-
-### 期待される結果
-- **Classes**: OrderManager, Order
-- **Functions**: OrderManager (constructor), CreateOrder, FindOrder
-- **Properties**: OrderCount, Id, Customer, Amount, CreatedAt
-- **Universal Symbols**:
-  - class_OrderManager_0 (CLASS)
-  - class_Order_0 (CLASS)
-  - method_OrderManager_0 (FUNCTION/Constructor)
-  - method_CreateOrder_0 (FUNCTION)
-  - method_FindOrder_0 (FUNCTION)
-  - property_OrderCount_0 (PROPERTY)
-  - property_Id_0 (PROPERTY)
-  - property_Customer_0 (PROPERTY)
-  - property_Amount_0 (PROPERTY)
-  - property_CreatedAt_0 (PROPERTY)
-
----
-
-## 🐹 **5. Go Session Test**
-
-### テストコード
-```go
-// /tmp/test_go.go
-package main
-
-import (
-    "fmt"
-    "sync"
-)
-
-type TaskManager struct {
-    tasks []Task
-    mu    sync.Mutex
-    nextID int
-}
-
-type Task struct {
-    ID   int
-    Name string
-    Done bool
-}
-
-func NewTaskManager() *TaskManager {
-    return &TaskManager{
-        tasks:  make([]Task, 0),
-        nextID: 1,
-    }
-}
-
-func (tm *TaskManager) AddTask(name string) int {
-    tm.mu.Lock()
-    defer tm.mu.Unlock()
-    
-    task := Task{
-        ID:   tm.nextID,
-        Name: name,
-        Done: false,
-    }
-    tm.tasks = append(tm.tasks, task)
-    tm.nextID++
-    return task.ID
-}
-
-func (tm *TaskManager) CompleteTask(id int) bool {
-    tm.mu.Lock()
-    defer tm.mu.Unlock()
-    
-    for i := range tm.tasks {
-        if tm.tasks[i].ID == id {
-            tm.tasks[i].Done = true
-            return true
-        }
-    }
-    return false
-}
-
-func main() {
-    manager := NewTaskManager()
-    fmt.Println(manager)
-}
-```
-
-### 期待される結果
-- **Structs**: TaskManager, Task
-- **Functions**: NewTaskManager, AddTask, CompleteTask, main
-- **Universal Symbols**:
-  - struct_TaskManager_0 (CLASS/STRUCT)
-  - struct_Task_0 (CLASS/STRUCT)
-  - function_NewTaskManager_0 (FUNCTION)
-  - method_AddTask_0 (FUNCTION)
-  - method_CompleteTask_0 (FUNCTION)
-  - function_main_0 (FUNCTION)
-
----
-
-## 🦀 **6. Rust Session Test**
-
-### テストコード
-```rust
-// /tmp/test_rust.rs
-use std::collections::HashMap;
-
-pub struct CacheManager {
-    cache: HashMap<String, String>,
-    hit_count: usize,
-    miss_count: usize,
-}
-
-impl CacheManager {
-    pub fn new() -> Self {
-        CacheManager {
-            cache: HashMap::new(),
-            hit_count: 0,
-            miss_count: 0,
-        }
-    }
-    
-    pub fn get(&mut self, key: &str) -> Option<String> {
-        if let Some(value) = self.cache.get(key) {
-            self.hit_count += 1;
-            Some(value.clone())
-        } else {
-            self.miss_count += 1;
-            None
-        }
-    }
-    
-    pub fn set(&mut self, key: String, value: String) {
-        self.cache.insert(key, value);
-    }
-    
-    pub fn stats(&self) -> (usize, usize) {
-        (self.hit_count, self.miss_count)
-    }
-}
-
-trait Cacheable {
-    fn cache_key(&self) -> String;
-}
-
-fn create_cache() -> CacheManager {
-    CacheManager::new()
-}
-```
-
-### 期待される結果
-- **Structs**: CacheManager
-- **Traits**: Cacheable
-- **Functions**: new, get, set, stats, cache_key, create_cache
-- **Universal Symbols**:
-  - struct_CacheManager_0 (CLASS/STRUCT)
-  - trait_Cacheable_0 (INTERFACE/TRAIT)
-  - method_new_0 (FUNCTION)
-  - method_get_0 (FUNCTION)
-  - method_set_0 (FUNCTION)
-  - method_stats_0 (FUNCTION)
-  - method_cache_key_0 (FUNCTION)
-  - function_create_cache_0 (FUNCTION)
-
----
-
-## 🔍 **検証ポイント**
-
-### 1. **Universal Symbols生成確認**
-- [ ] 各言語でUniversal Symbolsが生成される
-- [ ] symbol_idが一意で重複しない
-- [ ] symbol_typeが正しく設定される（CLASS, FUNCTION, PROPERTY等）
-
-### 2. **Session永続化確認**
-- [ ] Session作成後、Universal SymbolsがSessionに保存される
-- [ ] session-commandでUniversal Symbolsにアクセス可能
-- [ ] Session再読み込み後もUniversal Symbolsが維持される
-
-### 3. **JSON出力確認**
-- [ ] `universal_symbols`セクションが存在
-- [ ] `symbols`配列に全シンボルが含まれる
-- [ ] 各シンボルに必要なフィールドが存在（symbol_id, symbol_type, name, start_line等）
-
-### 4. **エラーハンドリング**
-- [ ] 存在しないsymbol_idアクセス時の適切なエラー
-- [ ] 空ファイルや構文エラーファイルでのグレースフルな処理
-
----
-
-## 📊 **テスト結果記録表**
-
-| 言語 | Session作成 | Symbols生成数 | list-symbols | get-symbol | JSON出力 | 総合評価 |
-|------|------------|--------------|-------------|------------|----------|----------|
-| JavaScript | ✅ | 5 (class+methods) | ✅ find使用 | ✅ ast-query使用 | ✅ Complete | ✅ **成功** |
-| Python | ✅ | **6** (class+4methods+func) | ✅ find使用 | ✅ 利用可能 | ✅ Complete | ✅ **成功** |
-| C++ | ✅ | **9** (3class+6methods) | ✅ find使用 | ✅ 利用可能 | ✅ Complete | ✅ **成功** |
-| C# | ✅ | 5 (2class+3methods) | ✅ find使用 | ✅ 利用可能 | ✅ Complete | ✅ **成功** |
-| Go | ✅ | 3 (funcs) | ✅ find使用 | ✅ 利用可能 | ✅ Complete | ✅ **成功** |
-| Rust | ✅ | 4 (struct+methods) | ✅ find使用 | ✅ 利用可能 | ✅ Complete | ✅ **成功** |
-
-**凡例**: ✅ 成功 / ⚠️ 部分的成功 / ❌ 失敗 / ⏳ 未実施
-
----
-
-## 🚨 **既知の問題・要注意点**
-
-### ✅ **解決済み: JavaScript Universal Symbol修復完了**
-**修復完了（2025-08-09 00:45）**
-
-#### 修復内容:
-1. **メソッド検出修復完了** ✅
-   - constructor, addUser, findUserById が正常にUniversal Symbolsに含まれる
-   - 早期Symbol設定を無効化し、メソッド検出後の統一生成に修正
-   - クラス1 + メソッド3 + 関数1 = 計5個のSymbol生成確認済み
-
-2. **Session Command設計見直し**
-   - 新規`list-symbols`, `get-symbol`コマンドは**実装不要**と判断
-   - 既存の`find`, `structure`, `ast-query`で同等機能提供可能
-   - MCP統合も完備済み（重複機能回避）
-
-3. **Claude Code最適化重視**
-   - 大量JSON出力によるトークン消費を避ける設計
-   - 必要な情報のみ取得する既存コマンド活用を推奨
-
-#### 修復確認済みログ:
-```
-[DEBUG] Adding method symbol: constructor from class UserManager with ID: method_constructor_0
-[DEBUG] Adding method symbol: addUser from class UserManager with ID: method_addUser_1  
-[DEBUG] Adding method symbol: findUserById from class UserManager with ID: method_findUserById_2
-```
-
-### ✅ **解決済み: デバッグログ条件付きコンパイル完了**
-
-#### 解決内容:
-- Session作成時のデバッグログ出力を条件付きコンパイル化
-- Claude Code環境でのクリーンな出力を実現
-- 本番環境では静音、デバッグ時のみ詳細ログ
-
-#### 実施完了:
-1. ✅ `script_detection_helpers.hpp`内の全デバッグログを`#ifdef NEKOCODE_DEBUG_SYMBOLS`で囲み
-2. ✅ `javascript_pegtl_analyzer.hpp`のデバッグログも条件付きコンパイル化
-3. ✅ 本番モードでの完全静音化達成
-4. ✅ テスト通過: Quick test全16項目合格
-
-### 既存の問題:
-
-1. **C# PEGTLパース問題**
-   - 現在Line-based fallbackに依存
-   - Universal Symbols生成は動作するが精度に注意
-
-2. **デバッグ出力**
-   - 条件付きコンパイル化完了
-   - 本番環境では`NEKOCODE_DEBUG_SYMBOLS`未定義で使用
-
-3. **メモリ管理**
-   - shared_ptr使用でメモリリーク防止
-   - 大規模ファイルでのテストも必要
-
-4. **🚨 C++解析バグ完全解明：regex パターンが変数宣言と関数定義を区別できない（2025-08-08）**
-   - **症状**: C++アナライザーが変数宣言を関数定義と誤認
-   - **具体例**: 
-     ```cpp
-     std::istringstream stream(content);    // ← これを関数と誤認！
-     std::istringstream prestream(content); // ← これも！
-     ```
-   - **根本原因特定完了**: 
-     - **場所**: `/include/nekocode/analyzers/cpp_pegtl_analyzer.hpp`
-     - **問題のregexパターン**:
-       ```cpp
-       std::regex basic_function_pattern(R"(^\s*(?:[\w:]+\s+)*(\w+)\s*\()");
-       std::regex function_pattern(R"(^\s*(?:inline\s+|static\s+|virtual\s+|explicit\s+)*(?:\w+(?:\s*::\s*\w+)*\s*[&*]*)\s+(\w+)\s*\([^)]*\)\s*(?:const\s*)?(?:noexcept\s*)?(?:override\s*)?\s*\{?)");
-       ```
-     - **マッチング問題**:
-       - `std::istringstream` → 型パターンにマッチ
-       - `stream` → 関数名パターンにマッチ
-       - `(content)` → 開き括弧パターンにマッチ
-   - **修正方針**: 関数定義（`{` で終わる）と変数宣言（`;` で終わる）を区別する
-   - **優先度**: 高（自己解析能力に影響）
-
-5. **🔄 重複コード発見：アナライザー間の共通処理**
-   - **完全重複**:
-     - `initialize_symbol_table()`: Rust ↔ Go（byte-for-byte同一）
-     - `find_function_end_line()`: Rust ↔ Python（ロジック異なるが目的同じ）
-   - **パターン重複**:
-     - `calculate_*_complexity`: 16ファイルで類似実装
-     - `generate_unique_id()`: 複数アナライザーで同一実装
-   - **統合検討**: Base Analyzerクラスへの共通処理移行を検討
-
----
-
----
-
-## 🚨 **Session Mode全言語テスト結果（2025-08-08）**
-
-### **✅ 実プロジェクト1.4GBテスト完了！**
-| 言語 | プロジェクト | サイズ | Session | Symbols | 評価 |
-|------|------------|--------|---------|---------|------|
-| JavaScript | facebook/react | 65MB | ✅ | ✅ 正常生成 | **成功** |
-| Python | pallets/flask | 3.4MB | ✅ | ✅ 正常生成 | **成功** |
-| C++ | nlohmann/json | 29MB | ✅ | ✅ 正常生成 | **成功** |
-| C# | NLog/NLog | 14MB | ✅ | ✅ 正常生成 | **成功** |
-| Go | gin-gonic/gin | 1.6MB | ✅ | ✅ 正常生成 | **成功** |
-| Rust | serde-rs/serde | 2.9MB | ✅ | ✅ 正常生成 | **成功** |
-
-**総容量**: 1.4GB+ の実コードで検証完了
-
-### **🚨 Universal Symbol Table実装状況**
-
-#### **重大な誤認修正**
-- **❌ 誤認**: `symbols`フィールドが存在するからUniversal Symbols完成
-- **✅ 正解**: `symbols`は従来のclasses/functionsのJSON化で、**真のUniversal Symbol Table仕様ではない**
-
-#### **現在の実装状況（Phase 5途中）**
-```json
-// ❌ 現在: universal_symbolsフィールドがnull
-{
-  "universal_symbols": null,
-  "symbols": [...],  // ← これは従来の解析結果のJSON化
-  "classes": [...],
-  "functions": [...]
-}
-
-// ✅ Phase 5目標: Universal Symbol Table
-{
-  "universal_symbols": {
-    "symbols": [
-      {
-        "symbol_id": "class_UserManager_0",
-        "symbol_type": "class",
-        "name": "UserManager",
-        "start_line": 1,
-        "metadata": {"language": "javascript"},
-        "children": [...]
-      }
-    ]
-  }
-}
-```
-
-#### **仕様参照文書確認完了**
-- **SESSIONDATA_STRUCTURE.md**: 完全仕様（Line 375-497でUniversal Symbol革命設計記載）
-- **phase5_design.md**: Phase 5実装計画（アナライザー直接生成設計）
-- **現在**: Phase 5.2段階的実装途中
-
-### **📋 正しい次のステップ**
-
-#### **1. Phase 5 Universal Symbol実装完成**
-- アナライザーが`result.universal_symbols`を直接生成
-- Converter層削除によるパフォーマンス向上
-- 全言語での統一Symbol Table完成
-
-#### **2. C++解析バグ修正**
-- regex パターン修正（変数宣言vs関数定義の区別）
-- 自己解析能力の回復
-
-#### **3. 重複コード統合**
-- Base Analyzerクラスへの共通処理移行
-- コードベース19.3%削減の更なる推進
-
-**実際の優先度**: Universal Symbol完成 > C++バグ修正 > コード統合
-
----
-
-## 📚 **ドキュメント整理提案**
-
-### **重要文書特定完了**
-- `docs/SESSIONDATA_STRUCTURE.md` - セッション構造完全仕様
-- `docs/phase5_design.md` - Universal Symbol実装計画  
-- `docs/ARCHITECTURE.md` - システム全体アーキテクチャ
-- `docs/README.md` - ドキュメント索引
-
-### **🔥 統合提案**
-1. **デッドコード解析設計の統合**:
-   - `design/complete_analysis_design.md` (--complete オプション設計)
-   - `design/lto_analysis_design.md` (LTO C++デッドコード検出)
-   - `design/session_format_design.md` (確信度対応フォーマット)
-   → **統合先**: `docs/DEADCODE_ANALYSIS_DESIGN.md` (1つに統合)
-
-2. **文書階層の簡素化**:
-   - 現在: 3つの分散した設計文書
-   - 統合後: 1つの包括的な設計文書
-   - 効果: 関連設計の一箇所管理、迷子防止
-
-### **✅ 保持する重要文書**
-- `SESSIONDATA_STRUCTURE.md` - セッション構造完全仕様 (608行)
-- `phase5_design.md` - Universal Symbol実装計画 (223行)
-- `ARCHITECTURE.md` - システムアーキテクチャ
-- `README.md` - ドキュメント索引
-- `CLI_MCP_REFERENCE.md` - コマンドリファレンス
-
-### **📦 そのまま保持**
-- `archive/` - 過去のハンドオーバー文書（適切にアーカイブ済み）
-- `claude-code/` - Claude Code特化機能（3ファイルのみ）
-
-**期待効果**: design/3ファイル→1ファイル、重要文書明確化、保守性向上
-
----
-
----
-
-## ✅ **MoveClass機能実装準備状況（2025-08-08）**
-
-### **基盤完成度: 80-90%**
-
-#### **✅ 完成済み基盤機能**
-1. **Universal Symbol Table**: 全6言語で動作確認済み
-2. **Session Mode**: ファイル永続化とMCP統合完了
-3. **Unified AST**: 言語横断的な統一構造実装済み
-4. **Symbol Generation**: 一意IDと階層構造サポート
-5. **大規模コード対応**: 1.4GB実プロジェクトで検証済み
-
-#### **🔨 MoveClass実装に必要な残作業**
-1. **Symbol依存関係解析**
-   - import/include文の自動検出
-   - 参照シンボルの追跡
-   - 循環依存の検出
-
-2. **リファクタリング実行エンジン**
-   - ファイル移動処理
-   - import/include文の自動更新
-   - 名前空間/パッケージの調整
-
-3. **ロールバック機能**
-   - 変更前状態の保存
-   - エラー時の自動復元
-   - 部分的成功の処理
-
-4. **テストとバリデーション**
-   - 移動前後の動作確認
-   - ビルド成功の検証
-   - テストスイートの実行
-
-### **実装優先度**
-1. Symbol依存関係解析（基礎）
-2. 単純なクラス移動（MVP）
-3. import/include自動更新
-4. 複雑なケースへの対応
-5. ロールバック機能
-
----
-
-## 🔧 **Universal Symbol Table完成計画（忘れないように！）**
-
-### **📊 現在の実装状況調査結果（2025-08-08深夜）**
-
-#### **✅ 既に実装済み**
-1. **AnalysisResult構造体**: `std::shared_ptr<SymbolTable> universal_symbols;` フィールド存在
-2. **Universal Adapters**: 全6言語でfactory.cppから呼び出し済み
-3. **Formatter**: `universal_symbols`存在時に`symbols`としてJSON出力済み
-4. **前回のテスト**: C++で9個のSymbolsが`symbols`フィールドに出力済み（`universal_symbols`からの変換）
-
-#### **🚨 現在の実装格差**
-| 言語 | Universal Adapter | Universal Symbols生成 | 現在の状況 |
-|------|-----------------|---------------------|-----------|
-| **C++** | ✅ 実装済み | ✅ `generate_universal_symbols()` | ❓ なぜかnull |
-| **JavaScript** | ✅ 実装済み | ❌ **未実装** | ❌ null (当然) |
-| **Python** | ✅ 実装済み | ❓ 要調査 | ❌ null |
-| **C#** | ✅ 実装済み | ❓ 要調査 | ❌ null |
-| **Go** | ✅ 実装済み | ❓ 要調査 | ❌ null |
-| **Rust** | ✅ 実装済み | ❓ 要調査 | ❌ null |
-
-### **🎯 完成への残作業**
-
-#### **Phase 1: C++バグ修正（最優先）**
-- **問題**: `generate_universal_symbols()`実装済みなのに`universal_symbols`がnull
-- **調査**: デバッグ出力有効化、実装の動作確認
-- **修正**: バグ原因特定と修正
-- **期待**: C++で`universal_symbols`がnon-nullに
-
-#### **Phase 2: 未実装言語の対応**
-- **JavaScript**: `generate_universal_symbols()` 実装（C++パターン適用）
-- **Python**: 実装状況調査→必要に応じて実装
-- **C#, Go, Rust**: 実装状況調査→必要に応じて実装
-
-#### **Phase 3: 全言語完成テスト**
-- **目標**: 全6言語で`universal_symbols`がnon-null
-- **検証**: Session Mode + JSON出力で`symbols`フィールド生成確認
-- **完成基準**: `universal_symbols: { symbols: [...] }` 構造での出力
-
-### **📋 実装の鍵となる知識**
-
-#### **Universal Adapterパターン**
-```cpp
-AnalysisResult analyze(const std::string& content, const std::string& filename) override {
-    // Phase 1: レガシーPEGTL解析
-    AnalysisResult legacy_result = legacy_analyzer->analyze(content, filename);
-    
-    // Phase 5: Universal Symbols生成 ← これが重要！
-    generate_universal_symbols(legacy_result);
-    
-    return legacy_result;
-}
-
-void generate_universal_symbols(AnalysisResult& result) {
-    auto symbol_table = std::make_shared<SymbolTable>();
-    // ... Symbol生成ロジック ...
-    result.universal_symbols = symbol_table;  // ← これがキモ！
-}
-```
-
-#### **JSON出力の流れ**
-```
-Universal Adapter → result.universal_symbols → Formatter → JSON "symbols" field
-```
-
-**🚨 忘れやすいポイント**: 
-- `universal_symbols`フィールドと`symbols`JSON出力は別物
-- Formatterで`universal_symbols→symbols`変換される
-- Universal AdapterでPEGTL結果から`universal_symbols`を生成する必要がある
-
-**状況**: Universal Symbol Table実装は80%完成済み、残り20%のバグ修正と未実装言語対応が必要
+**テスト担当**: Claude + User collaborative testing  
+**期限**: 本日中に全言語基本テスト完了目標
