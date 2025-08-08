@@ -11,6 +11,7 @@
 #include "../universal/language_traits.hpp"
 #include "nekocode/analyzers/cpp_pegtl_analyzer.hpp"
 #include <memory>
+#include <fstream>  // DEBUG用
 #include <unordered_map>
 
 namespace nekocode {
@@ -370,6 +371,7 @@ protected:
     //=========================================================================
     
     void generate_universal_symbols(AnalysisResult& result) {
+        // Phase 5: Universal Symbols生成
 #ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[DEBUG] Starting Universal Symbol generation for C++" << std::endl;
         std::cerr << "[DEBUG] Classes: " << result.classes.size() 

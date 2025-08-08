@@ -19,11 +19,11 @@
 // 🚀 Phase 5完了: Symbol Converter層削除済み
 // Phase 5で全アナライザーが直接生成するためinclude不要
 /*
-#include "../../src/converters/rust_symbol_converter.hpp"
-#include "../../src/converters/js_symbol_converter.hpp"
-#include "../../src/converters/python_symbol_converter.hpp"
-#include "../../src/converters/cpp_symbol_converter.hpp"
-#include "../../src/converters/csharp_symbol_converter.hpp"
+// REMOVED: #include "../../src/converters/rust_symbol_converter.hpp"
+// REMOVED: #include "../../src/converters/js_symbol_converter.hpp"
+// REMOVED: #include "../../src/converters/python_symbol_converter.hpp"
+// REMOVED: #include "../../src/converters/cpp_symbol_converter.hpp"
+// REMOVED: #include "../../src/converters/csharp_symbol_converter.hpp"
 */
 #include <iostream>
 #include <filesystem>
@@ -376,6 +376,11 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 
                 // 🆕 CRITICAL FIX: commented_lines配列をコピー（欠落していた！）
                 analysis_result.commented_lines = cpp_result.commented_lines;
+                
+                // 🚒 緊急修正: C++のuniversal_symbolsを明示的にコピー
+                if (cpp_result.universal_symbols && !analysis_result.universal_symbols) {
+                    analysis_result.universal_symbols = cpp_result.universal_symbols;
+                }
                 
                 // C++クラス情報を変換
                 for (const auto& cpp_class : cpp_result.cpp_classes) {
@@ -782,6 +787,11 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                 
                 // 🆕 CRITICAL FIX: commented_lines配列をコピー（欠落していた！）
                 analysis_result.commented_lines = cpp_result.commented_lines;
+                
+                // 🚒 緊急修正: C++のuniversal_symbolsを明示的にコピー
+                if (cpp_result.universal_symbols && !analysis_result.universal_symbols) {
+                    analysis_result.universal_symbols = cpp_result.universal_symbols;
+                }
                 
                 // C++クラス情報を変換
                 for (const auto& cpp_class : cpp_result.cpp_classes) {

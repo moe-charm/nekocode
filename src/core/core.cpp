@@ -308,6 +308,9 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                     // 🆕 CRITICAL FIX: commented_lines配列をコピー（欠落していた！）
                     cpp_result.commented_lines = analysis_result.commented_lines;
                     
+                    // 🚒 CRITICAL FIX: universal_symbolsをコピー（C++で消失していた！）
+                    cpp_result.universal_symbols = analysis_result.universal_symbols;
+                    
                     // クラス・関数情報を変換
                     for (const auto& cls : analysis_result.classes) {
                         // デバッグクラスを除外
