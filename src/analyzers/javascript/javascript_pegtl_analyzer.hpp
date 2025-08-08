@@ -25,6 +25,10 @@
 #include <atomic>
 #include <iomanip>
 
+// 🚀 Phase 5: Universal Symbol直接生成
+#include "nekocode/universal_symbol.hpp"
+#include "nekocode/symbol_table.hpp"
+
 // 🔧 グローバルフラグ（ユーザー制御可能）
 extern bool g_debug_mode;
 extern bool g_quiet_mode;
@@ -61,12 +65,19 @@ struct JavaScriptParseState {
     std::string current_class_name;                 // 現在のクラス名
     std::string current_function_name;              // 現在の関数名
     
+    // 🚀 Phase 5: Universal Symbol直接生成 
+    std::shared_ptr<SymbolTable> symbol_table;      // Universal Symbolテーブル
+    std::unordered_map<std::string, int> id_counters; // ID生成用カウンター
+    
     // コンストラクタ
     JavaScriptParseState() {
         // AST ルートノード初期化
         ast_root = std::make_unique<ASTNode>(ASTNodeType::FILE_ROOT, "");
         current_scope = ast_root.get();
         depth_stack[0] = ast_root.get();
+        
+        // 🚀 Phase 5: Universal Symbol初期化
+        symbol_table = std::make_shared<SymbolTable>();
     }
     
     void update_line_from_position(size_t pos) {
@@ -76,6 +87,28 @@ struct JavaScriptParseState {
                 current_line++;
             }
         }
+    }
+    
+    // 🚀 Phase 5: Universal Symbol生成メソッド
+    
+    std::string generate_unique_id(const std::string& base) {
+        int& counter = id_counters[base];
+        return base + "_" + std::to_string(counter++);
+    }
+    
+    /// 🌟 テスト用: 最小限のクラスSymbol生成
+    void add_test_class_symbol(const std::string& class_name, std::uint32_t start_line) {
+        UniversalSymbolInfo symbol;
+        symbol.symbol_id = generate_unique_id("class_" + class_name);
+        symbol.symbol_type = SymbolType::CLASS;
+        symbol.name = class_name;
+        symbol.start_line = start_line;
+        symbol.metadata["language"] = "javascript";
+        
+        std::cerr << "[Phase 5 Test] Adding class symbol: " << class_name 
+                  << " with ID: " << symbol.symbol_id << std::endl;
+        
+        symbol_table->add_symbol(std::move(symbol));
     }
     
     // 🌳 AST構築メソッド
@@ -554,6 +587,9 @@ struct javascript_action<javascript::minimal_grammar::simple_class> {
                 class_info.start_line = state.current_line;
                 state.classes.push_back(class_info);
                 
+                // 🚀 Phase 5 テスト: Universal Symbol直接生成
+                state.add_test_class_symbol(class_name, state.current_line);
+                
                 // std::cerr << "[AST] Found simple class: " << class_name << " at line " << state.current_line << std::endl;
             }
         }
@@ -931,6 +967,11 @@ public:
                 result.imports = std::move(state.imports);
                 result.exports = std::move(state.exports);
                 
+                // 🚀 Phase 5 テスト: Universal Symbols結果設定
+                result.universal_symbols = state.symbol_table;
+                std::cerr << "[Phase 5 Test] JS Universal Symbols generated: " 
+                          << (state.symbol_table ? state.symbol_table->size() : 0) << " symbols" << std::endl;
+                
                 // デバッグ出力
                 //// std::cerr << "[DEBUG] Functions found: " << result.functions.size() << std::endl;
                 //for (const auto& f : result.functions) {
@@ -965,6 +1006,8 @@ public:
         script_postprocessing::ScriptPostprocessor::finalize_analysis_result(
             result, content, filename, Language::JAVASCRIPT, "JS"
         );
+        
+        // 🚀 Phase 5 テスト: Universal Symbols結果設定はtryブロック内で実行済み
         
         return result;
     }
