@@ -1021,8 +1021,10 @@ public:
         
         // 🚀 Phase 5 テスト: Universal Symbols結果設定はtryブロック内で実行済み
         
+#ifdef NEKOCODE_DEBUG_SYMBOLS
         std::cerr << "[DEBUG JS FINAL] Before return: result.universal_symbols is " 
                   << (result.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
+#endif
         
         return result;
     }
@@ -1141,8 +1143,10 @@ protected:
             symbol.start_line = class_info.start_line;
             symbol.metadata["language"] = "javascript";
             
+#ifdef NEKOCODE_DEBUG_SYMBOLS
             std::cerr << "[Phase 5 Unified] Adding class symbol: " << class_info.name 
                       << " with ID: " << symbol.symbol_id << std::endl;
+#endif
             
             symbol_table->add_symbol(std::move(symbol));
         }
@@ -1170,8 +1174,10 @@ protected:
         // Universal Symbol結果設定
         if (symbol_table->size() > 0) {
             result.universal_symbols = symbol_table;
+#ifdef NEKOCODE_DEBUG_SYMBOLS
             std::cerr << "[Phase 5 Unified] JS Universal Symbols total: " 
                       << symbol_table->size() << " symbols" << std::endl;
+#endif
         }
         
         if (!g_quiet_mode && (!export_functions.empty() || !basic_functions.empty() || !classes.empty())) {

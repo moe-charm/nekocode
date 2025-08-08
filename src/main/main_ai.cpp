@@ -280,7 +280,7 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 analysis_result = multilang_result.csharp_result.value();
                 
                 // 🔥 C# Universal Symbol生成
-                std::cerr << "🔍 DEBUG: C# branch - analysis_result.language = " << static_cast<int>(analysis_result.language) << std::endl;
+                // C# branch - analysis_result.language
                 // 🚀 Phase 5テスト: C# Symbol Converter無効化
                 // Phase 5で直接生成するためConverter層をスキップ
                 /*
@@ -686,7 +686,7 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                 analysis_result = multilang_result.csharp_result.value();
                 
                 // 🔥 C# Universal Symbol生成
-                std::cerr << "🔍 DEBUG: C# branch - analysis_result.language = " << static_cast<int>(analysis_result.language) << std::endl;
+                // C# branch - analysis_result.language
                 // 🚀 Phase 5テスト: C# Symbol Converter無効化
                 // Phase 5で直接生成するためConverter層をスキップ
                 /*

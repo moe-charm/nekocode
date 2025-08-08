@@ -151,7 +151,7 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_analyzer_from_extension(co
 //=============================================================================
 
 std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_unity_analyzer() {
-    std::cerr << "🎮 Creating Unity Analyzer" << std::endl;
+    // Unity Analyzer creation
     return std::make_unique<UnityAnalyzer>();
 }
 
@@ -164,12 +164,11 @@ std::unique_ptr<BaseAnalyzer> AnalyzerFactory::create_unity_analyzer_from_file(
         content_preview.find(": MonoBehaviour") != std::string::npos ||
         content_preview.find(": ScriptableObject") != std::string::npos ||
         content_preview.find("[SerializeField]") != std::string::npos) {
-        std::cerr << "🎮 Unity project detected, creating Unity Analyzer for: " << filename << std::endl;
+        // Unity project detected
         return std::make_unique<UnityAnalyzer>();
     }
     
     // Unity プロジェクトでない場合は通常のC#アナライザーを返す
-    std::cerr << "⚙️ Standard C# file detected, using C# PEGTL Analyzer for: " << filename << std::endl;
     return std::make_unique<CSharpPEGTLAnalyzer>();
 }
 

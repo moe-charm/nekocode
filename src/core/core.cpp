@@ -375,9 +375,9 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                     // Unity analyzer が使用されたかをログ出力
                     if (content.find("using UnityEngine") != std::string::npos || 
                         content.find(": MonoBehaviour") != std::string::npos) {
-                        std::cerr << "🎮 Unity analyzer used for: " << filename << std::endl;
+                        // Unity analyzer used
                     } else {
-                        std::cerr << "⚙️ C# PEGTL analyzer used for: " << filename << std::endl;
+                        // C# PEGTL analyzer used
                     }
                 } else {
                     // Unity判定に失敗した場合は通常のC#アナライザーを使用
@@ -386,9 +386,9 @@ Result<MultiLanguageAnalysisResult> NekoCodeCore::analyze_content_multilang(cons
                         auto csharp_result = analyzer->analyze(content, filename);
                         result.csharp_result = csharp_result;
                         result.file_info = csharp_result.file_info;
-                        std::cerr << "⚙️ C# PEGTL analyzer used (fallback) for: " << filename << std::endl;
+                        // C# PEGTL analyzer used (fallback)
                     } else {
-                        std::cerr << "ERROR: Failed to create C# analyzer for: " << filename << std::endl;
+                        // Failed to create C# analyzer
                     }
                 }
                 break;
