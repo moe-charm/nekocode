@@ -661,4 +661,75 @@ fn create_cache() -> CacheManager {
 
 ---
 
-**状況**: Session Mode基本機能は完成、Universal Symbol Table実装がPhase 5途中段階
+---
+
+## 🔧 **Universal Symbol Table完成計画（忘れないように！）**
+
+### **📊 現在の実装状況調査結果（2025-08-08深夜）**
+
+#### **✅ 既に実装済み**
+1. **AnalysisResult構造体**: `std::shared_ptr<SymbolTable> universal_symbols;` フィールド存在
+2. **Universal Adapters**: 全6言語でfactory.cppから呼び出し済み
+3. **Formatter**: `universal_symbols`存在時に`symbols`としてJSON出力済み
+4. **前回のテスト**: C++で9個のSymbolsが`symbols`フィールドに出力済み（`universal_symbols`からの変換）
+
+#### **🚨 現在の実装格差**
+| 言語 | Universal Adapter | Universal Symbols生成 | 現在の状況 |
+|------|-----------------|---------------------|-----------|
+| **C++** | ✅ 実装済み | ✅ `generate_universal_symbols()` | ❓ なぜかnull |
+| **JavaScript** | ✅ 実装済み | ❌ **未実装** | ❌ null (当然) |
+| **Python** | ✅ 実装済み | ❓ 要調査 | ❌ null |
+| **C#** | ✅ 実装済み | ❓ 要調査 | ❌ null |
+| **Go** | ✅ 実装済み | ❓ 要調査 | ❌ null |
+| **Rust** | ✅ 実装済み | ❓ 要調査 | ❌ null |
+
+### **🎯 完成への残作業**
+
+#### **Phase 1: C++バグ修正（最優先）**
+- **問題**: `generate_universal_symbols()`実装済みなのに`universal_symbols`がnull
+- **調査**: デバッグ出力有効化、実装の動作確認
+- **修正**: バグ原因特定と修正
+- **期待**: C++で`universal_symbols`がnon-nullに
+
+#### **Phase 2: 未実装言語の対応**
+- **JavaScript**: `generate_universal_symbols()` 実装（C++パターン適用）
+- **Python**: 実装状況調査→必要に応じて実装
+- **C#, Go, Rust**: 実装状況調査→必要に応じて実装
+
+#### **Phase 3: 全言語完成テスト**
+- **目標**: 全6言語で`universal_symbols`がnon-null
+- **検証**: Session Mode + JSON出力で`symbols`フィールド生成確認
+- **完成基準**: `universal_symbols: { symbols: [...] }` 構造での出力
+
+### **📋 実装の鍵となる知識**
+
+#### **Universal Adapterパターン**
+```cpp
+AnalysisResult analyze(const std::string& content, const std::string& filename) override {
+    // Phase 1: レガシーPEGTL解析
+    AnalysisResult legacy_result = legacy_analyzer->analyze(content, filename);
+    
+    // Phase 5: Universal Symbols生成 ← これが重要！
+    generate_universal_symbols(legacy_result);
+    
+    return legacy_result;
+}
+
+void generate_universal_symbols(AnalysisResult& result) {
+    auto symbol_table = std::make_shared<SymbolTable>();
+    // ... Symbol生成ロジック ...
+    result.universal_symbols = symbol_table;  // ← これがキモ！
+}
+```
+
+#### **JSON出力の流れ**
+```
+Universal Adapter → result.universal_symbols → Formatter → JSON "symbols" field
+```
+
+**🚨 忘れやすいポイント**: 
+- `universal_symbols`フィールドと`symbols`JSON出力は別物
+- Formatterで`universal_symbols→symbols`変換される
+- Universal AdapterでPEGTL結果から`universal_symbols`を生成する必要がある
+
+**状況**: Universal Symbol Table実装は80%完成済み、残り20%のバグ修正と未実装言語対応が必要
