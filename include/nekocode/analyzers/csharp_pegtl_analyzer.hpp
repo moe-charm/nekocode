@@ -9,6 +9,9 @@
 
 #include "base_analyzer.hpp"
 #include "csharp_minimal_grammar.hpp"
+// 🚀 Phase 5: Universal Symbol直接生成
+#include "nekocode/universal_symbol.hpp"
+#include "nekocode/symbol_table.hpp"
 #include <tao/pegtl.hpp>
 #include <stack>
 #include <iostream>
@@ -39,6 +42,50 @@ struct CSharpParseState {
     
     // 行番号追跡
     uint32_t current_line = 1;
+    
+    // 🚀 Phase 5: Universal Symbol直接生成
+    std::shared_ptr<SymbolTable> symbol_table;      // Universal Symbolテーブル
+    std::unordered_map<std::string, int> id_counters; // ID生成用カウンター
+    
+    // コンストラクタ
+    CSharpParseState() {
+        // 🚀 Phase 5: Universal Symbol初期化
+        symbol_table = std::make_shared<SymbolTable>();
+    }
+    
+    // 🚀 Phase 5: Universal Symbol生成メソッド
+    std::string generate_unique_id(const std::string& base) {
+        id_counters[base]++;
+        return base + "_" + std::to_string(id_counters[base] - 1);
+    }
+    
+    void add_test_class_symbol(const std::string& class_name, std::uint32_t start_line) {
+        UniversalSymbolInfo symbol;
+        symbol.symbol_id = generate_unique_id("class_" + class_name);
+        symbol.symbol_type = SymbolType::CLASS;
+        symbol.name = class_name;
+        symbol.start_line = start_line;
+        symbol.metadata["language"] = "csharp";
+        
+        std::cerr << "[Phase 5 Test] C# adding class symbol: " << class_name 
+                  << " with ID: " << symbol.symbol_id << std::endl;
+        
+        symbol_table->add_symbol(std::move(symbol));
+    }
+    
+    void add_test_method_symbol(const std::string& method_name, std::uint32_t start_line) {
+        UniversalSymbolInfo symbol;
+        symbol.symbol_id = generate_unique_id("method_" + method_name);
+        symbol.symbol_type = SymbolType::FUNCTION;
+        symbol.name = method_name;
+        symbol.start_line = start_line;
+        symbol.metadata["language"] = "csharp";
+        
+        std::cerr << "[Phase 5 Test] C# adding method symbol: " << method_name 
+                  << " with ID: " << symbol.symbol_id << std::endl;
+        
+        symbol_table->add_symbol(std::move(symbol));
+    }
     
     void update_line(const char* from, const char* to) {
         while (from != to) {
@@ -84,6 +131,9 @@ struct action<csharp::minimal_grammar::class_header> {
                 class_info.start_line = state.current_line;
                 state.current_classes.push_back(class_info);
                 std::cerr << "DEBUG: Extracted class name: " << class_info.name << std::endl;
+                
+                // 🚀 Phase 5: Universal Symbol直接生成
+                state.add_test_class_symbol(class_info.name, class_info.start_line);
             }
         }
     }
@@ -116,6 +166,9 @@ struct action<csharp::minimal_grammar::normal_method> {
                 method_info.start_line = state.current_line;
                 state.current_methods.push_back(method_info);
                 std::cerr << "DEBUG: Extracted normal method name: " << method_info.name << std::endl;
+                
+                // 🚀 Phase 5: Universal Symbol直接生成
+                state.add_test_method_symbol(method_info.name, method_info.start_line);
             }
         }
     }
@@ -336,6 +389,14 @@ public:
         
         // 統計情報更新
         state.result.update_statistics();
+        
+        // 🚀 Phase 5: Universal Symbol直接生成（CSharpParseStateから取得）
+        if (state.symbol_table && state.symbol_table->get_all_symbols().size() > 0) {
+            state.result.universal_symbols = state.symbol_table;
+            std::cerr << "[Phase 5] C# analyzer generated " 
+                      << state.symbol_table->get_all_symbols().size() 
+                      << " Universal Symbols" << std::endl;
+        }
         
         return state.result;
     }
