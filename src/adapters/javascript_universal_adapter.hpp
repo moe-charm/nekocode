@@ -62,6 +62,9 @@ public:
         // Phase 3: AST統計とレガシー統計の統合
         enhance_result_with_ast_data(legacy_result);
         
+        // 🚀 Phase 5: Universal Symbols生成（BaseAnalyzer共通関数を使用）
+        this->generate_universal_symbols(legacy_result, "javascript");
+        
         return legacy_result;
     }
     

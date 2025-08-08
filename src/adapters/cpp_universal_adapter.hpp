@@ -72,8 +72,8 @@ public:
         // Phase 4: C++特化機能の追加
         enhance_result_with_cpp_features(legacy_result);
         
-        // 🚀 Phase 5: Universal Symbols生成（JavaScript成功パターンを適用）
-        generate_universal_symbols(legacy_result);
+        // 🚀 Phase 5: Universal Symbols生成（BaseAnalyzer共通関数を使用）
+        this->generate_universal_symbols(legacy_result, "cpp");
         
         return legacy_result;
     }
