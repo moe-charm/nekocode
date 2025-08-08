@@ -152,6 +152,7 @@ set(NEKOCODE_SOURCES
     ${SRC_DIR}/converters/js_symbol_converter.cpp
     ${SRC_DIR}/converters/python_symbol_converter.cpp
     ${SRC_DIR}/converters/cpp_symbol_converter.cpp
+    ${SRC_DIR}/converters/csharp_symbol_converter.cpp
     
     # ユーティリティ
     ${SRC_DIR}/utils/utf8_utils.cpp

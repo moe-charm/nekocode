@@ -6,6 +6,7 @@
 
 #include "nekocode/formatters.hpp"
 #include "nekocode/cpp_analyzer.hpp"
+#include "nekocode/symbol_table.hpp"
 #include <sstream>
 #include <iomanip>
 #include <iostream>
@@ -43,6 +44,20 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
     nlohmann::json json_result;
     
     json_result["analysis_type"] = "single_file";
+    
+    // 🔥 Language field - Critical for Universal Symbol support
+    switch (result.language) {
+        case Language::JAVASCRIPT: json_result["language"] = "javascript"; break;
+        case Language::TYPESCRIPT: json_result["language"] = "typescript"; break;
+        case Language::CPP: json_result["language"] = "cpp"; break;
+        case Language::C: json_result["language"] = "c"; break;
+        case Language::PYTHON: json_result["language"] = "python"; break;
+        case Language::CSHARP: json_result["language"] = "csharp"; break;
+        case Language::GO: json_result["language"] = "go"; break;
+        case Language::RUST: json_result["language"] = "rust"; break;
+        default: json_result["language"] = "unknown"; break;
+    }
+    
     json_result["file_info"] = {
         {"name", result.file_info.name},
         {"total_lines", result.file_info.total_lines},
@@ -248,6 +263,11 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
             }
         }
         json_result["metadata"] = metadata_json;
+    }
+    
+    // 🌟 Phase 3: Universal Symbol情報（Rustのみ対応）
+    if (result.universal_symbols) {
+        json_result["symbols"] = result.universal_symbols->to_json();
     }
     
     return json_result.dump(2);
