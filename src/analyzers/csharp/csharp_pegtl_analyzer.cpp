@@ -326,7 +326,7 @@ AnalysisResult CSharpPEGTLAnalyzer::analyze(const std::string& content, const st
         
     } catch (const tao::pegtl::parse_error& e) {
         // パースエラー処理（エラーログを出力して空の結果を返す）
-        std::cerr << "PEGTL parse error: " << e.what() << std::endl;
+        // PEGTL parse error
         // 部分的な結果でも返す
     }
     
@@ -336,8 +336,7 @@ AnalysisResult CSharpPEGTLAnalyzer::analyze(const std::string& content, const st
     // 🚀 C#ハイブリッド戦略: JavaScript/TypeScript/C++成功パターン移植
     if (needs_csharp_line_based_fallback(state.result, content)) {
         apply_csharp_line_based_analysis(state.result, content, filename);
-        std::cerr << "✅ C# Line-based analysis completed. Classes: " << state.result.classes.size() 
-                  << ", Functions: " << state.result.functions.size() << std::endl;
+        // C# Line-based analysis completed
         
         // 🚀 Phase 5: Line-basedフォールバック結果からUniversal Symbol生成
         if (!state.result.classes.empty() || !state.result.functions.empty()) {
@@ -362,7 +361,7 @@ AnalysisResult CSharpPEGTLAnalyzer::analyze(const std::string& content, const st
 #endif
         }
     } else {
-        std::cerr << "⚠️  C# Hybrid Strategy NOT triggered" << std::endl;
+        // C# Hybrid Strategy NOT triggered
     }
     
     // 統計情報更新
@@ -394,23 +393,23 @@ bool CSharpPEGTLAnalyzer::needs_csharp_line_based_fallback(const AnalysisResult&
     
     // C#特化閾値: C#は規則正しいので、C++より厳しい閾値
     if (complexity > 30 && detected_classes == 0 && detected_functions < 3) {
-        std::cerr << "📊 Trigger reason: High complexity with no detection (C# specific)" << std::endl;
+        // Trigger reason: High complexity with no detection (C# specific)
         return true;
     }
     
     // 複雑度100以上で関数検出0は絶対におかしい
     if (complexity > 100 && detected_functions == 0) {
-        std::cerr << "📊 Trigger reason: Very high complexity with no functions" << std::endl;
+        // Trigger reason: Very high complexity with no functions
         return true;
     }
     
     // C#特有パターンがあるのに検出できていない場合
     if ((has_class || has_namespace || has_interface) && detected_classes == 0) {
-        std::cerr << "📊 Trigger reason: C# patterns found but no classes detected" << std::endl;
+        // Trigger reason: C# patterns found but no classes detected
         return true;
     }
     
-    std::cerr << "❌ No trigger conditions met" << std::endl;
+    // No trigger conditions met
     return false;
 }
 
