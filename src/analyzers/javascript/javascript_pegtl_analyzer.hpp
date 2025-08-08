@@ -968,7 +968,11 @@ public:
                 result.exports = std::move(state.exports);
                 
                 // 🚀 Phase 5 テスト: Universal Symbols結果設定
+                std::cerr << "[DEBUG JS] Before setting: state.symbol_table is " 
+                          << (state.symbol_table ? "NOT NULL" : "NULL") << std::endl;
                 result.universal_symbols = state.symbol_table;
+                std::cerr << "[DEBUG JS] After setting: result.universal_symbols is " 
+                          << (result.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
                 std::cerr << "[Phase 5 Test] JS Universal Symbols generated: " 
                           << (state.symbol_table ? state.symbol_table->size() : 0) << " symbols" << std::endl;
                 
@@ -1008,6 +1012,9 @@ public:
         );
         
         // 🚀 Phase 5 テスト: Universal Symbols結果設定はtryブロック内で実行済み
+        
+        std::cerr << "[DEBUG JS FINAL] Before return: result.universal_symbols is " 
+                  << (result.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
         
         return result;
     }
@@ -1110,6 +1117,54 @@ protected:
         result.functions.insert(result.functions.end(), export_functions.begin(), export_functions.end());
         result.functions.insert(result.functions.end(), basic_functions.begin(), basic_functions.end());
         result.classes.insert(result.classes.end(), classes.begin(), classes.end());
+        
+        // 🚀 Phase 5: 統一検出システムでもUniversal Symbol生成
+        // 既存のUniversal Symbolがある場合は保持
+        auto symbol_table = result.universal_symbols ? result.universal_symbols : std::make_shared<SymbolTable>();
+        int class_counter = symbol_table->size();  // 既存のシンボル数から開始
+        int function_counter = 0;
+        
+        // クラスのUniversal Symbol生成
+        for (const auto& class_info : classes) {
+            UniversalSymbolInfo symbol;
+            symbol.symbol_id = "class_" + class_info.name + "_" + std::to_string(class_counter++);
+            symbol.symbol_type = SymbolType::CLASS;
+            symbol.name = class_info.name;
+            symbol.start_line = class_info.start_line;
+            symbol.metadata["language"] = "javascript";
+            
+            std::cerr << "[Phase 5 Unified] Adding class symbol: " << class_info.name 
+                      << " with ID: " << symbol.symbol_id << std::endl;
+            
+            symbol_table->add_symbol(std::move(symbol));
+        }
+        
+        // 関数のUniversal Symbol生成
+        for (const auto& func_info : export_functions) {
+            UniversalSymbolInfo symbol;
+            symbol.symbol_id = "function_" + func_info.name + "_" + std::to_string(function_counter++);
+            symbol.symbol_type = SymbolType::FUNCTION;
+            symbol.name = func_info.name;
+            symbol.start_line = func_info.start_line;
+            symbol.metadata["language"] = "javascript";
+            symbol_table->add_symbol(std::move(symbol));
+        }
+        for (const auto& func_info : basic_functions) {
+            UniversalSymbolInfo symbol;
+            symbol.symbol_id = "function_" + func_info.name + "_" + std::to_string(function_counter++);
+            symbol.symbol_type = SymbolType::FUNCTION;
+            symbol.name = func_info.name;
+            symbol.start_line = func_info.start_line;
+            symbol.metadata["language"] = "javascript";
+            symbol_table->add_symbol(std::move(symbol));
+        }
+        
+        // Universal Symbol結果設定
+        if (symbol_table->size() > 0) {
+            result.universal_symbols = symbol_table;
+            std::cerr << "[Phase 5 Unified] JS Universal Symbols total: " 
+                      << symbol_table->size() << " symbols" << std::endl;
+        }
         
         if (!g_quiet_mode && (!export_functions.empty() || !basic_functions.empty() || !classes.empty())) {
             std::cerr << "🎯 [JS] Unified detection added: +" << export_functions.size() 
