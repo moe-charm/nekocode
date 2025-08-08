@@ -16,11 +16,15 @@
 #include "nekocode/progress_tracker.hpp"
 #include "nekocode/command_dispatcher.hpp"
 #include "nekocode/command_line_args.hpp"
+// 🚀 Phase 5完了: Symbol Converter層削除済み
+// Phase 5で全アナライザーが直接生成するためinclude不要
+/*
 #include "../../src/converters/rust_symbol_converter.hpp"
 #include "../../src/converters/js_symbol_converter.hpp"
 #include "../../src/converters/python_symbol_converter.hpp"
 #include "../../src/converters/cpp_symbol_converter.hpp"
 #include "../../src/converters/csharp_symbol_converter.hpp"
+*/
 #include <iostream>
 #include <filesystem>
 #include <chrono>
@@ -326,12 +330,16 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                 analysis_result = multilang_result.rust_result.value();
                 
                 
+                // 🚀 Phase 5完了: Rust Symbol Converter無効化
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 // 🌟 Rust Universal Symbol生成
                 if (analysis_result.language == Language::RUST) {
                     RustSymbolConverter converter;
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                */
             } else if (multilang_result.cpp_result) {
                 // 🔥 C++結果をAnalysisResultに手動変換（構造体が異なるため）
                 auto cpp_result = multilang_result.cpp_result.value();
@@ -371,10 +379,14 @@ int analyze_target(const std::string& target_path, const CommandLineArgs& args) 
                     analysis_result.functions.push_back(func_info);
                 }
                 
+                // 🚀 Phase 5完了: C++ Symbol Converter無効化 (cpp_result専用)
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 // ⚙️ C++ Universal Symbol生成 (cpp_result専用)
                 CppSymbolConverter converter;
                 auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                 analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
+                */
             } else {
                 // フォールバック
                 analysis_result.file_info = multilang_result.file_info;
@@ -698,12 +710,16 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                 analysis_result = multilang_result.rust_result.value();
                 
                 
+                // 🚀 Phase 5完了: Rust Symbol Converter無効化
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 // 🌟 Rust Universal Symbol生成
                 if (analysis_result.language == Language::RUST) {
                     RustSymbolConverter converter;
                     auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                     analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
                 }
+                */
             } else if (multilang_result.cpp_result) {
                 // 🔥 C++結果をAnalysisResultに手動変換（構造体が異なるため）
                 auto cpp_result = multilang_result.cpp_result.value();
@@ -743,10 +759,14 @@ int create_session(const std::string& target_path, const CommandLineArgs& args) 
                     analysis_result.functions.push_back(func_info);
                 }
                 
+                // 🚀 Phase 5完了: C++ Symbol Converter無効化 (cpp_result専用)
+                // Phase 5で直接生成するためConverter層をスキップ
+                /*
                 // ⚙️ C++ Universal Symbol生成 (cpp_result専用)
                 CppSymbolConverter converter;
                 auto symbol_table = converter.convert_from_analysis_result(analysis_result);
                 analysis_result.universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
+                */
             } else {
                 // フォールバック
                 analysis_result.file_info = multilang_result.file_info;

@@ -145,14 +145,16 @@ set(NEKOCODE_SOURCES
     # フォーマッター
     ${SRC_DIR}/formatters/formatters.cpp
     
+    # 🚀 Phase 5完了: Symbol Converter層削除済み
+    # Phase 5で全アナライザーが直接生成するためConverter層不要
     # Phase 3: Symbol Converters
-    ${SRC_DIR}/converters/rust_symbol_converter.cpp
-    
-    # Phase 4: Symbol Converters
-    ${SRC_DIR}/converters/js_symbol_converter.cpp
-    ${SRC_DIR}/converters/python_symbol_converter.cpp
-    ${SRC_DIR}/converters/cpp_symbol_converter.cpp
-    ${SRC_DIR}/converters/csharp_symbol_converter.cpp
+    # ${SRC_DIR}/converters/rust_symbol_converter.cpp
+    # 
+    # Phase 4: Symbol Converters  
+    # ${SRC_DIR}/converters/js_symbol_converter.cpp
+    # ${SRC_DIR}/converters/python_symbol_converter.cpp
+    # ${SRC_DIR}/converters/cpp_symbol_converter.cpp
+    # ${SRC_DIR}/converters/csharp_symbol_converter.cpp
     
     # ユーティリティ
     ${SRC_DIR}/utils/utf8_utils.cpp

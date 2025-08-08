@@ -7,7 +7,8 @@
 
 #include "nekocode/session_data.hpp"
 #include "nekocode/symbol_table.hpp"
-#include "../../src/converters/rust_symbol_converter.hpp"
+// 🚀 Phase 5完了: Symbol Converter層削除済み
+// #include "../../src/converters/rust_symbol_converter.hpp"
 #include <sstream>
 #include <iomanip>
 #include <ctime>
@@ -558,6 +559,9 @@ Timestamp string_to_timestamp(const std::string& str) {
 //=============================================================================
 
 void SessionData::enhance_with_symbols() {
+    // 🚀 Phase 5完了: Symbol Converter層削除済み
+    // Phase 5で全アナライザーが直接生成するためConverter層不要
+    /*
     // Rust言語の場合のみUniversal Symbolを生成
     if (!is_directory && single_file_result.language == Language::RUST) {
         RustSymbolConverter converter;
@@ -567,6 +571,7 @@ void SessionData::enhance_with_symbols() {
         universal_symbols = std::make_shared<SymbolTable>(std::move(symbol_table));
         single_file_result.universal_symbols = universal_symbols;
     }
+    */
     // ディレクトリ解析の場合は将来対応
     // TODO: DirectoryAnalysisでもRustファイルを検出して変換
 }
