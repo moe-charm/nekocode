@@ -8,6 +8,7 @@
 #include "nekocode/cpp_analyzer.hpp"
 #include "nekocode/symbol_table.hpp"
 #include <sstream>
+#include <fstream>  // DEBUG用
 #include <iomanip>
 #include <iostream>
 
@@ -265,7 +266,8 @@ std::string AIReportFormatter::format_single_file(const AnalysisResult& result) 
         json_result["metadata"] = metadata_json;
     }
     
-    // 🌟 Phase 3: Universal Symbol情報（Rustのみ対応）
+    // 🌟 Phase 3: Universal Symbol情報（全言語対応）
+    
 #ifdef NEKOCODE_DEBUG_SYMBOLS
     std::cerr << "[DEBUG] Formatter: result.universal_symbols is " 
               << (result.universal_symbols ? "NOT NULL" : "NULL") << std::endl;
