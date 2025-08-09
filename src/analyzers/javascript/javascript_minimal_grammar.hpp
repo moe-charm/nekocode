@@ -293,8 +293,101 @@ struct export_class : seq<
     block  // クラス本体全体を読み飛ばす
 > {};
 
+// 🏆 Victory Pattern: Properly handle React.lazy and similar patterns
+// Arrow function in method call: () => { ... }
+struct arrow_in_call : seq<
+    one<'('>,
+    star<space>,
+    one<')'>,
+    star<space>,
+    TAO_PEGTL_STRING("=>"),
+    star<space>,
+    block  // Use existing block definition
+> {};
+
+// Method call with arrow: React.lazy(() => { ... })
+struct method_with_arrow : seq<
+    identifier,           // React.lazy (supports dots)
+    star<space>,
+    one<'('>,
+    star<space>,
+    arrow_in_call,        // () => { ... }
+    star<space>,
+    one<')'>
+> {};
+
+// Export const with method call: export const Name = React.lazy(() => { ... });
+struct export_const_method : seq<
+    star<space>,
+    export_keyword,
+    plus<space>,
+    const_keyword,
+    plus<space>,
+    simple_identifier,    // Variable name (no dots)
+    star<space>,
+    one<'='>,
+    star<space>,
+    method_with_arrow,    // React.lazy(() => { ... })
+    star<space>,
+    opt<one<';'>>
+> {};
+
+// 🔥 React.memo pattern: React.memo(function Name() { ... })
+struct function_in_call : seq<
+    function_keyword,
+    plus<space>,
+    identifier,
+    star<space>,
+    one<'('>,
+    star<not_one<')'>>,  // Parameters
+    one<')'>,
+    star<space>,
+    block
+> {};
+
+// Method call with function: React.memo(function() { ... })
+struct method_with_function : seq<
+    identifier,           // React.memo
+    star<space>,
+    one<'('>,
+    star<space>,
+    function_in_call,     // function() { ... }
+    star<space>,
+    one<')'>
+> {};
+
+// Export const with React.memo: export const Name = React.memo(function() { ... });
+struct export_const_memo : seq<
+    star<space>,
+    export_keyword,
+    plus<space>,
+    const_keyword,
+    plus<space>,
+    simple_identifier,
+    star<space>,
+    one<'='>,
+    star<space>,
+    method_with_function,
+    star<space>,
+    opt<one<';'>>
+> {};
+
+// 🔥 Property assignment pattern: Object.property = value;
+struct property_assignment : seq<
+    star<space>,
+    identifier,  // Object.property
+    star<space>,
+    one<'='>,
+    star<space>,
+    star<not_one<';', '\n'>>,  // Any value
+    sor<one<';'>, newline, eof>
+> {};
+
 // 拡張版: function, async, arrow, import, class を検出
 struct javascript_element : sor<
+    property_assignment,  // 🔥 Skip property assignments FIRST (DisplayName.displayName = ...)
+    export_const_method,  // 🏆 Victory: Handle React.lazy
+    export_const_memo,    // 🔥 Handle React.memo too!
     export_class,
     export_function,  // TypeScript対応
     simple_class,
