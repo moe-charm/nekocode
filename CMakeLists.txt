@@ -98,6 +98,18 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(utf8cpp)
 
+# 🐍 PCRE2 Python風正規表現エンジン (std::regex殲滅作戦)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(PCRE2 REQUIRED libpcre2-8)
+if(PCRE2_FOUND)
+    message(STATUS "🐍 PCRE2 found - Python風正規表現革命開始!")
+    message(STATUS "    PCRE2 version: ${PCRE2_VERSION}")
+    message(STATUS "    PCRE2 libraries: ${PCRE2_LIBRARIES}")
+    message(STATUS "    PCRE2 include: ${PCRE2_INCLUDE_DIRS}")
+else()
+    message(FATAL_ERROR "❌ PCRE2 not found! Install libpcre2-dev package")
+endif()
+
 # 🔥 PEGTL - 軽量高性能パーサーライブラリ統合
 message(STATUS "🔥 Fetching PEGTL for advanced parsing...")
 include(FetchContent)
@@ -260,6 +272,7 @@ target_include_directories(nekocode_static PUBLIC
     $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/universal>
     $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}/adapters>
     $<$<BOOL:${NEKOCODE_ENABLE_UNIVERSAL_AST}>:${SRC_DIR}>
+    ${PCRE2_INCLUDE_DIRS}  # 🐍 PCRE2ヘッダーパス
 )
 target_link_libraries(nekocode_static 
     nlohmann_json::nlohmann_json 
@@ -268,6 +281,7 @@ target_link_libraries(nekocode_static
     tree-sitter-langs
     taocpp::pegtl
     Threads::Threads
+    ${PCRE2_LIBRARIES}  # 🐍 Python風正規表現革命
 )
 
 # C++20 features
