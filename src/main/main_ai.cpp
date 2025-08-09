@@ -85,6 +85,9 @@ ACTIONS:
     movelines <src> <start> <count> <dst> <pos> 即実行行移動
     movelines-preview <src> <s> <c> <dst> <p>   行移動プレビュー
     movelines-confirm <preview_id>              行移動確認実行
+    moveclass <session_id> <symbol_id> <target> クラス移動（開発中）
+    moveclass-preview <s_id> <sym_id> <target>  クラス移動プレビュー
+    moveclass-confirm <preview_id>              クラス移動確認実行
     
     SESSION MODE（詳細解析用）:
     session-create <path>       セッション作成
