@@ -135,6 +135,7 @@ private:
     std::string extract_return_type(const std::string& line, size_t fn_pos);
     std::vector<std::string> extract_lifetimes(const std::string& generics);
     LineNumber find_function_end_line(const std::vector<std::string>& lines, size_t start_line);  // 🎯 end_line計算
+    LineNumber find_struct_end_line(const std::string& content, LineNumber start_line);  // 🎯 構造体/列挙型のend_line計算
     std::string extract_function_body(const std::string& content, size_t fn_start_line);  // 🔧 関数ボディ抽出
     
     // 🆕 Phase 1: impl分類修正機能

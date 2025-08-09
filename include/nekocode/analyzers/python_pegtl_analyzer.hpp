@@ -128,6 +128,8 @@ struct python_action<python::minimal_grammar::python_class> {
                 ClassInfo class_info;
                 class_info.name = class_name;
                 class_info.start_line = state.current_line;
+                // end_lineは後でcontent全体が必要なため、ここでは設定しない
+                // analyzeメソッド内で後処理として設定される
                 state.classes.push_back(class_info);
                 
                 // 🚀 Phase 5 テスト: Universal Symbol直接生成
@@ -276,6 +278,13 @@ public:
                                           python_action>(input, state);
             
             if (success && (!state.classes.empty() || !state.functions.empty() || !state.imports.empty())) {
+                // 🔥 クラスのend_lineを計算（MoveClass対応）
+                for (auto& cls : state.classes) {
+                    if (cls.end_line == 0) {
+                        cls.end_line = find_class_end_line(content, cls.start_line);
+                    }
+                }
+                
                 // 解析結果をAnalysisResultに移動
                 result.classes.insert(result.classes.end(), state.classes.begin(), state.classes.end());
                 result.functions = std::move(state.functions);
@@ -412,6 +421,61 @@ private:
         
         // ファイルの最後まで到達した場合
         return last_non_empty;
+    }
+    
+    // 🎯 Pythonクラスの終了行を検出（インデントベース）
+    uint32_t find_class_end_line(const std::string& content, uint32_t start_line) {
+        std::vector<std::string> lines;
+        std::istringstream stream(content);
+        std::string line;
+        while (std::getline(stream, line)) {
+            lines.push_back(line);
+        }
+        
+        if (start_line > 0 && start_line <= lines.size()) {
+            // クラス定義行のインデントレベルを取得
+            const std::string& def_line = lines[start_line - 1];
+            uint32_t indent = 0;
+            for (char c : def_line) {
+                if (c == ' ') indent++;
+                else if (c == '\t') indent += 4;
+                else break;
+            }
+            uint32_t base_indent_level = indent / 4;
+            
+            // クラスの終了行を探す
+            for (size_t i = start_line; i < lines.size(); ++i) {
+                const std::string& current_line = lines[i];
+                
+                // 空行やコメント行はスキップ
+                if (current_line.find_first_not_of(" \t\r\n") == std::string::npos) {
+                    continue;
+                }
+                if (current_line.find_first_not_of(" \t") != std::string::npos && 
+                    current_line[current_line.find_first_not_of(" \t")] == '#') {
+                    continue;
+                }
+                
+                // インデントレベルを計算
+                uint32_t curr_indent = 0;
+                for (char c : current_line) {
+                    if (c == ' ') curr_indent++;
+                    else if (c == '\t') curr_indent += 4;
+                    else break;
+                }
+                uint32_t curr_indent_level = curr_indent / 4;
+                
+                // 同じまたはそれより浅いインデントの非空白行を見つけたら終了
+                if (curr_indent_level <= base_indent_level) {
+                    return i;  // 前の行がクラスの最後
+                }
+            }
+            
+            // ファイルの最後まで到達した場合
+            return lines.size();
+        }
+        
+        return start_line;
     }
     
     // 🎯 Python関数の終了行を検出（インデントベース）
@@ -579,6 +643,9 @@ private:
                     }
                 }
                 class_info.start_line = line_number;
+                
+                // 🔥 end_line計算を追加（MoveClass対応）
+                class_info.end_line = find_class_end_line(content, line_number);
                 
                 classes.push_back(class_info);
             }

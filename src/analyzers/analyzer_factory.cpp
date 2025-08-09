@@ -8,7 +8,7 @@
 // #include "nekocode/analyzers/javascript_analyzer.hpp" // regex版は削除済み
 #include "javascript/javascript_pegtl_analyzer.hpp"
 #include "typescript/typescript_pegtl_analyzer.hpp"
-#include "nekocode/analyzers/python_analyzer.hpp"
+// #include "nekocode/analyzers/python_analyzer.hpp" // レガシー削除
 #include "nekocode/analyzers/python_pegtl_analyzer.hpp"
 #include "nekocode/analyzers/cpp_language_analyzer.hpp"
 #include "nekocode/analyzers/cpp_pegtl_analyzer.hpp"
