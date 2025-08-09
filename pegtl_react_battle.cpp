@@ -163,24 +163,36 @@ struct action<full_class> {
 } // namespace battle
 
 void test_pegtl_battle() {
-    std::string test_code = R"(
-export class MyClass {
-    constructor() {
-        this.value = 42;
-    }
+    std::string test_code = R"(// Example
+
+export const Throw = React.lazy(() => {
+  throw new Error('Example');
+});
+
+export const Component = React.memo(function Component({children}) {
+  return children;
+});
+
+export function DisplayName({children}) {
+  return children;
+}
+DisplayName.displayName = 'Custom Name';
+
+export class NativeClass extends React.Component {
+  render() {
+    return this.props.children;
+  }
 }
 
-export class SecondClass extends React.Component {
-    method() {
-        return "hello";
-    }
+export class FrozenClass extends React.Component {
+  constructor() {
+    super();
+  }
+  render() {
+    return this.props.children;
+  }
 }
-
-class ThirdClass extends React.PureComponent {
-    render() {
-        return <div>Test</div>;
-    }
-}
+Object.freeze(FrozenClass.prototype);
 )";
 
     std::cout << "🔥 PEGTL React.Component Battle Start!\n";

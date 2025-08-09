@@ -1243,6 +1243,19 @@ protected:
         result.functions.insert(result.functions.end(), basic_functions.begin(), basic_functions.end());
         result.classes.insert(result.classes.end(), classes.begin(), classes.end());
         
+        // 🔥 統一検出で追加されたクラスのend_line計算
+        std::vector<std::string> content_lines;
+        std::istringstream stream(content);
+        std::string line;
+        while (std::getline(stream, line)) {
+            content_lines.push_back(line);
+        }
+        for (auto& cls : result.classes) {
+            if (cls.end_line == 0 && cls.start_line > 0) {
+                cls.end_line = find_class_end_line(content_lines, cls.start_line - 1);
+            }
+        }
+        
         // 🚀 Phase 5緊急対応: クラスメソッドを検出
         ScriptDetectionHelpers::detect_class_methods(result.classes, content);
         

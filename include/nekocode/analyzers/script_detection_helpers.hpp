@@ -143,11 +143,11 @@ public:
         std::string line;
         size_t line_number = 0;
         
-        // クラスパターン（JS/TS共通）
+        // クラスパターン（JS/TS共通）- React.Component対応版
         std::regex class_patterns[] = {
-            std::regex(R"(^\s*class\s+(\w+)\s*(?:extends\s+(\w+))?\s*\{)"),         // class Name extends Base {
-            std::regex(R"(^\s*export\s+class\s+(\w+)\s*(?:extends\s+(\w+))?\s*\{)"), // export class Name {
-            std::regex(R"(^\s*export\s+default\s+class\s+(\w+)\s*(?:extends\s+(\w+))?\s*\{)") // export default class Name {
+            std::regex(R"(^\s*class\s+(\w+)\s*(?:extends\s+([\w\.]+))?\s*\{)"),         // class Name extends React.Component {
+            std::regex(R"(^\s*export\s+class\s+(\w+)\s*(?:extends\s+([\w\.]+))?\s*\{)"), // export class Name extends React.Component {
+            std::regex(R"(^\s*export\s+default\s+class\s+(\w+)\s*(?:extends\s+([\w\.]+))?\s*\{)") // export default class Name extends React.Component {
         };
         
         while (std::getline(stream, line)) {
