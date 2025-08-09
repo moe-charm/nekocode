@@ -490,8 +490,8 @@ void CSharpPEGTLAnalyzer::extract_csharp_elements_from_line(const std::string& l
     debug_file << "\n=== LINE " << line_number << " ===\n";
     debug_file << "Content: [" << line << "]\n";
     
-    // パターン1: public class ClassName
-    std::regex class_pattern(R"(^\s*(?:public|internal|private|protected)?\s*(?:static|sealed|abstract)?\s*class\s+(\w+))");
+    // パターン1: public class ClassName (partial対応追加!)
+    std::regex class_pattern(R"(^\s*(?:public|internal|private|protected)?\s*(?:static|sealed|abstract|partial)?\s*(?:partial)?\s*class\s+(\w+))");
     std::smatch match;
     
     debug_file << "Testing class_pattern... ";
