@@ -1037,6 +1037,13 @@ public:
                         func.end_line = find_function_end_line(state.content_lines, func.start_line - 1);
                     }
                 }
+                
+                // Calculate end_line for all classes (バグ修正: MoveClass機能に必要)
+                for (auto& cls : result.classes) {
+                    if (cls.start_line > 0) {
+                        cls.end_line = find_class_end_line(state.content_lines, cls.start_line - 1);
+                    }
+                }
                 result.imports = std::move(state.imports);
                 result.exports = std::move(state.exports);
                 
@@ -1318,6 +1325,35 @@ protected:
         
         // If no matching brace found, return a reasonable default
         return static_cast<uint32_t>(std::min(start_line + 10, lines.size()));
+    }
+    
+    uint32_t find_class_end_line(const std::vector<std::string>& lines, size_t start_line) {
+        if (start_line >= lines.size()) {
+            return static_cast<uint32_t>(start_line + 1);
+        }
+        
+        // Classes use the same brace matching as functions
+        uint32_t brace_count = 0;
+        bool found_opening_brace = false;
+        
+        for (size_t i = start_line; i < lines.size(); i++) {
+            const std::string& line = lines[i];
+            
+            for (char c : line) {
+                if (c == '{') {
+                    brace_count++;
+                    found_opening_brace = true;
+                } else if (c == '}' && found_opening_brace) {
+                    brace_count--;
+                    if (brace_count == 0) {
+                        return static_cast<uint32_t>(i + 1);
+                    }
+                }
+            }
+        }
+        
+        // If no matching brace found, return a reasonable default (classes tend to be larger)
+        return static_cast<uint32_t>(std::min(start_line + 50, lines.size()));
     }
 };
 
