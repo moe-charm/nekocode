@@ -199,7 +199,7 @@ set(NEKOCODE_SOURCES
     
     # 言語別アナライザー（新構造）
     ${SRC_DIR}/analyzers/analyzer_factory.cpp
-    ${SRC_DIR}/analyzers/python/python_analyzer.cpp
+    # ${SRC_DIR}/analyzers/python/python_analyzer.cpp # レガシー削除
     # ${SRC_DIR}/analyzers/javascript/javascript_analyzer.cpp # regex版は削除済み
     ${SRC_DIR}/analyzers/cpp/cpp_language_analyzer.cpp
     ${SRC_DIR}/analyzers/cpp/cpp_analyzer.cpp
@@ -239,7 +239,7 @@ set(NEKOCODE_HEADERS
     ${SRC_DIR}/analyzers/base_analyzer.hpp
     ${SRC_DIR}/analyzers/javascript/javascript_pegtl_analyzer.hpp
     ${SRC_DIR}/analyzers/javascript/javascript_minimal_grammar.hpp
-    ${INCLUDE_DIR}/nekocode/analyzers/python_analyzer.hpp
+    # ${INCLUDE_DIR}/nekocode/analyzers/python_analyzer.hpp # レガシー削除
     ${INCLUDE_DIR}/nekocode/analyzers/cpp_language_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/unity_analyzer.hpp
     ${INCLUDE_DIR}/nekocode/analyzers/unity_patterns.hpp

@@ -103,6 +103,8 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
         ClassInfo class_info;
         class_info.name = rust_struct.name;
         class_info.start_line = rust_struct.line_number;
+        // 🔥 end_line計算を追加（MoveClass対応）
+        class_info.end_line = find_struct_end_line(content, rust_struct.line_number);
         if (rust_struct.is_pub) {
             class_info.metadata["is_pub"] = "true";
         }
@@ -117,6 +119,8 @@ AnalysisResult RustAnalyzer::analyze(const std::string& content, const std::stri
         ClassInfo class_info;
         class_info.name = rust_enum.name;
         class_info.start_line = rust_enum.line_number;
+        // 🔥 end_line計算を追加（MoveClass対応）
+        class_info.end_line = find_struct_end_line(content, rust_enum.line_number);
         class_info.metadata["type"] = "enum";
         result.classes.push_back(class_info);
         
@@ -1116,6 +1120,54 @@ void RustAnalyzer::fix_impl_method_classification(AnalysisResult& result) {
 //=============================================================================
 // 🆕 ヘルパー関数
 //=============================================================================
+
+// 🎯 Rust構造体/列挙型の終了行を検出（ブレースベース）
+LineNumber RustAnalyzer::find_struct_end_line(const std::string& content, LineNumber start_line) {
+    std::istringstream stream(content);
+    std::string line;
+    LineNumber current_line = 1;
+    int brace_level = 0;
+    bool struct_started = false;
+    
+    while (std::getline(stream, line)) {
+        if (current_line >= start_line) {
+            // コメントを除外
+            size_t comment_pos = line.find("//");
+            if (comment_pos != std::string::npos) {
+                line = line.substr(0, comment_pos);
+            }
+            
+            // ブロックコメントの簡易処理（/* */）
+            size_t block_start = line.find("/*");
+            size_t block_end = line.find("*/");
+            if (block_start != std::string::npos && block_end != std::string::npos) {
+                line = line.substr(0, block_start) + line.substr(block_end + 2);
+            }
+            
+            // ブレースレベルをカウント
+            for (char c : line) {
+                if (c == '{') {
+                    brace_level++;
+                    struct_started = true;
+                } else if (c == '}') {
+                    brace_level--;
+                    if (struct_started && brace_level == 0) {
+                        // 構造体/列挙型の終了
+                        return current_line;
+                    }
+                }
+            }
+            
+            // タプル構造体やユニット構造体の場合（セミコロンで終わる）
+            if (!struct_started && line.find(';') != std::string::npos) {
+                return current_line;
+            }
+        }
+        current_line++;
+    }
+    
+    return start_line; // デフォルト
+}
 
 ClassInfo* RustAnalyzer::find_struct_in_classes(std::vector<ClassInfo>& classes, const std::string& struct_name) {
     for (auto& class_info : classes) {
