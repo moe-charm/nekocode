@@ -274,18 +274,70 @@ SymbolFinder::SymbolType SymbolFinder::detectSymbolType(
     
     
     // 🔥 クラスパターン検出を追加（バグ修正）
-    // 1. export class パターン
+    // 1. export class パターン (JavaScript/TypeScript)
     if (pos >= 13 && line.substr(pos - 13, 13) == "export class ") {
         return SymbolType::CLASS;
     }
     
-    // 2. export default class パターン  
+    // 2. export default class パターン (JavaScript/TypeScript)
     if (pos >= 21 && line.substr(pos - 21, 21) == "export default class ") {
         return SymbolType::CLASS;
     }
     
-    // 3. class パターン
+    // 3. class パターン (JavaScript/TypeScript)
     if (pos >= 6 && line.substr(pos - 6, 6) == "class ") {
+        return SymbolType::CLASS;
+    }
+    
+    // 🔥 C#クラスパターン検出を追加
+    // 4. public class パターン (C#)
+    if (pos >= 13 && line.substr(pos - 13, 13) == "public class ") {
+        return SymbolType::CLASS;
+    }
+    
+    // 5. internal class パターン (C#)
+    if (pos >= 15 && line.substr(pos - 15, 15) == "internal class ") {
+        return SymbolType::CLASS;
+    }
+    
+    // 6. private class パターン (C#)
+    if (pos >= 14 && line.substr(pos - 14, 14) == "private class ") {
+        return SymbolType::CLASS;
+    }
+    
+    // 7. protected class パターン (C#)
+    if (pos >= 16 && line.substr(pos - 16, 16) == "protected class ") {
+        return SymbolType::CLASS;
+    }
+    
+    // 8. abstract class パターン (C#)
+    if (pos >= 15 && line.substr(pos - 15, 15) == "abstract class ") {
+        return SymbolType::CLASS;
+    }
+    
+    // 9. sealed class パターン (C#)
+    if (pos >= 13 && line.substr(pos - 13, 13) == "sealed class ") {
+        return SymbolType::CLASS;
+    }
+    
+    // 🦀 Rust struct/enum パターン検出を追加
+    // 10. struct パターン (Rust)
+    if (pos >= 7 && line.substr(pos - 7, 7) == "struct ") {
+        return SymbolType::CLASS;  // RustのstructはCLASSとして扱う
+    }
+    
+    // 11. pub struct パターン (Rust)
+    if (pos >= 11 && line.substr(pos - 11, 11) == "pub struct ") {
+        return SymbolType::CLASS;
+    }
+    
+    // 12. enum パターン (Rust)
+    if (pos >= 5 && line.substr(pos - 5, 5) == "enum ") {
+        return SymbolType::CLASS;  // Rusのenumもクラス的扱い
+    }
+    
+    // 13. pub enum パターン (Rust)
+    if (pos >= 9 && line.substr(pos - 9, 9) == "pub enum ") {
         return SymbolType::CLASS;
     }
     
