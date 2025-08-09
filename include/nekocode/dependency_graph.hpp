@@ -152,6 +152,7 @@ public:
         std::vector<std::string> symbols;    // importされているSymbol名
         bool is_wildcard = false;            // * importかどうか
         bool is_relative = false;            // 相対importかどうか
+        bool is_type_import = false;         // TypeScript type importかどうか
         LineNumber line_number = 0;          // 行番号
     };
     
@@ -182,6 +183,13 @@ public:
                                               const std::string& old_path,
                                               const std::string& new_path,
                                               Language language);
+
+private:
+    // 🐍 PCRE2革命的JavaScript Import解析用ヘルパー関数
+    static ImportStatement parse_js_import_line_smart(const std::string& line, LineNumber line_num);
+    static ImportStatement parse_js_import_line_pcre2(const std::string& line, LineNumber line_num);
+    static void parse_symbol_list(const std::string& symbols_str, std::vector<std::string>& symbols);
+    static std::string trim_string(const std::string& str);
 };
 
 } // namespace nekocode

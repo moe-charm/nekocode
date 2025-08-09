@@ -381,39 +381,6 @@ bool RefactoringUtils::is_symbol_movable(const UniversalSymbolInfo& symbol,
     return true;
 }
 
-std::string RefactoringUtils::adjust_namespace(const std::string& code,
-                                              const std::string& old_namespace,
-                                              const std::string& new_namespace,
-                                              Language lang) {
-    std::string adjusted = code;
-    
-    switch (lang) {
-        case Language::CPP:
-            // namespace oldを namespace newに置換
-            {
-                std::regex ns_regex("namespace\\s+" + old_namespace);
-                adjusted = std::regex_replace(adjusted, ns_regex, "namespace " + new_namespace);
-            }
-            break;
-            
-        case Language::CSHARP:
-            // namespace宣言の置換
-            {
-                std::regex ns_regex("namespace\\s+" + old_namespace);
-                adjusted = std::regex_replace(adjusted, ns_regex, "namespace " + new_namespace);
-            }
-            break;
-            
-        case Language::PYTHON:
-            // Pythonはファイル構造で名前空間が決まるため特別な処理は不要
-            break;
-            
-        default:
-            break;
-    }
-    
-    return adjusted;
-}
 
 std::string RefactoringUtils::format_code(const std::string& code, Language lang) {
     // 簡易的なフォーマット処理
