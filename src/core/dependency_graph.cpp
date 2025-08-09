@@ -1,4 +1,5 @@
 #include "nekocode/dependency_graph.hpp"
+#include "commands/direct_edit/pcre2_engine.hpp"
 #include <regex>
 #include <sstream>
 #include <queue>
@@ -378,47 +379,23 @@ std::vector<ImportAnalyzer::ImportStatement> ImportAnalyzer::parse_js_imports(
     const std::string& content) {
     
     std::vector<ImportStatement> imports;
-    std::regex import_regex(R"(^\s*import\s+(.+?)\s+from\s+['"](.+?)['"];?$)", 
-                           std::regex::multiline);
+    using namespace DirectEdit;
     
-    auto begin = std::sregex_iterator(content.begin(), content.end(), import_regex);
-    auto end = std::sregex_iterator();
+    // PCRE2革命: 行ベースでJavaScript import解析
+    std::istringstream stream(content);
+    std::string line;
+    LineNumber line_num = 0;
     
-    LineNumber line_num = 1;
-    for (std::sregex_iterator i = begin; i != end; ++i) {
-        ImportStatement stmt;
-        stmt.raw_statement = i->str();
-        stmt.module_or_file = (*i)[2];
-        stmt.line_number = line_num;
+    while (std::getline(stream, line)) {
+        line_num++;
         
-        std::string import_part = (*i)[1];
-        
-        // デフォルトimport: import Foo from './foo'
-        if (import_part.find('{') == std::string::npos) {
-            stmt.symbols.push_back(import_part);
-        }
-        // 名前付きimport: import { Foo, Bar } from './foo'
-        else {
-            std::regex symbol_regex(R"(\w+)");
-            auto sym_begin = std::sregex_iterator(import_part.begin(), import_part.end(), symbol_regex);
-            auto sym_end = std::sregex_iterator();
-            for (auto j = sym_begin; j != sym_end; ++j) {
-                stmt.symbols.push_back(j->str());
+        // import文を含む行の処理
+        if (line.find("import") != std::string::npos && line.find("from") != std::string::npos) {
+            ImportStatement stmt = parse_js_import_line_pcre2(line, line_num);
+            if (!stmt.raw_statement.empty()) {
+                imports.push_back(stmt);
             }
         }
-        
-        // ワイルドカードチェック
-        if (import_part.find('*') != std::string::npos) {
-            stmt.is_wildcard = true;
-        }
-        
-        // 相対パスチェック
-        if (stmt.module_or_file.find("./") == 0 || stmt.module_or_file.find("../") == 0) {
-            stmt.is_relative = true;
-        }
-        
-        imports.push_back(stmt);
-        line_num++;
     }
     
     return imports;
@@ -640,6 +617,64 @@ std::string ImportAnalyzer::update_import_statement(
     }
     
     return updated;
+}
+
+// 🐍 PCRE2革命のJavaScript import行解析
+ImportAnalyzer::ImportStatement ImportAnalyzer::parse_js_import_line_pcre2(
+    const std::string& line, LineNumber line_num) {
+    
+    ImportStatement stmt;
+    stmt.raw_statement = line;
+    stmt.line_number = line_num;
+    
+    using namespace DirectEdit;
+    
+    // PCRE2パターンでimport文解析
+    std::string pattern = R"(^\s*import\s+(.+?)\s+from\s+['"](.+?)['"];?\s*$)";
+    
+    auto result = re_sub(pattern, "$1|$2", line);
+    if (result.success && result.new_content != line) {
+        // マッチング成功 - パイプで分離された結果を解析
+        size_t pipe_pos = result.new_content.find('|');
+        if (pipe_pos != std::string::npos) {
+            std::string import_part = result.new_content.substr(0, pipe_pos);
+            stmt.module_or_file = result.new_content.substr(pipe_pos + 1);
+            
+            // TypeScript type import検出
+            if (import_part.find("type") != std::string::npos) {
+                stmt.is_type_import = true;
+                // "type"キーワードを除去
+                size_t type_pos = import_part.find("type");
+                import_part.erase(type_pos, 4);
+            }
+            
+            // 相対パス検出
+            stmt.is_relative = (stmt.module_or_file.find("./") == 0 || 
+                               stmt.module_or_file.find("../") == 0);
+            
+            // ワイルドカード検出
+            stmt.is_wildcard = (import_part.find("* as") != std::string::npos);
+            
+            // シンボル名抽出
+            if (import_part.find('{') != std::string::npos) {
+                // 名前付きimport: { Foo, Bar }
+                size_t start = import_part.find('{') + 1;
+                size_t end = import_part.find('}');
+                if (end != std::string::npos) {
+                    std::string symbols_str = import_part.substr(start, end - start);
+                    parse_symbol_list(symbols_str, stmt.symbols);
+                }
+            } else if (!stmt.is_wildcard) {
+                // デフォルトimport
+                std::string symbol = trim_string(import_part);
+                if (!symbol.empty()) {
+                    stmt.symbols.push_back(symbol);
+                }
+            }
+        }
+    }
+    
+    return stmt;
 }
 
 } // namespace nekocode

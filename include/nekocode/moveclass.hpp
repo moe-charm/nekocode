@@ -126,11 +126,6 @@ public:
     static bool is_symbol_movable(const UniversalSymbolInfo& symbol,
                                   const DependencyGraph& dep_graph);
     
-    /// 名前空間/パッケージの調整
-    static std::string adjust_namespace(const std::string& code,
-                                       const std::string& old_namespace,
-                                       const std::string& new_namespace,
-                                       Language lang);
     
     /// コードフォーマット（言語別）
     static std::string format_code(const std::string& code, Language lang);
