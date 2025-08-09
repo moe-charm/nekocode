@@ -68,9 +68,18 @@ nlohmann::json MoveClassHandler::preview(const std::string& session_id,
             source_file = stats_result["result"]["file_path"];
         } else if (stats_result.contains("file")) {
             source_file = stats_result["file"];
+        } else if (stats_result.contains("summary")) {
+            // summaryからファイル名を抽出: "File: test_react_components.js"
+            std::string summary = stats_result["summary"];
+            size_t pos = summary.find("File: ");
+            if (pos != std::string::npos) {
+                source_file = "/tmp/" + summary.substr(pos + 6); // "File: "をスキップ
+            } else {
+                source_file = "unknown_source_file.unknown";
+            }
         } else {
-            // セッションディレクトリから推測
-            source_file = "/tmp/test-moveclass-cpp/json.hpp"; // TODO: 実際のパスを取得
+            // セッションディレクトリから推測（フォールバック）
+            source_file = "unknown_source_file.unknown"; // エラーを明確にする
         }
         
         // 4. シンボル情報取得の簡易実装
