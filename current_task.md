@@ -28,6 +28,7 @@ export class FrozenClass extends React.Component { ... }
 // 課題: React import自動追加、export文の扱い
 ```
 **✅ 実施済み**: NativeClass移動成功
+**✅ PCRE2革命**: JavaScript import解析をPCRE2化済み
 
 ### **テストケース2: TypeScript Interface移動**
 ```typescript
@@ -69,6 +70,10 @@ class Flask:
 # 移動先: core/application.py
 # 課題: __init__.py更新、相対import
 ```
+**⏳ 実施中**: 
+- Flaskクラス(81-1536行)を確認
+- MoveClassコマンド未実装のため手動テスト中
+- /tmp/test_python_moveclass.pyでテストケース作成済み
 
 ### **テストケース2: 循環import解決**
 ```python
@@ -349,14 +354,14 @@ diff -u original.js moved.js
 
 | 言語 | 基本移動 | import更新 | 依存解析 | エラー処理 | 総合評価 |
 |------|---------|-----------|---------|-----------|----------|
-| JavaScript | ✅ | ⏳ | ⏳ | ⏳ | 40% |
-| Python | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
+| JavaScript | ✅ | ✅ | ⏳ | ⏳ | 60% |
+| Python | ⏳ | ✅ | ✅ | ⏳ | 35% |
 | C++ | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
 | C# | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
 | Go | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
 | Rust | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
 
-**次のアクション**: Python Flask移動テスト実施
+**次のアクション**: C++ nlohmann/json移動テスト
 
 ---
 
@@ -373,6 +378,13 @@ diff -u original.js moved.js
 ### **課題3: プレビュー表示**
 - **問題**: 「よくわからん」フィードバック
 - **解決**: 前後5行表示、色分け、説明付きフォーマット実装済み✅
+
+### **課題4: PCRE2革命**
+- **問題**: C++ std::regexが「失敗しまくってた」
+- **解決**: PCRE2 Python風APIで全面置換✅
+  - direct_replace.cpp: 完全PCRE2化
+  - dependency_graph.cpp: JavaScript import解析PCRE2化
+  - adjust_namespace関数: デッドコード削除
 
 ---
 
