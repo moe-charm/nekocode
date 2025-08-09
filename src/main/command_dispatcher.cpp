@@ -12,6 +12,9 @@
 // 🔥 Direct Edit機能（セッション不要）
 #include "../core/commands/direct_edit/direct_edit_common.hpp"
 
+// 📦 MoveClass Handler
+#include "nekocode/commands/moveclass_handler.hpp"
+
 // 🔧 Config Manager
 #include "../core/config_manager.hpp"
 
@@ -384,18 +387,11 @@ int CommandDispatcher::dispatch_moveclass(int argc, char* argv[]) {
         std::string symbol_id = argv[3];
         std::string target_file = argv[4];
         
-        // TODO: MoveClassHandler実装が必要
-        nlohmann::json result = {
-            {"command", "moveclass"},
-            {"status", "not_implemented"},
-            {"message", "MoveClass feature is under development"},
-            {"session_id", session_id},
-            {"symbol_id", symbol_id},
-            {"target_file", target_file}
-        };
+        MoveClassHandler handler;
+        auto result = handler.execute(session_id, symbol_id, target_file);
         
         std::cout << result.dump(2) << std::endl;
-        return 0;
+        return result.contains("error") ? 1 : 0;
     } catch (const std::exception& e) {
         std::cerr << "Error in moveclass: " << e.what() << std::endl;
         return 1;
@@ -414,16 +410,11 @@ int CommandDispatcher::dispatch_moveclass_preview(int argc, char* argv[]) {
         std::string symbol_id = argv[3];
         std::string target_file = argv[4];
         
-        // TODO: MoveClassHandler::preview実装が必要
-        nlohmann::json result = {
-            {"command", "moveclass-preview"},
-            {"preview_id", "preview_moveclass_" + std::to_string(std::time(nullptr))},
-            {"status", "not_implemented"},
-            {"message", "MoveClass preview is under development"}
-        };
+        MoveClassHandler handler;
+        auto result = handler.preview(session_id, symbol_id, target_file);
         
         std::cout << result.dump(2) << std::endl;
-        return 0;
+        return result.contains("error") ? 1 : 0;
     } catch (const std::exception& e) {
         std::cerr << "Error in moveclass-preview: " << e.what() << std::endl;
         return 1;
@@ -440,16 +431,11 @@ int CommandDispatcher::dispatch_moveclass_confirm(int argc, char* argv[]) {
     try {
         std::string preview_id = argv[2];
         
-        // TODO: MoveClassHandler::confirm実装が必要
-        nlohmann::json result = {
-            {"command", "moveclass-confirm"},
-            {"preview_id", preview_id},
-            {"status", "not_implemented"},
-            {"message", "MoveClass confirm is under development"}
-        };
+        MoveClassHandler handler;
+        auto result = handler.confirm(preview_id);
         
         std::cout << result.dump(2) << std::endl;
-        return 0;
+        return result.contains("error") ? 1 : 0;
     } catch (const std::exception& e) {
         std::cerr << "Error in moveclass-confirm: " << e.what() << std::endl;
         return 1;

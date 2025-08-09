@@ -179,6 +179,7 @@ set(NEKOCODE_SOURCES
     # 依存関係解析とMoveClass
     ${SRC_DIR}/core/dependency_graph.cpp
     ${SRC_DIR}/core/moveclass.cpp
+    ${SRC_DIR}/core/commands/moveclass_handler.cpp
     
     # コマンド
     ${SRC_DIR}/commands/find_command.cpp
