@@ -603,127 +603,93 @@ struct javascript_action<javascript::minimal_grammar::simple_import> {
     }
 };
 
-// 🏛️ class検出 + 🌳 AST構築
+// 🔥 BATTLE CODE: simple_class_header検出 + 正確なstart_line
 template<>
-struct javascript_action<javascript::minimal_grammar::simple_class> {
+struct javascript_action<javascript::minimal_grammar::simple_class_header> {
     template<typename ParseInput>
     static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        auto pos = in.position();
         std::string matched = in.string();
-        // std::cerr << "[DEBUG] simple_class matched: " << matched.substr(0, 50) << "..." << std::endl;
         
-        // class Name { から名前抽出
+        // 🎯 BATTLE CODE成功パターン: position().lineを直接使用！
+        size_t start_line = pos.line;
+        
+        // クラス名とextends抽出
         size_t class_pos = matched.find("class");
-        if (class_pos != std::string::npos) {
-            size_t name_start = class_pos + 5; // "class"の長さ
-            while (name_start < matched.size() && std::isspace(matched[name_start])) {
-                name_start++;
-            }
-            
-            size_t name_end = name_start;
-            while (name_end < matched.size() && 
-                   (std::isalnum(matched[name_end]) || matched[name_end] == '_' || matched[name_end] == '$')) {
-                name_end++;
-            }
-            
-            if (name_end > name_start) {
-                std::string class_name = matched.substr(name_start, name_end - name_start);
-                
-                // 🐛 バグ修正: PEGTLのposition()を使って正確な行番号を取得
-                auto pos = in.position();
-                
-                // simple classの場合も同様の処理
-                size_t newline_count_before_class = 0;
-                size_t class_keyword_pos = matched.find("class");
-                if (class_keyword_pos != std::string::npos) {
-                    for (size_t i = 0; i < class_keyword_pos; ++i) {
-                        if (matched[i] == '\n') newline_count_before_class++;
-                    }
-                }
-                
-                size_t total_newline_count = 0;
-                for (char c : matched) {
-                    if (c == '\n') total_newline_count++;
-                }
-                
-                size_t match_start_line = 1; // デフォルトは1行目
-                if (pos.line > total_newline_count) {
-                    match_start_line = pos.line - total_newline_count;
-                }
-                state.current_line = match_start_line + newline_count_before_class;
-                
-                // 🌳 AST革命: リアルタイムクラス構築
-                state.start_class(class_name, state.current_line);
-                
-                // 従来の平面データ構造も維持（後方互換性）
-                ClassInfo class_info;
-                class_info.name = class_name;
-                class_info.start_line = state.current_line;
-                state.classes.push_back(class_info);
-                
-                // 🚀 Phase 5 テスト: Universal Symbol直接生成
-                state.add_test_class_symbol(class_name, state.current_line);
-                
-                // std::cerr << "[AST] Found simple class: " << class_name << " at line " << state.current_line << std::endl;
+        size_t name_start = matched.find_first_not_of(" \t", class_pos + 5);
+        size_t name_end = matched.find_first_of(" \t{", name_start);
+        std::string class_name = matched.substr(name_start, name_end - name_start);
+        
+        ClassInfo class_info;
+        class_info.name = class_name;
+        class_info.start_line = static_cast<uint32_t>(start_line);
+        
+        // extends解析
+        size_t extends_pos = matched.find("extends");
+        if (extends_pos != std::string::npos) {
+            size_t extends_start = matched.find_first_not_of(" \t", extends_pos + 7);
+            size_t extends_end = matched.find_first_of(" \t{", extends_start);
+            if (extends_end != std::string::npos && extends_start < extends_end) {
+                class_info.parent_class = matched.substr(extends_start, extends_end - extends_start);
             }
         }
+        
+        // 🌳 AST構築
+        if (state.ast_enabled && state.current_scope) {
+            auto class_node = std::make_unique<ASTNode>(ASTNodeType::CLASS, class_name);
+            class_node->start_line = class_info.start_line;
+            state.current_scope->children.push_back(std::move(class_node));
+            
+            // 🚀 Phase 5: Universal Symbol生成
+            state.add_test_class_symbol(class_name, class_info.start_line);
+        }
+        
+        state.classes.push_back(class_info);
     }
 };
 
-// 🌍 export class検出
+// 🔥 BATTLE CODE: export_class_header検出 + 正確なstart_line
 template<>
-struct javascript_action<javascript::minimal_grammar::export_class> {
+struct javascript_action<javascript::minimal_grammar::export_class_header> {
     template<typename ParseInput>
     static void apply(const ParseInput& in, JavaScriptParseState& state) {
+        auto pos = in.position();
         std::string matched = in.string();
         
-        // export class Name { から名前抽出
+        // 🎯 BATTLE CODE成功パターン: position().lineを直接使用！
+        size_t start_line = pos.line;
+        
+        // クラス名とextends抽出
         size_t class_pos = matched.find("class");
-        if (class_pos != std::string::npos) {
-            size_t name_start = class_pos + 5; // "class"の長さ
-            while (name_start < matched.size() && std::isspace(matched[name_start])) {
-                name_start++;
-            }
-            
-            size_t name_end = name_start;
-            while (name_end < matched.size() && 
-                   (std::isalnum(matched[name_end]) || matched[name_end] == '_' || matched[name_end] == '$')) {
-                name_end++;
-            }
-            
-            if (name_end > name_start) {
-                // 🐛 バグ修正: PEGTLのposition()を使って正確な行番号を取得
-                auto pos = in.position();
-                
-                // export classの場合、matchedにはクラス全体が含まれる
-                // 最初のclassキーワードまでの改行数を数える
-                size_t newline_count_before_class = 0;
-                size_t class_keyword_pos = matched.find("class");
-                if (class_keyword_pos != std::string::npos) {
-                    for (size_t i = 0; i < class_keyword_pos; ++i) {
-                        if (matched[i] == '\n') newline_count_before_class++;
-                    }
-                }
-                
-                // マッチ全体の改行数も数える（終端位置計算用）
-                size_t total_newline_count = 0;
-                for (char c : matched) {
-                    if (c == '\n') total_newline_count++;
-                }
-                
-                ClassInfo class_info;
-                class_info.name = matched.substr(name_start, name_end - name_start);
-                // pos.lineは終端位置、そこからtotal改行数を引いて開始位置を求め、
-                // さらにclassキーワードまでの改行数を足す
-                // ただし、アンダーフローを防ぐ
-                size_t match_start_line = 1; // デフォルトは1行目
-                if (pos.line > total_newline_count) {
-                    match_start_line = pos.line - total_newline_count;
-                }
-                class_info.start_line = match_start_line + newline_count_before_class;
-                // TODO: is_exported フィールド追加予定
-                state.classes.push_back(class_info);
+        size_t name_start = matched.find_first_not_of(" \t", class_pos + 5);
+        size_t name_end = matched.find_first_of(" \t{", name_start);
+        std::string class_name = matched.substr(name_start, name_end - name_start);
+        
+        ClassInfo class_info;
+        class_info.name = class_name;
+        class_info.start_line = static_cast<uint32_t>(start_line);
+        
+        // extends解析
+        size_t extends_pos = matched.find("extends");
+        if (extends_pos != std::string::npos) {
+            size_t extends_start = matched.find_first_not_of(" \t", extends_pos + 7);
+            size_t extends_end = matched.find_first_of(" \t{", extends_start);
+            if (extends_end != std::string::npos && extends_start < extends_end) {
+                class_info.parent_class = matched.substr(extends_start, extends_end - extends_start);
             }
         }
+        
+        // 🌳 AST構築
+        if (state.ast_enabled && state.current_scope) {
+            auto class_node = std::make_unique<ASTNode>(ASTNodeType::CLASS, class_name);
+            class_node->start_line = class_info.start_line;
+            state.current_scope->children.push_back(std::move(class_node));
+            
+            // 🚀 Phase 5: Universal Symbol生成
+            state.add_test_class_symbol(class_name, class_info.start_line);
+        }
+        
+        state.classes.push_back(class_info);
     }
 };
 

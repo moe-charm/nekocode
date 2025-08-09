@@ -114,6 +114,40 @@ struct class_header : seq<
     >>
 > {};
 
+// 🔥 BATTLE CODE: クラスヘッダーのみマッチ（start_line修正用）
+struct simple_class_header : seq<
+    star<space>,
+    class_keyword,
+    plus<space>,
+    simple_identifier,  // クラス名
+    opt<seq<
+        plus<space>,
+        extends_keyword,
+        plus<space>,
+        identifier  // React.Component対応！
+    >>,
+    star<space>,
+    one<'{'>  // 開き括弧で終了
+> {};
+
+// export class ヘッダー
+struct export_class_header : seq<
+    star<space>,
+    export_keyword,
+    plus<space>,
+    class_keyword,
+    plus<space>,
+    simple_identifier,  // クラス名
+    opt<seq<
+        plus<space>,
+        extends_keyword,
+        plus<space>,
+        identifier  // React.Component対応！
+    >>,
+    star<space>,
+    one<'{'>  // 開き括弧で終了
+> {};
+
 // クラスメソッド検出: [async] [static] methodName(params) { ... }
 struct class_method : seq<
     star<space>,  // インデント許可
@@ -388,9 +422,9 @@ struct javascript_element : sor<
     property_assignment,  // 🔥 Skip property assignments FIRST (DisplayName.displayName = ...)
     export_const_method,  // 🏆 Victory: Handle React.lazy
     export_const_memo,    // 🔥 Handle React.memo too!
-    export_class,
+    export_class_header,  // 🔥 BATTLE CODE: ヘッダーのみで正確なstart_line
     export_function,  // TypeScript対応
-    simple_class,
+    simple_class_header,  // 🔥 BATTLE CODE: ヘッダーのみで正確なstart_line
     class_method,     // class method を独立したルールとして追加
     async_function,   // 🔥 async関数検出を有効化！
     async_arrow,      // 🔥 async arrow関数検出を有効化！
