@@ -627,7 +627,29 @@ struct javascript_action<javascript::minimal_grammar::simple_class> {
             
             if (name_end > name_start) {
                 std::string class_name = matched.substr(name_start, name_end - name_start);
-                state.update_line_from_position(in.position().byte);
+                
+                // 🐛 バグ修正: PEGTLのposition()を使って正確な行番号を取得
+                auto pos = in.position();
+                
+                // simple classの場合も同様の処理
+                size_t newline_count_before_class = 0;
+                size_t class_keyword_pos = matched.find("class");
+                if (class_keyword_pos != std::string::npos) {
+                    for (size_t i = 0; i < class_keyword_pos; ++i) {
+                        if (matched[i] == '\n') newline_count_before_class++;
+                    }
+                }
+                
+                size_t total_newline_count = 0;
+                for (char c : matched) {
+                    if (c == '\n') total_newline_count++;
+                }
+                
+                size_t match_start_line = 1; // デフォルトは1行目
+                if (pos.line > total_newline_count) {
+                    match_start_line = pos.line - total_newline_count;
+                }
+                state.current_line = match_start_line + newline_count_before_class;
                 
                 // 🌳 AST革命: リアルタイムクラス構築
                 state.start_class(class_name, state.current_line);
@@ -669,9 +691,35 @@ struct javascript_action<javascript::minimal_grammar::export_class> {
             }
             
             if (name_end > name_start) {
+                // 🐛 バグ修正: PEGTLのposition()を使って正確な行番号を取得
+                auto pos = in.position();
+                
+                // export classの場合、matchedにはクラス全体が含まれる
+                // 最初のclassキーワードまでの改行数を数える
+                size_t newline_count_before_class = 0;
+                size_t class_keyword_pos = matched.find("class");
+                if (class_keyword_pos != std::string::npos) {
+                    for (size_t i = 0; i < class_keyword_pos; ++i) {
+                        if (matched[i] == '\n') newline_count_before_class++;
+                    }
+                }
+                
+                // マッチ全体の改行数も数える（終端位置計算用）
+                size_t total_newline_count = 0;
+                for (char c : matched) {
+                    if (c == '\n') total_newline_count++;
+                }
+                
                 ClassInfo class_info;
                 class_info.name = matched.substr(name_start, name_end - name_start);
-                class_info.start_line = state.current_line;
+                // pos.lineは終端位置、そこからtotal改行数を引いて開始位置を求め、
+                // さらにclassキーワードまでの改行数を足す
+                // ただし、アンダーフローを防ぐ
+                size_t match_start_line = 1; // デフォルトは1行目
+                if (pos.line > total_newline_count) {
+                    match_start_line = pos.line - total_newline_count;
+                }
+                class_info.start_line = match_start_line + newline_count_before_class;
                 // TODO: is_exported フィールド追加予定
                 state.classes.push_back(class_info);
             }
@@ -815,8 +863,32 @@ struct javascript_action<javascript::minimal_grammar::class_header> {
             if (name_end > name_start) {
                 ClassInfo class_info;
                 class_info.name = matched.substr(name_start, name_end - name_start);
-                state.update_line_from_position(in.position().byte);
-                class_info.start_line = state.current_line;
+                
+                // 🐛 バグ修正: PEGTLのposition()を使って正確な行番号を取得
+                auto pos = in.position();
+                
+                // classキーワードまでの改行数を数える
+                size_t newline_count_before_class = 0;
+                size_t class_keyword_pos = matched.find("class");
+                if (class_keyword_pos != std::string::npos) {
+                    for (size_t i = 0; i < class_keyword_pos; ++i) {
+                        if (matched[i] == '\n') newline_count_before_class++;
+                    }
+                }
+                
+                // マッチ全体の改行数も数える
+                size_t total_newline_count = 0;
+                for (char c : matched) {
+                    if (c == '\n') total_newline_count++;
+                }
+                
+                // pos.lineは終端位置なので、改行数を引いて開始行を求める
+                // ただし、アンダーフローを防ぐ
+                size_t match_start_line = 1;
+                if (pos.line > total_newline_count) {
+                    match_start_line = pos.line - total_newline_count;
+                }
+                class_info.start_line = match_start_line + newline_count_before_class;
                 
                 // extends Parent 検出
                 size_t extends_pos = matched.find("extends");
