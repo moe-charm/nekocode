@@ -97,8 +97,20 @@ nlohmann::json MoveClassHandler::preview(const std::string& session_id,
         
         const auto& symbol = symbol_opt.value();
         
-        // 4. クラス定義抽出
+        // 4. クラス定義抽出（デバッグ付き）
+        std::ofstream debug_file("/tmp/moveclass_debug.txt");
+        debug_file << "=== MoveClass Debug ===\n";
+        debug_file << "Source file: " << source_file << "\n";
+        debug_file << "Symbol name: " << symbol.name << "\n";
+        debug_file << "Symbol start_line: " << symbol.start_line << "\n";
+        debug_file << "Symbol end_line: " << symbol.end_line << "\n";
+        debug_file << "Symbol type: " << static_cast<int>(symbol.symbol_type) << "\n";
+        
         std::string class_definition = extract_class_definition(source_file, symbol);
+        debug_file << "Class definition length: " << class_definition.length() << "\n";
+        debug_file << "First 200 chars: " << class_definition.substr(0, 200) << "\n";
+        debug_file.close();
+        
         if (class_definition.empty()) {
             result["error"] = "Failed to extract class definition";
             return result;
@@ -318,8 +330,22 @@ std::optional<UniversalSymbolInfo> MoveClassHandler::get_symbol_from_session(
         if (symbol_id.starts_with("class_")) {
             symbol.name = symbol_id.substr(6);  // "class_"を除去
             symbol.symbol_type = SymbolType::CLASS;
-            symbol.start_line = 100;  // 仮の値
-            symbol.end_line = 200;    // 仮の値
+            
+            // 🔍 findコマンドで実際の行番号を取得
+            auto find_result = session_manager_->execute_command(session_id, "find " + symbol.name);
+            if (find_result.contains("matches") && !find_result["matches"].empty()) {
+                auto match = find_result["matches"][0];
+                if (match.contains("line")) {
+                    symbol.start_line = match["line"];
+                    symbol.end_line = symbol.start_line + 20; // クラスは通常20行程度と推定
+                } else {
+                    symbol.start_line = 100;  // フォールバック
+                    symbol.end_line = 200;
+                }
+            } else {
+                symbol.start_line = 100;  // フォールバック
+                symbol.end_line = 200;
+            }
         } else if (symbol_id.starts_with("function_")) {
             symbol.name = symbol_id.substr(9);  // "function_"を除去
             symbol.symbol_type = SymbolType::FUNCTION;
