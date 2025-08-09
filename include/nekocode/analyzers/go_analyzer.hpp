@@ -56,6 +56,16 @@ struct GoFunctionInfo {
     nlohmann::json to_json() const;
 };
 
+// 🔥 Go struct情報
+struct GoStructInfo {
+    std::string name;
+    LineNumber line_number = 0;
+    std::vector<std::string> fields;        // フィールド名
+    std::vector<std::string> methods;       // 関連メソッド名
+    
+    nlohmann::json to_json() const;
+};
+
 //=============================================================================
 // 🐹 Go PEGTL Grammar Rules
 //=============================================================================
@@ -215,6 +225,7 @@ public:
     std::vector<GoroutineInfo> analyze_goroutines(const std::string& content);
     std::vector<ChannelInfo> analyze_channels(const std::string& content);
     std::vector<GoFunctionInfo> analyze_go_functions(const std::string& content);
+    std::vector<GoStructInfo> analyze_go_structs(const std::string& content);  // 🔥 struct検出
     
 private:
     // PEGTL action handlers
