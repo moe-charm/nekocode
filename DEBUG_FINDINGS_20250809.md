@@ -1,58 +1,118 @@
-# 🔍 NekoCode 重大バグ系統的デバッグ完了レポート
+# 🚨 JavaScript Parser Critical Bug Found!
 
-## 📅 調査日時: 2025-08-09 15:00-16:10
+**Date**: 2025-08-09 17:50  
+**Severity**: 🔥 **CRITICAL**  
+**Impact**: JavaScript class detection completely broken after React.lazy()
 
-## 🚨 発見した重大バグ
+## 🎯 Root Cause Identified
 
-### 1. JavaScript クラス検出失敗バグ
-**症状**: `export class NativeClass extends React.Component` が検出されない  
-**真因**: PEGTL Grammar `identifier` がドット記法未対応  
-**詳細**: `React.Component` → `identifier.identifier` だが Grammar は単一 `identifier` のみ対応  
-**解決策**: Property Access (`obj.prop`) サポート追加
+### The Problem:
+```javascript
+export const Throw = React.lazy(() => {
+  throw new Error('Example');
+});
+```
 
-### 2. Python クラス解析異常バグ (2つの独立バグ)
-**バグ2-1**: クラス行番号1固定問題  
-**バグ2-2**: docstring/コメント単語をクラス誤認問題  
-**症状**: `"that"`, `"set"`, `"can"` などの単語をクラスとして誤検出  
-**真因**: Pythonアナライザーのテキスト処理でdocstringから単語抽出  
+**This pattern BREAKS the entire parser!** After encountering `React.lazy(() => {...})`, the parser fails to recover and **cannot detect any subsequent classes**.
 
-## 🔬 系統的デバッグ手法の成功
+## 📊 Proof
 
-### Phase 1: 最小テストケース作成
-- JavaScript: `class SimpleClass` → ✅ 正常検出
-- Python: `class RealClass` → ✅ 正常検出（行番号バグのみ）
+### Test 1: Classes Only ✅
+```javascript
+// test_components_minimal.js
+export class NativeClass extends React.Component { ... }
+export class FrozenClass extends React.Component { ... }
+```
+**Result**: `total_classes: 2` ✅
 
-### Phase 2: 段階的原因分離
-- JavaScript: React.Component継承特有の問題と特定
-- Python: docstring有無での動作差異を確認
+### Test 2: With React.lazy ❌
+```javascript
+// test_components_with_lazy.js
+export const Throw = React.lazy(() => { ... });  // Parser breaks here!
+export class NativeClass extends React.Component { ... }  // Not detected
+export class FrozenClass extends React.Component { ... }  // Not detected
+```
+**Result**: `total_classes: 0` ❌
 
-### Phase 3: Grammar/アーキテクチャ調査
-- Universal AST Adapter → PEGTL Analyzer の流れを完全解明
-- 各言語のアナライザー選択ロジック確認
+## 🔍 Technical Analysis
 
-## 🎯 解明済み問題の重要度評価
+The JavaScript PEGTL grammar likely has issues with:
+1. **Arrow functions as arguments**: `(() => { ... })`
+2. **Method chaining**: `React.lazy(...)`
+3. **Parser recovery**: Failing to continue after complex expressions
 
-### ✅ 重要度: 最高 (MoveClass機能に直結)
-- JavaScript: `React.Component` 継承クラス全般
-- Python: Flask, Django 等の大規模フレームワーク
+### Specific Pattern That Breaks:
+```javascript
+export const NAME = OBJECT.METHOD(() => {
+  // arrow function body
+});
+```
 
-### ✅ 影響範囲: 2大主要言語の基本機能
-- 実用的なWebアプリケーション開発で高頻度利用
+## 💡 Solution
 
-## 🚀 検証済み正常機能
+### Short-term Fix:
+- Add better arrow function handling in the grammar
+- Improve parser recovery after failed matches
+- Skip complex expressions more robustly
 
-### ✅ C++: 完璧動作確認
-- nlohmann/json: 123クラス, 770関数, 25K行を完璧検出
+### Long-term Fix:
+- Implement proper JavaScript expression parser
+- Add comprehensive test suite for React patterns
+- Consider using tree-sitter for more robust parsing
 
-### ✅ Go: 構造体検出成功  
-- gin RouteInfo 構造体: 正常検出・移動テスト成功
+## 🚀 Impact on MoveClass
 
-## 📈 今回の成果
+This bug makes MoveClass **completely unusable** for modern JavaScript/React projects because:
+- Most React components use `React.lazy`, `React.memo`, etc.
+- Parser fails before reaching actual class definitions
+- No classes detected = no move operations possible
 
-1. **根本原因レベルまで完全解明**: Grammar定義まで遡及
-2. **再現可能テストケース確立**: 最小限での問題分離
-3. **解決策の具体化**: identifier拡張、テキスト処理修正
-4. **系統的デバッグ手法の確立**: 段階的問題追跡
+## ✅ Good News
 
-**調査担当**: Claude (Sonnet 4) + User collaborative debugging  
-**使用ツール**: MCP経由NekoCode, 最小テストケース, Grammar解析
+The parser **CAN** handle `extends React.Component` correctly! The issue is purely about parser recovery after certain patterns.
+
+## 📝 Action Items
+
+1. **Immediate**: Document this limitation in README
+2. **Priority 1**: Fix arrow function parsing in JavaScript grammar
+3. **Priority 2**: Add parser recovery mechanism
+4. **Priority 3**: Add React-specific test cases
+
+## 🔧 Affected Files
+
+- `src/analyzers/javascript/javascript_minimal_grammar.hpp` - Grammar needs fix
+- `src/analyzers/javascript/javascript_pegtl_analyzer.hpp` - Parser recovery needed
+
+## 📈 Testing Required
+
+After fix, ensure these patterns work:
+- `React.lazy(() => {...})`
+- `React.memo(function() {...})`
+- `React.forwardRef((props, ref) => {...})`
+- Arrow functions in general
+- Method chaining with parentheses
+
+## 🧪 Reproduction Steps
+
+1. Create a JavaScript file with React.lazy before class definitions
+2. Run: `./bin/nekocode_ai analyze file.js --output json`
+3. Observe: `total_classes: 0` despite having classes
+
+## 🔬 Debug Commands Used
+
+```bash
+# Test with debug symbols
+env NEKOCODE_DEBUG_SYMBOLS=1 ./bin/nekocode_ai analyze test.js --output json
+
+# Check statistics
+... | jq '.statistics'
+
+# Check detected classes
+... | jq '.symbols[] | select(.symbol_type == "class")'
+```
+
+---
+
+**Reporter**: Claude + User collaborative debugging  
+**Status**: Bug confirmed, root cause identified, solution proposed  
+**Next Step**: Implement grammar fix for arrow function handling
