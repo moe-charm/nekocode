@@ -199,6 +199,7 @@ await mcp__nekocode__edit_history(session_id)          # Track all your changes
 - **📊 Progress Monitoring**: Real-time progress for large projects (30K+ files) (**NEW!**)
 - **🎯 Advanced Member Variable Detection**: Comprehensive class member analysis across all languages (**NEW!**)
 - **🌍 Multi-Language Support**: JavaScript, TypeScript, C++, C, Python, C# (PEGTL-powered)
+- **🐍 PCRE2 Python-Compatible Regex**: Safe and reliable pattern matching for search & replace operations
 - **🎮 Interactive Mode**: Session management with instant results (180x speedup)
 - **🔍 Advanced C++ Analysis**: Complex dependency visualization, circular dependency detection
 - **📊 Include Dependency Analysis**: Reduce C++ compile time by 50-90% with include optimization (**NEW!**)
