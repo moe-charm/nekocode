@@ -212,6 +212,7 @@ func (engine *Engine) Run(addr ...string) error { }
 // 移動先: engine/core.go
 // 課題: package変更、メソッドレシーバー
 ```
+**⚠️ 発見した問題**: Goアナライザーがstructをクラスとして検出していない（0 classes検出）
 
 ### **テストケース2: Interface実装移動**
 ```go
@@ -401,6 +402,12 @@ diff -u original.js moved.js
   - command_dispatcher.cpp: CLIコマンド追加
   - セッション統合: SessionManager連携
   - プレビュー/確認の2段階実行
+
+### **課題6: Go struct検出問題**
+- **問題**: Goアナライザーがstructをクラスとして認識しない
+- **状況**: Engine structが0 classesとして報告される
+- **影響**: Go MoveClassテストが実行できない
+- **対応**: GoAnalyzerのstruct検出ロジック修正が必要
 
 ---
 
