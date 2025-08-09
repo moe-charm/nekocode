@@ -6,10 +6,10 @@
 //=============================================================================
 
 #include "direct_edit_common.hpp"
+#include "pcre2_engine.hpp"
 #include <algorithm>
 #include <iostream>
 #include <fstream>
-#include <regex>
 #include <chrono>
 #include <sstream>
 #include <iomanip>
@@ -50,43 +50,32 @@ nlohmann::json replace_preview(const std::string& file_path,
                            std::istreambuf_iterator<char>());
         file.close();
         
-        // 4. 正規表現処理
-        std::regex regex_pattern;
-        try {
-            regex_pattern = std::regex(pattern);
-        } catch (const std::regex_error& e) {
-            result["error"] = "正規表現エラー: " + std::string(e.what());
+        // 4. PCRE2 革命的置換処理 🐍
+        auto pcre_result = smart_replace(pattern, replacement, content);
+        
+        if (!pcre_result.success) {
+            result["error"] = "パターン処理エラー: " + pcre_result.error_message;
             return result;
         }
         
-        // 5. マッチ検索とサンプル収集
+        // 5. マッチ情報収集
         std::vector<nlohmann::json> all_matches;
         std::vector<nlohmann::json> sample_matches;
         
-        auto matches_begin = std::sregex_iterator(content.begin(), content.end(), regex_pattern);
-        auto matches_end = std::sregex_iterator();
+        int match_count = pcre_result.total_replacements;
         
-        int match_count = 0;
-        for (std::sregex_iterator it = matches_begin; it != matches_end; ++it) {
-            std::smatch match = *it;
-            
-            // 行番号計算
-            size_t line_number = std::count(content.begin(), content.begin() + match.position(), '\\n') + 1;
-            
+        for (size_t i = 0; i < pcre_result.match_positions.size(); ++i) {
             nlohmann::json match_info = {
-                {"line", line_number},
-                {"matched", match.str()},
-                {"position", match.position()}
+                {"line", pcre_result.match_lines[i]},
+                {"position", pcre_result.match_positions[i]}
             };
             
             all_matches.push_back(match_info);
             
             // サンプル（最初の5個のみ）
-            if (match_count < 5) {
+            if (i < 5) {
                 sample_matches.push_back(match_info);
             }
-            
-            match_count++;
         }
         
         if (all_matches.empty()) {
@@ -100,7 +89,7 @@ nlohmann::json replace_preview(const std::string& file_path,
         std::string preview_id = generate_preview_id("preview");
         
         // 7. サイズ変更計算
-        std::string new_content = std::regex_replace(content, regex_pattern, replacement);
+        std::string new_content = pcre_result.new_content;
         int size_change = static_cast<int>(new_content.size()) - static_cast<int>(content.size());
         
         // 8. 詳細情報をメモリに保存
@@ -205,9 +194,15 @@ nlohmann::json replace_confirm(const std::string& preview_id) {
         before_stream << content;
         before_stream.close();
         
-        // 7. 置換実行
-        std::regex regex_pattern(pattern);
-        std::string new_content = std::regex_replace(content, regex_pattern, replacement);
+        // 7. PCRE2革命的置換実行 🐍
+        auto pcre_result = smart_replace(pattern, replacement, content);
+        
+        if (!pcre_result.success) {
+            result["error"] = "置換エラー: " + pcre_result.error_message;
+            return result;
+        }
+        
+        std::string new_content = pcre_result.new_content;
         
         // 8. ファイル書き込み
         std::ofstream out_file(file_path);
@@ -304,25 +299,23 @@ nlohmann::json replace_direct(const std::string& file_path,
                            std::istreambuf_iterator<char>());
         file.close();
         
-        // 4. 正規表現処理
-        std::regex regex_pattern;
-        try {
-            regex_pattern = std::regex(pattern);
-        } catch (const std::regex_error& e) {
-            result["error"] = "正規表現エラー: " + std::string(e.what());
+        // 4. PCRE2革命的処理 🐍
+        auto pcre_result = smart_replace(pattern, replacement, content);
+        
+        if (!pcre_result.success) {
+            result["error"] = "パターン処理エラー: " + pcre_result.error_message;
             return result;
         }
         
-        // 5. マッチ検索
-        std::smatch matches;
-        if (!std::regex_search(content, matches, regex_pattern)) {
+        // 5. マッチ確認
+        if (pcre_result.total_replacements == 0) {
             result["warning"] = "パターンにマッチするものが見つかりませんでした";
             result["matches_found"] = 0;
             return result;
         }
         
-        // 6. 置換実行
-        std::string new_content = std::regex_replace(content, regex_pattern, replacement);
+        // 6. 置換結果取得
+        std::string new_content = pcre_result.new_content;
         
         // 7. 変更チェック
         if (content == new_content) {
@@ -346,10 +339,10 @@ nlohmann::json replace_direct(const std::string& file_path,
         result["size_before"] = content.size();
         result["size_after"] = new_content.size();
         
-        // マッチした内容を表示（最初の1つだけ）
-        if (matches.size() > 0) {
-            result["matched_content"] = matches[0].str();
-        }
+        // マッチした内容を表示（統計情報）
+        result["matches_found"] = pcre_result.total_replacements;
+        result["match_positions"] = pcre_result.match_positions;
+        result["match_lines"] = pcre_result.match_lines;
         
     } catch (const std::exception& e) {
         result["error"] = std::string("直接置換エラー: ") + e.what();
