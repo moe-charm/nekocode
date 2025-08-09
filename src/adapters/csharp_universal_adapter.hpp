@@ -198,12 +198,15 @@ protected:
         // AST統計を既存結果に統合
         auto ast_stats = this->tree_builder.get_ast_statistics();
         
-        // 統計拡張（より正確な値を使用）
+        // 🔥 重要: PEGTL解析結果のクラス情報は保持し、統計のみ更新
+        // result.classes は PEGTL で正しく検出されているので削除しない！
+        
+        // 統計拡張（より正確な値を使用、ただしPEGTL結果も尊重）
         if (ast_stats.classes > 0) {
-            result.stats.class_count = ast_stats.classes;
+            result.stats.class_count = std::max((size_t)ast_stats.classes, result.classes.size());
         }
         if (ast_stats.functions > 0) {
-            result.stats.function_count = ast_stats.functions;
+            result.stats.function_count = std::max((size_t)ast_stats.functions, result.functions.size());
         }
     }
     
