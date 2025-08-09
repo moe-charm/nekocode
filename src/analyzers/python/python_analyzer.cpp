@@ -14,6 +14,9 @@
 
 namespace nekocode {
 
+// 前方宣言
+static uint32_t find_python_class_end_line(const std::vector<std::string>& lines, size_t start_line);
+
 //=============================================================================
 // 🐍 PythonAnalyzer Implementation (String-based)
 //=============================================================================
@@ -72,6 +75,7 @@ AnalysisResult PythonAnalyzer::analyze(const std::string& content, const std::st
 //=============================================================================
 
 void PythonAnalyzer::extract_classes(const std::string& content, AnalysisResult& result) {
+    std::cerr << "[Python] extract_classes called!" << std::endl;
     std::istringstream stream(content);
     std::string line;
     uint32_t line_number = 1;
@@ -108,6 +112,22 @@ void PythonAnalyzer::extract_classes(const std::string& content, AnalysisResult&
             }
         }
         line_number++;
+    }
+    
+    // end_line計算を追加（MoveClass機能修正）
+    std::vector<std::string> all_lines;
+    std::istringstream line_stream(content);
+    std::string temp_line;
+    while (std::getline(line_stream, temp_line)) {
+        all_lines.push_back(temp_line);
+    }
+    
+    for (auto& cls : result.classes) {
+        std::cerr << "[Python] Processing class " << cls.name << " - current end_line: " << cls.end_line << ", start_line: " << cls.start_line << std::endl;
+        if (cls.start_line > 0) {
+            cls.end_line = find_python_class_end_line(all_lines, cls.start_line - 1);
+            std::cerr << "[Python] Class " << cls.name << " end_line = " << cls.end_line << std::endl;
+        }
     }
 }
 
@@ -495,6 +515,61 @@ void PythonAnalyzer::apply_python_line_based_analysis(AnalysisResult& result, co
         
         line_number++;
     }
+    
+    // end_line計算処理を追加（MoveClass機能修正）
+    // all_linesは既に424行目で宣言済み
+    
+    // 各クラスのend_lineを計算
+    for (auto& cls : result.classes) {
+        if (cls.end_line == 0 && cls.start_line > 0) {
+            cls.end_line = find_python_class_end_line(all_lines, cls.start_line - 1);
+#ifdef NEKOCODE_DEBUG
+            std::cerr << "[Python] Class " << cls.name << " end_line calculated: " << cls.end_line << std::endl;
+#endif
+        }
+    }
+}
+
+// Pythonクラスのend_lineを検出する関数
+static uint32_t find_python_class_end_line(const std::vector<std::string>& lines, size_t start_line) {
+    if (start_line >= lines.size()) {
+        return static_cast<uint32_t>(start_line + 1);
+    }
+    
+    // Pythonはインデントベースなので、クラスの最初のインデントレベルを記録
+    std::string class_line = lines[start_line];
+    size_t class_indent = 0;
+    for (char c : class_line) {
+        if (c == ' ') class_indent++;
+        else if (c == '\t') class_indent += 4;  // タブは4スペース相当
+        else break;
+    }
+    
+    // 次の行から検索開始
+    for (size_t i = start_line + 1; i < lines.size(); i++) {
+        const std::string& line = lines[i];
+        
+        // 空行はスキップ
+        if (line.find_first_not_of(" \t") == std::string::npos) {
+            continue;
+        }
+        
+        // 現在の行のインデントレベルを計算
+        size_t current_indent = 0;
+        for (char c : line) {
+            if (c == ' ') current_indent++;
+            else if (c == '\t') current_indent += 4;
+            else break;
+        }
+        
+        // 同じかそれ以下のインデントレベルが見つかったら、その前の行がクラスの終了
+        if (current_indent <= class_indent) {
+            return static_cast<uint32_t>(i);
+        }
+    }
+    
+    // ファイルの最後まで達した場合
+    return static_cast<uint32_t>(lines.size());
 }
 
 } // namespace nekocode

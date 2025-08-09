@@ -94,6 +94,9 @@ private:
     
     // C# 関数の終了行を検出
     uint32_t find_function_end_line(const std::vector<std::string>& lines, size_t start_line);
+    
+    // C# クラスの終了行を検出（MoveClass機能修正）
+    static uint32_t find_csharp_class_end_line(const std::vector<std::string>& lines, size_t start_line);
 };
 
 } // namespace nekocode
