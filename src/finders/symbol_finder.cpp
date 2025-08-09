@@ -195,6 +195,7 @@ std::vector<SymbolFinder::SymbolLocation> SymbolFinder::findInFile(
             loc.use_type = use_type;
             loc.symbol_type = symbol_type;
             
+            
             locations.push_back(loc);
             
             pos += symbol.length();
@@ -271,13 +272,30 @@ SymbolFinder::UseType SymbolFinder::detectUseType(
 SymbolFinder::SymbolType SymbolFinder::detectSymbolType(
     const std::string& line, size_t pos, const std::string& symbol) {
     
+    
+    // 🔥 クラスパターン検出を追加（バグ修正）
+    // 1. export class パターン
+    if (pos >= 13 && line.substr(pos - 13, 13) == "export class ") {
+        return SymbolType::CLASS;
+    }
+    
+    // 2. export default class パターン  
+    if (pos >= 21 && line.substr(pos - 21, 21) == "export default class ") {
+        return SymbolType::CLASS;
+    }
+    
+    // 3. class パターン
+    if (pos >= 6 && line.substr(pos - 6, 6) == "class ") {
+        return SymbolType::CLASS;
+    }
+    
     // 関数パターン
-    // 1. 関数宣言
+    // 4. 関数宣言
     if (pos >= 9 && line.substr(pos - 9, 9) == "function ") {
         return SymbolType::FUNCTION;
     }
     
-    // 2. 関数呼び出し
+    // 5. 関数呼び出し
     size_t after_pos = pos + symbol.length();
     while (after_pos < line.length() && std::isspace(line[after_pos])) {
         after_pos++;
@@ -286,7 +304,7 @@ SymbolFinder::SymbolType SymbolFinder::detectSymbolType(
         return SymbolType::FUNCTION;
     }
     
-    // 3. アロー関数
+    // 6. アロー関数
     if (line.find("=>", after_pos) != std::string::npos) {
         return SymbolType::FUNCTION;
     }
@@ -301,6 +319,9 @@ void SymbolFinder::FindResults::addLocation(const SymbolLocation& loc) {
     // 統計情報更新
     if (loc.symbol_type == SymbolType::FUNCTION) {
         function_count++;
+    } else if (loc.symbol_type == SymbolType::CLASS) {
+        // CLASSも統計上は変数扱い（互換性のため）
+        variable_count++;
     } else {
         variable_count++;
     }

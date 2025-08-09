@@ -28,7 +28,8 @@ public:
         AUTO,      // 自動判定（デフォルト）
         FUNCTION,  // 関数のみ
         VARIABLE,  // 変数のみ
-        ALL        // 両方強制
+        CLASS,     // クラスのみ（バグ修正で追加）
+        ALL        // 全部強制
     };
     
     enum class UseType {
