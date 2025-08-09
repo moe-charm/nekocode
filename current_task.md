@@ -109,8 +109,10 @@ __all__ = ['User', 'Post', 'Comment']
 
 ### **テストケース1: nlohmann/json Class移動**
 ```cpp
-// 移動元: /tmp/test-projects/json/include/nlohmann/json.hpp
+// 移動元: /tmp/test-projects/json/single_include/nlohmann/json.hpp
+// 20201行目: basic_jsonクラス（938KB、123クラス、770関数）
 namespace nlohmann {
+    template<...>
     class basic_json { 
         ...
     };
@@ -118,8 +120,12 @@ namespace nlohmann {
 }
 
 // 移動先: json_core.hpp
-// 課題: namespace維持、using alias、前方宣言
+// 課題: namespace維持、template、friend宣言
 ```
+**⏳ 実施中**:
+- 938KBの巨大ファイル解析成功
+- 123クラス、770関数検出
+- basic_jsonは20201行目
 
 ### **テストケース2: Template Class移動**
 ```cpp
@@ -356,7 +362,7 @@ diff -u original.js moved.js
 |------|---------|-----------|---------|-----------|----------|
 | JavaScript | ✅ | ✅ | ⏳ | ⏳ | 60% |
 | Python | ⏳ | ✅ | ✅ | ⏳ | 35% |
-| C++ | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
+| C++ | ⏳ | ⏳ | ✅ | ⏳ | 20% |
 | C# | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
 | Go | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
 | Rust | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
