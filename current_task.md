@@ -365,11 +365,11 @@ diff -u original.js moved.js
 | JavaScript | ✅ | ✅ | ✅ | ✅ | 85% |
 | Python | ✅ | ✅ | ✅ | ⏳ | 70% |
 | C++ | ✅ | ✅ | ✅ | ✅ | 95% |
-| C# | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
+| C# | ✅ | ⏳ | ✅ | ⏳ | 65% |
 | Go | ✅ | ⏳ | ✅ | ⏳ | 35% |
-| Rust | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
+| Rust | ✅ | ⏳ | ✅ | ⏳ | 35% |
 
-**次のアクション**: Go Gin Engineクラス移動テスト実施中
+**次のアクション**: 🔥 **MCP統合テスト実施予定** - 他のClaude Code君での動作確認
 
 ---
 
@@ -405,9 +405,43 @@ diff -u original.js moved.js
 
 ### **課題6: Go struct検出問題**
 - **問題**: Goアナライザーがstructをクラスとして認識しない
-- **状況**: Engine structが0 classesとして報告される
-- **影響**: Go MoveClassテストが実行できない
-- **対応**: GoAnalyzerのstruct検出ロジック修正が必要
+- **解決**: ✅ GoAnalyzer::analyze_go_structs()実装で2 structs検出成功
+
+### **課題7: Universal AST Adapter問題**
+- **問題**: C#/RustのUniversal AST Adapterでクラス情報が消失
+- **原因**: enhance_result_with_ast_data()でPEGTL結果を削除していた
+- **解決**: ✅ result.classesを保持し統計のみ更新するよう修正
+  - C# test_csharp_detailed.cs: 0→2クラス検出成功
+  - Rust test_rust_patterns.rs: 0→1struct検出成功
+
+### **課題8: MCP Memory機能使い方**
+- **問題**: 他のClaude Code君が「Memory使えない」報告
+- **調査結果**: Memory機能は完全動作、使い方の問題
+- **対応予定**: MCP統合テスト実施 → 他のClaude Code君での動作確認
+
+---
+
+## 🔥 **次回タスク: MCP統合テスト**
+
+### **目標**: 他のClaude Code君でNekoCode MCP機能動作確認
+
+### **テスト項目**:
+1. **Session機能**: `mcp__nekocode__session_create`
+2. **Memory機能**: `mcp__nekocode__memory_*` コマンド群
+3. **編集機能**: `mcp__nekocode__replace_*`、`mcp__nekocode__insert_*`
+4. **MoveClass**: 実際のリファクタリング作業での有効性
+5. **AST機能**: JavaScript/TypeScript向けAST Revolution
+
+### **確認ポイント**:
+- [ ] MCP ツールが正常に認識される
+- [ ] Memory保存・読み込みが機能する
+- [ ] セッション作成→解析→編集の一連の流れ
+- [ ] 実用的なリファクタリングワークフローでの使いやすさ
+
+### **期待結果**:
+- Memory機能の使い方が明確になる
+- 他のClaude Code君でも簡単に使える
+- 実用的なコード編集ワークフローの確立
 
 ---
 
