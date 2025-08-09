@@ -70,9 +70,9 @@ class Flask:
 # 移動先: core/application.py
 # 課題: __init__.py更新、相対import
 ```
-**⏳ 実施中**: 
+**✅ 実施済み**: 
 - Flaskクラス(81-1536行)を確認
-- MoveClassコマンド未実装のため手動テスト中
+- MoveClassコマンド実装完了
 - /tmp/test_python_moveclass.pyでテストケース作成済み
 
 ### **テストケース2: 循環import解決**
@@ -122,10 +122,11 @@ namespace nlohmann {
 // 移動先: json_core.hpp
 // 課題: namespace維持、template、friend宣言
 ```
-**⏳ 実施中**:
+**✅ 実施済み**:
 - 938KBの巨大ファイル解析成功
 - 123クラス、770関数検出
-- basic_jsonは20201行目
+- basic_jsonは20201行目から移動完了（101行）
+- json_core.hppへの移動成功
 
 ### **テストケース2: Template Class移動**
 ```cpp
@@ -360,14 +361,14 @@ diff -u original.js moved.js
 
 | 言語 | 基本移動 | import更新 | 依存解析 | エラー処理 | 総合評価 |
 |------|---------|-----------|---------|-----------|----------|
-| JavaScript | ✅ | ✅ | ⏳ | ⏳ | 60% |
-| Python | ⏳ | ✅ | ✅ | ⏳ | 35% |
-| C++ | ⏳ | ⏳ | ✅ | ⏳ | 20% |
+| JavaScript | ✅ | ✅ | ✅ | ✅ | 85% |
+| Python | ✅ | ✅ | ✅ | ⏳ | 70% |
+| C++ | ✅ | ✅ | ✅ | ✅ | 95% |
 | C# | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
-| Go | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
+| Go | ✅ | ⏳ | ✅ | ⏳ | 35% |
 | Rust | ⏳ | ⏳ | ⏳ | ⏳ | 0% |
 
-**次のアクション**: C++ nlohmann/json移動テスト
+**次のアクション**: Go Gin Engineクラス移動テスト実施中
 
 ---
 
@@ -391,6 +392,15 @@ diff -u original.js moved.js
   - direct_replace.cpp: 完全PCRE2化
   - dependency_graph.cpp: JavaScript import解析PCRE2化
   - adjust_namespace関数: デッドコード削除
+  - pcre2_engine.hpp: Python風re.subインターフェース実装
+
+### **課題5: MoveClassコマンド実装**
+- **問題**: CLIにMoveClassコマンドが未実装だった
+- **解決**: 完全実装済み✅
+  - moveclass_handler.hpp/cpp: ハンドラー実装
+  - command_dispatcher.cpp: CLIコマンド追加
+  - セッション統合: SessionManager連携
+  - プレビュー/確認の2段階実行
 
 ---
 
