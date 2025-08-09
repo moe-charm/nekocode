@@ -476,6 +476,13 @@ void CSharpPEGTLAnalyzer::apply_csharp_line_based_analysis(AnalysisResult& resul
     
     debug_file << "Finished processing " << (line_number - 1) << " lines" << std::endl;
     debug_file.close();
+    
+    // end_line計算処理を追加（MoveClass機能修正）
+    for (auto& cls : result.classes) {
+        if (cls.end_line == 0 && cls.start_line > 0) {
+            cls.end_line = find_csharp_class_end_line(all_lines, cls.start_line - 1);
+        }
+    }
 }
 
 void CSharpPEGTLAnalyzer::extract_csharp_elements_from_line(const std::string& line, size_t line_number,
@@ -712,6 +719,36 @@ std::vector<ClassInfo> CSharpPEGTLAnalyzer::analyze_csharp_classes_simple(const 
     debug_file.close();
     
     return classes;
+}
+
+// C#クラスのend_lineを検出する関数
+uint32_t CSharpPEGTLAnalyzer::find_csharp_class_end_line(const std::vector<std::string>& lines, size_t start_line) {
+    if (start_line >= lines.size()) {
+        return static_cast<uint32_t>(start_line + 1);
+    }
+    
+    // C#は中括弧ベースなので、開き括弧と閉じ括弧をカウント
+    uint32_t brace_count = 0;
+    bool found_opening_brace = false;
+    
+    for (size_t i = start_line; i < lines.size(); i++) {
+        const std::string& line = lines[i];
+        
+        for (char c : line) {
+            if (c == '{') {
+                brace_count++;
+                found_opening_brace = true;
+            } else if (c == '}' && found_opening_brace) {
+                brace_count--;
+                if (brace_count == 0) {
+                    return static_cast<uint32_t>(i + 1);
+                }
+            }
+        }
+    }
+    
+    // マッチする括弧が見つからない場合のデフォルト
+    return static_cast<uint32_t>(std::min(start_line + 50, lines.size()));
 }
 
 } // namespace nekocode
