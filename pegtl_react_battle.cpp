@@ -1,249 +1,263 @@
+// 🔥 PEGTL React.Component Battle Code
+// 目的: クラスのstart_lineを正確に取得する
+
+#include <tao/pegtl.hpp>
 #include <iostream>
 #include <string>
-#include <tao/pegtl.hpp>
-#include <chrono>
+#include <vector>
 
-// 🔥 React.lazy パターンとの究極対決！
-// 問題: export const Throw = React.lazy(() => { ... }); でパーサーが壊れる
-
-namespace battle {
 using namespace tao::pegtl;
 
-// =============================================================================
-// 🎯 基本要素定義
-// =============================================================================
+namespace battle {
 
-// 識別子（英数字+アンダースコア+$）
-struct simple_identifier : seq<sor<alpha, one<'_', '$'>>, star<sor<alnum, one<'_', '$'>>>> {};
-
-// Property Access対応識別子 (obj.prop.method 形式)
-struct dotted_identifier : seq<simple_identifier, star<seq<one<'.'>, simple_identifier>>> {};
-
-// 空白
+// 基本要素
 struct ws : star<space> {};
 struct newline : sor<one<'\n'>, one<'\r'>> {};
+struct comment_line : seq<TAO_PEGTL_STRING("//"), until<newline>> {};
+struct comment_block : seq<TAO_PEGTL_STRING("/*"), until<TAO_PEGTL_STRING("*/")>> {};
+struct comment : sor<comment_line, comment_block> {};
+struct ignore : star<sor<space, comment>> {};
+
+// 識別子（ドット対応版！）
+struct simple_identifier : seq<
+    sor<alpha, one<'_', '$'>>, 
+    star<sor<alnum, one<'_', '$'>>>
+> {};
+
+// ✨ ドット記法対応識別子（React.Component対応）
+struct dotted_identifier : seq<
+    simple_identifier,
+    star<seq<one<'.'>, simple_identifier>>
+> {};
 
 // キーワード
-struct export_keyword : seq<TAO_PEGTL_STRING("export"), not_at<sor<alnum, one<'_', '$'>>>> {};
-struct const_keyword : seq<TAO_PEGTL_STRING("const"), not_at<sor<alnum, one<'_', '$'>>>> {};
-struct class_keyword : seq<TAO_PEGTL_STRING("class"), not_at<sor<alnum, one<'_', '$'>>>> {};
-struct extends_keyword : seq<TAO_PEGTL_STRING("extends"), not_at<sor<alnum, one<'_', '$'>>>> {};
+struct export_keyword : seq<TAO_PEGTL_STRING("export"), not_at<alnum>> {};
+struct class_keyword : seq<TAO_PEGTL_STRING("class"), not_at<alnum>> {};
+struct extends_keyword : seq<TAO_PEGTL_STRING("extends"), not_at<alnum>> {};
 
-// =============================================================================
-// 🔥 問題のパターン: Arrow Function
-// =============================================================================
-
-// ブロック
-struct block;
-struct block_content : star<sor<block, not_one<'}'>>> {};
-struct block : seq<one<'{'>, block_content, one<'}'>> {};
-
-// パラメータリスト
-struct param_list : seq<one<'('>, star<not_one<')'>>, one<')'>> {};
-
-// アロー関数: () => { ... }
-struct arrow_function : seq<
-    param_list,
-    ws,
-    TAO_PEGTL_STRING("=>"),
-    ws,
-    block
-> {};
-
-// =============================================================================
-// 🎯 React.lazy パターン専用ルール
-// =============================================================================
-
-// メソッド呼び出し: React.lazy(...)
-struct method_call : seq<
-    dotted_identifier,    // React.lazy
-    ws,
-    one<'('>,
-    ws,
-    arrow_function,       // () => { ... }
-    ws,
-    one<')'>
-> {};
-
-// export const文: export const Name = ...
-struct export_const : seq<
-    export_keyword,
-    plus<space>,
-    const_keyword,
-    plus<space>,
-    simple_identifier,    // Name
-    ws,
-    one<'='>,
-    ws,
-    method_call,          // React.lazy(() => { ... })
-    opt<one<';'>>
-> {};
-
-// =============================================================================
-// 🏛️ クラス定義（検出したい部分）
-// =============================================================================
-
-struct class_definition : seq<
-    opt<export_keyword>,
-    opt<plus<space>>,
+// 🎯 方法1: クラスヘッダーのみマッチ（ブロック含まない）
+struct class_header_only : seq<
+    opt<seq<export_keyword, plus<space>>>,
     class_keyword,
     plus<space>,
-    simple_identifier,    // クラス名
-    ws,
+    simple_identifier,  // クラス名
     opt<seq<
+        plus<space>,
         extends_keyword,
         plus<space>,
-        dotted_identifier // React.Component
+        dotted_identifier  // React.Component対応！
     >>,
-    ws,
+    star<space>,
+    one<'{'>  // 開き括弧で終了
+> {};
+
+// 🎯 方法2: クラス開始位置を別途記録
+struct class_start_marker : seq<
+    opt<seq<export_keyword, plus<space>>>,
+    class_keyword
+> {};
+
+// 🎯 方法3: クラス名の位置で記録
+struct class_name_position : seq<
+    opt<seq<export_keyword, plus<space>>>,
+    class_keyword,
+    plus<space>,
+    simple_identifier  // ここの位置を記録
+> {};
+
+// ブロックスキップ（既存と同じ）
+struct block;
+struct block : seq<one<'{'>, star<sor<block, not_one<'}'>>>, one<'}'>> {};
+
+// 完全なクラス（比較用）
+struct full_class : seq<
+    opt<seq<export_keyword, plus<space>>>,
+    class_keyword,
+    plus<space>,
+    simple_identifier,
+    opt<seq<
+        plus<space>,
+        extends_keyword,
+        plus<space>,
+        dotted_identifier
+    >>,
+    star<space>,
     block
 > {};
 
-// =============================================================================
-// 🔥 メインパーサー（問題の核心）
-// =============================================================================
+// ルート
+struct root : star<sor<
+    class_header_only,
+    full_class,
+    any
+>> {};
 
-// 各要素をスキップまたは検出
-struct javascript_line : sor<
-    export_const,         // React.lazyパターン（スキップ）
-    class_definition,     // クラス定義（検出）
-    seq<star<not_one<'\n'>>, newline>  // その他の行（スキップ）
-> {};
+// アクション定義
+struct ClassInfo {
+    std::string name;
+    size_t start_line;
+    size_t header_end_line;
+    size_t body_end_line;
+    std::string extends_class;
+    bool has_export = false;
+};
 
-// ファイル全体
-struct javascript_file : seq<
-    star<javascript_line>,
-    eof
-> {};
-
-// =============================================================================
-// 🎯 アクション（何が検出されたか記録）
-// =============================================================================
+std::vector<ClassInfo> detected_classes;
 
 template<typename Rule>
-struct action : nothing<Rule> {};
+struct action {};
 
 template<>
-struct action<class_definition> {
+struct action<class_header_only> {
     template<typename ActionInput>
-    static void apply(const ActionInput& in, std::vector<std::string>& classes) {
-        std::cout << "✅ CLASS DETECTED at line " << in.position().line << ": " 
-                  << in.string().substr(0, 50) << "...\n";
-        classes.push_back(in.string());
+    static void apply(const ActionInput& in, std::vector<ClassInfo>& classes) {
+        auto pos = in.position();
+        
+        std::cout << "🎯 class_header_only matched!\n";
+        std::cout << "   Position: line " << pos.line << ", column " << pos.column << "\n";
+        std::cout << "   Matched text: " << in.string() << "\n";
+        
+        // クラス名とextends抽出
+        std::string matched = in.string();
+        size_t class_pos = matched.find("class");
+        size_t name_start = matched.find_first_not_of(" \t", class_pos + 5);
+        size_t name_end = matched.find_first_of(" \t{", name_start);
+        std::string class_name = matched.substr(name_start, name_end - name_start);
+        
+        ClassInfo info;
+        info.name = class_name;
+        info.start_line = pos.line;
+        info.header_end_line = pos.line;  // ヘッダーは同じ行
+        info.has_export = matched.find("export") != std::string::npos;
+        
+        // extends解析
+        size_t extends_pos = matched.find("extends");
+        if (extends_pos != std::string::npos) {
+            size_t extends_start = matched.find_first_not_of(" \t", extends_pos + 7);
+            size_t extends_end = matched.find_first_of(" \t{", extends_start);
+            info.extends_class = matched.substr(extends_start, extends_end - extends_start);
+        }
+        
+        classes.push_back(info);
     }
 };
 
 template<>
-struct action<export_const> {
+struct action<full_class> {
     template<typename ActionInput>
-    static void apply(const ActionInput& in, std::vector<std::string>& classes) {
-        std::cout << "⚠️  React.lazy pattern skipped at line " << in.position().line << "\n";
+    static void apply(const ActionInput& in, std::vector<ClassInfo>& classes) {
+        auto pos = in.position();
+        
+        std::cout << "📦 full_class matched!\n";
+        std::cout << "   Start position: line " << pos.line << ", column " << pos.column << "\n";
+        std::cout << "   Length: " << in.size() << " bytes\n";
+        
+        // マッチ全体から最初の行だけ表示
+        std::string matched = in.string();
+        size_t first_newline = matched.find('\n');
+        std::string first_line = matched.substr(0, first_newline);
+        std::cout << "   First line: " << first_line << "\n";
     }
 };
 
 } // namespace battle
 
-// =============================================================================
-// 🔥 テスト実行
-// =============================================================================
-
-void test_pattern(const std::string& name, const std::string& code) {
-    std::cout << "\n========================================\n";
-    std::cout << "🎯 Testing: " << name << "\n";
-    std::cout << "========================================\n";
-    std::cout << "Code:\n" << code << "\n";
-    std::cout << "----------------------------------------\n";
-    
-    std::vector<std::string> classes;
-    
-    try {
-        auto start = std::chrono::high_resolution_clock::now();
-        
-        tao::pegtl::memory_input input(code, "test");
-        bool success = tao::pegtl::parse<battle::javascript_file, battle::action>(input, classes);
-        
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        
-        if (success) {
-            std::cout << "✅ Parse SUCCESS in " << duration.count() << "ms\n";
-            std::cout << "📊 Classes found: " << classes.size() << "\n";
-        } else {
-            std::cout << "❌ Parse FAILED\n";
-        }
-    } catch (const std::exception& e) {
-        std::cout << "💥 Exception: " << e.what() << "\n";
-    }
-}
-
-int main() {
-    std::cout << "🔥🔥🔥 PEGTL vs React.lazy Ultimate Battle! 🔥🔥🔥\n";
-    
-    // Test 1: Simple class (should work)
-    test_pattern("Simple Class", R"(
-class SimpleClass {
+void test_pegtl_battle() {
+    std::string test_code = R"(
+export class MyClass {
     constructor() {
         this.value = 42;
     }
 }
-)");
-    
-    // Test 2: Export class with extends (should work)
-    test_pattern("Export Class with Extends", R"(
-export class NativeClass extends React.Component {
-    render() {
-        return this.props.children;
+
+export class SecondClass extends React.Component {
+    method() {
+        return "hello";
     }
 }
-)");
-    
-    // Test 3: React.lazy BEFORE class (THE PROBLEM!)
-    test_pattern("React.lazy + Class", R"(
-export const Throw = React.lazy(() => {
-    throw new Error('Example');
-});
 
-export class NativeClass extends React.Component {
+class ThirdClass extends React.PureComponent {
     render() {
-        return this.props.children;
+        return <div>Test</div>;
     }
 }
-)");
+)";
+
+    std::cout << "🔥 PEGTL React.Component Battle Start!\n";
+    std::cout << "=====================================\n\n";
     
-    // Test 4: Full Components.js content
-    test_pattern("Full Components.js", R"(// Example
-
-export const Throw = React.lazy(() => {
-  throw new Error('Example');
-});
-
-export const Component = React.memo(function Component({children}) {
-  return children;
-});
-
-export function DisplayName({children}) {
-  return children;
-}
-DisplayName.displayName = 'Custom Name';
-
-export class NativeClass extends React.Component {
-  render() {
-    return this.props.children;
-  }
-}
-
-export class FrozenClass extends React.Component {
-  constructor() {
-    super();
-  }
-  render() {
-    return this.props.children;
-  }
-}
-Object.freeze(FrozenClass.prototype);
-)");
+    std::cout << "📝 Test Code:\n";
+    std::cout << test_code << "\n";
+    std::cout << "=====================================\n\n";
     
-    std::cout << "\n🏁 Battle Complete!\n";
+    // Test 1: Header only matching
+    {
+        std::cout << "🎯 Test 1: Class Header Only Matching\n";
+        std::cout << "-------------------------------------\n";
+        
+        std::vector<battle::ClassInfo> classes;
+        memory_input input(test_code, "test");
+        
+        try {
+            parse<battle::root, battle::action>(input, classes);
+            
+            std::cout << "\n📊 Results:\n";
+            for (const auto& cls : classes) {
+                std::cout << "  Class: " << cls.name << "\n";
+                std::cout << "    Start line: " << cls.start_line << "\n";
+                std::cout << "    Export: " << (cls.has_export ? "yes" : "no") << "\n";
+                if (!cls.extends_class.empty()) {
+                    std::cout << "    Extends: " << cls.extends_class << "\n";
+                }
+                std::cout << "\n";
+            }
+        } catch (const parse_error& e) {
+            std::cerr << "Parse error: " << e.what() << "\n";
+        }
+    }
     
+    // Test 2: Position tracking
+    {
+        std::cout << "\n🎯 Test 2: Position Tracking\n";
+        std::cout << "-------------------------------------\n";
+        
+        memory_input input(test_code, "test");
+        
+        // マニュアルで位置を追跡
+        size_t line = 1;
+        size_t col = 1;
+        
+        for (size_t i = 0; i < test_code.size(); ++i) {
+            if (test_code.substr(i, 5) == "class") {
+                std::cout << "Found 'class' at line " << line << ", column " << col << "\n";
+                
+                // クラス名を探す
+                size_t name_start = i + 5;
+                while (name_start < test_code.size() && std::isspace(test_code[name_start])) {
+                    name_start++;
+                }
+                size_t name_end = name_start;
+                while (name_end < test_code.size() && 
+                       (std::isalnum(test_code[name_end]) || test_code[name_end] == '_')) {
+                    name_end++;
+                }
+                std::string class_name = test_code.substr(name_start, name_end - name_start);
+                std::cout << "  Class name: " << class_name << "\n";
+            }
+            
+            if (test_code[i] == '\n') {
+                line++;
+                col = 1;
+            } else {
+                col++;
+            }
+        }
+    }
+    
+    std::cout << "\n🏆 Battle Complete!\n";
+}
+
+int main() {
+    test_pegtl_battle();
     return 0;
 }
