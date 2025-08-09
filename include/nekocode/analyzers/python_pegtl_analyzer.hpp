@@ -533,9 +533,29 @@ private:
     std::vector<ClassInfo> extract_classes_fallback(const std::string& content) {
         std::vector<ClassInfo> classes;
         
-        // classパターン検索
+        // classパターン検索（行の先頭にあるclass文のみ）
         size_t pos = 0;
         while ((pos = content.find("class ", pos)) != std::string::npos) {
+            // 行の先頭かどうかチェック（インデント込み）
+            bool is_line_start = true;
+            if (pos > 0) {
+                // pos直前まで行の始まりからスペース/タブのみかチェック
+                size_t line_start = content.rfind('\n', pos - 1);
+                if (line_start == std::string::npos) line_start = 0;
+                else line_start++; // '\n'の次から
+                
+                for (size_t i = line_start; i < pos; i++) {
+                    if (content[i] != ' ' && content[i] != '\t') {
+                        is_line_start = false;
+                        break;
+                    }
+                }
+            }
+            
+            if (!is_line_start) {
+                pos++; // docstring内のclassをスキップ
+                continue;
+            }
             size_t name_start = pos + 6; // "class "の長さ
             while (name_start < content.size() && std::isspace(content[name_start])) {
                 name_start++;
@@ -550,7 +570,16 @@ private:
             if (name_end > name_start) {
                 ClassInfo class_info;
                 class_info.name = content.substr(name_start, name_end - name_start);
-                class_info.start_line = 1; // 簡易版
+                
+                // 正確な行番号計算: pos位置までの改行数をカウント
+                uint32_t line_number = 1;
+                for (size_t i = 0; i < pos && i < content.size(); i++) {
+                    if (content[i] == '\n') {
+                        line_number++;
+                    }
+                }
+                class_info.start_line = line_number;
+                
                 classes.push_back(class_info);
             }
             

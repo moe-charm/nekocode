@@ -19,7 +19,10 @@ using namespace tao::pegtl;
 //=============================================================================
 
 // 識別子（英数字+アンダースコア）
-struct identifier : seq<sor<alpha, one<'_', '$'>>, star<sor<alnum, one<'_', '$'>>>> {};
+struct simple_identifier : seq<sor<alpha, one<'_', '$'>>, star<sor<alnum, one<'_', '$'>>>> {};
+
+// Property Access対応識別子 (obj.prop.method 形式)
+struct identifier : seq<simple_identifier, star<seq<one<'.'>, simple_identifier>>> {};
 
 // 空白とコメント
 struct ws : star<space> {};
