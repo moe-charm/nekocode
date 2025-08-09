@@ -83,6 +83,15 @@ private:
     
     /// movelines-confirm コマンド処理
     int dispatch_movelines_confirm(int argc, char* argv[]);
+    
+    /// moveclass コマンド処理（直接実行）
+    int dispatch_moveclass(int argc, char* argv[]);
+    
+    /// moveclass-preview コマンド処理
+    int dispatch_moveclass_preview(int argc, char* argv[]);
+    
+    /// moveclass-confirm コマンド処理
+    int dispatch_moveclass_confirm(int argc, char* argv[]);
 
     //=========================================================================
     // 🔧 設定管理コマンド

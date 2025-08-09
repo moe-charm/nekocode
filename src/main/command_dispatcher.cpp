@@ -138,6 +138,15 @@ int CommandDispatcher::dispatch(int argc, char* argv[]) {
     else if (action == "movelines-confirm") {
         return dispatch_movelines_confirm(argc, argv);
     }
+    else if (action == "moveclass") {
+        return dispatch_moveclass(argc, argv);
+    }
+    else if (action == "moveclass-preview") {
+        return dispatch_moveclass_preview(argc, argv);
+    }
+    else if (action == "moveclass-confirm") {
+        return dispatch_moveclass_confirm(argc, argv);
+    }
     // 🔧 設定管理コマンド
     else if (action == "config") {
         return dispatch_config(argc, argv);
@@ -354,6 +363,95 @@ int CommandDispatcher::dispatch_movelines_confirm(int argc, char* argv[]) {
         return dispatch_movelines(argc, argv);
     } else {
         std::cerr << "Error: movelines-confirm requires preview ID or full parameters" << std::endl;
+        return 1;
+    }
+}
+
+//=============================================================================
+// 📦 MoveClass コマンド実装
+//=============================================================================
+
+int CommandDispatcher::dispatch_moveclass(int argc, char* argv[]) {
+    if (argc < 5) {
+        std::cerr << "Error: moveclass requires session_id, symbol_id, and target_file" << std::endl;
+        std::cerr << "Usage: nekocode_ai moveclass <session_id> <symbol_id> <target_file>" << std::endl;
+        return 1;
+    }
+    
+    // セッションベースのクラス移動
+    try {
+        std::string session_id = argv[2];
+        std::string symbol_id = argv[3];
+        std::string target_file = argv[4];
+        
+        // TODO: MoveClassHandler実装が必要
+        nlohmann::json result = {
+            {"command", "moveclass"},
+            {"status", "not_implemented"},
+            {"message", "MoveClass feature is under development"},
+            {"session_id", session_id},
+            {"symbol_id", symbol_id},
+            {"target_file", target_file}
+        };
+        
+        std::cout << result.dump(2) << std::endl;
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "Error in moveclass: " << e.what() << std::endl;
+        return 1;
+    }
+}
+
+int CommandDispatcher::dispatch_moveclass_preview(int argc, char* argv[]) {
+    if (argc < 5) {
+        std::cerr << "Error: moveclass-preview requires session_id, symbol_id, and target_file" << std::endl;
+        std::cerr << "Usage: nekocode_ai moveclass-preview <session_id> <symbol_id> <target_file>" << std::endl;
+        return 1;
+    }
+    
+    try {
+        std::string session_id = argv[2];
+        std::string symbol_id = argv[3];
+        std::string target_file = argv[4];
+        
+        // TODO: MoveClassHandler::preview実装が必要
+        nlohmann::json result = {
+            {"command", "moveclass-preview"},
+            {"preview_id", "preview_moveclass_" + std::to_string(std::time(nullptr))},
+            {"status", "not_implemented"},
+            {"message", "MoveClass preview is under development"}
+        };
+        
+        std::cout << result.dump(2) << std::endl;
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "Error in moveclass-preview: " << e.what() << std::endl;
+        return 1;
+    }
+}
+
+int CommandDispatcher::dispatch_moveclass_confirm(int argc, char* argv[]) {
+    if (argc < 3) {
+        std::cerr << "Error: moveclass-confirm requires preview_id" << std::endl;
+        std::cerr << "Usage: nekocode_ai moveclass-confirm <preview_id>" << std::endl;
+        return 1;
+    }
+    
+    try {
+        std::string preview_id = argv[2];
+        
+        // TODO: MoveClassHandler::confirm実装が必要
+        nlohmann::json result = {
+            {"command", "moveclass-confirm"},
+            {"preview_id", preview_id},
+            {"status", "not_implemented"},
+            {"message", "MoveClass confirm is under development"}
+        };
+        
+        std::cout << result.dump(2) << std::endl;
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "Error in moveclass-confirm: " << e.what() << std::endl;
         return 1;
     }
 }
