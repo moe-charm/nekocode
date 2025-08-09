@@ -12,6 +12,7 @@
 #include "nekocode/analyzers/csharp_pegtl_analyzer.hpp"
 #include <memory>
 #include <unordered_map>
+#include <fstream>  // 🔍 デバッグ用
 
 namespace nekocode {
 namespace adapters {
@@ -63,6 +64,15 @@ public:
     AnalysisResult analyze(const std::string& content, const std::string& filename) override {
         // Phase 1: 成熟したPEGTL解析で高精度結果取得
         AnalysisResult legacy_result = legacy_analyzer->analyze(content, filename);
+        
+        // 🔍 デバッグ: PEGTL結果確認
+        std::ofstream debug_file("/tmp/csharp_universal_debug.txt");
+        debug_file << "=== C# Universal Adapter Debug ===\n";
+        debug_file << "PEGTL detected classes: " << legacy_result.classes.size() << "\n";
+        for (const auto& cls : legacy_result.classes) {
+            debug_file << "  Class: " << cls.name << " at line " << cls.start_line << "\n";
+        }
+        debug_file.close();
         
         // Phase 2: 統一AST構築（PEGTL結果から逆構築）
         build_unified_ast_from_legacy_result(legacy_result, content);

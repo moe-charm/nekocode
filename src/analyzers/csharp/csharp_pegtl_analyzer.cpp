@@ -336,6 +336,18 @@ AnalysisResult CSharpPEGTLAnalyzer::analyze(const std::string& content, const st
         state.result.functions = std::move(state.current_methods);
         state.result.imports = std::move(state.imports);
         
+        // 🔥 C# class検出フォールバック（partial class等に対応）
+        // フォールバックを常に実行（PEGTLが動作していないため）
+        auto detected_classes = analyze_csharp_classes_simple(content);
+        if (!detected_classes.empty()) {
+            // 既存の結果をクリアして置換
+            state.result.classes.clear();
+            for (const auto& class_info : detected_classes) {
+                state.result.classes.push_back(class_info);
+                state.add_test_class_symbol(class_info.name, class_info.start_line);
+            }
+        }
+        
     } catch (const tao::pegtl::parse_error& e) {
         // パースエラー処理（エラーログを出力して空の結果を返す）
         // PEGTL parse error - Force line-based fallback
@@ -607,6 +619,99 @@ ComplexityInfo CSharpPEGTLAnalyzer::calculate_complexity(const std::string& cont
     
     complexity.update_rating();
     return complexity;
+}
+
+std::vector<ClassInfo> CSharpPEGTLAnalyzer::analyze_csharp_classes_simple(const std::string& content) {
+    std::vector<ClassInfo> classes;
+    
+    // 🔍 デバッグファイル作成
+    std::ofstream debug_file("/tmp/csharp_debug.txt");
+    debug_file << "=== C# Class Detection Debug ===\n";
+    debug_file << "Content length: " << content.length() << "\n\n";
+    
+    std::istringstream iss(content);
+    std::string line;
+    LineNumber line_num = 0;
+    
+    while (std::getline(iss, line)) {
+        line_num++;
+        
+        // C# classパターン: public/private/internal class ClassName
+        // partial classも含む
+        size_t class_pos = line.find("class ");
+        if (class_pos == std::string::npos) continue;
+        
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+        std::cerr << "Found 'class ' at line " << line_num << ": " << line << std::endl;
+#endif
+        
+        // "class"の前に修飾子があるか確認（public, private, partial等）
+        std::string prefix = line.substr(0, class_pos);
+        bool has_modifier = (prefix.find("public") != std::string::npos || 
+                            prefix.find("private") != std::string::npos ||
+                            prefix.find("internal") != std::string::npos ||
+                            prefix.find("protected") != std::string::npos ||
+                            prefix.find("partial") != std::string::npos);
+        
+        if (!has_modifier) {
+            // 修飾子がない場合はスキップ（コメント内等の可能性）
+            if (class_pos > 0 && !std::isspace(line[class_pos - 1])) {
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+                std::cerr << "Skipping: no modifier and not word boundary" << std::endl;
+#endif
+                continue;
+            }
+        }
+        
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+        std::cerr << "Processing class line with prefix: [" << prefix << "]" << std::endl;
+#endif
+        
+        ClassInfo class_info;
+        class_info.start_line = line_num;
+        class_info.end_line = line_num;  // 簡易実装
+        
+        // クラス名を抽出: "class ClassName" or "class ClassName : BaseClass"
+        size_t name_start = class_pos + 6;  // "class "の後
+        while (name_start < line.length() && std::isspace(line[name_start])) {
+            name_start++;
+        }
+        
+        size_t name_end = name_start;
+        while (name_end < line.length() && 
+               (std::isalnum(line[name_end]) || line[name_end] == '_')) {
+            name_end++;
+        }
+        
+        // 継承部分をスキップ（: ILogger等）
+        if (name_end < line.length() && std::isspace(line[name_end])) {
+            size_t colon_pos = line.find(':', name_end);
+            if (colon_pos != std::string::npos) {
+                // 継承ありの場合、クラス名だけを取得
+                // 既に正しく抽出されている
+            }
+        }
+        
+        if (name_end > name_start) {
+            class_info.name = line.substr(name_start, name_end - name_start);
+            class_info.metadata["type"] = "class";
+            class_info.metadata["language"] = "csharp";
+            if (prefix.find("partial") != std::string::npos) {
+                class_info.metadata["partial"] = "true";
+            }
+            classes.push_back(class_info);
+            
+            debug_file << "  *** DETECTED CLASS: " << class_info.name << " at line " << line_num << " ***\n";
+        } else {
+            debug_file << "  -> Failed to extract class name (name_start=" << name_start << ", name_end=" << name_end << ")\n";
+        }
+    }
+    
+    debug_file << "\n=== SUMMARY ===\n";
+    debug_file << "Total classes found: " << classes.size() << "\n";
+    debug_file.close();
+    
+    return classes;
 }
 
 } // namespace nekocode

@@ -82,6 +82,9 @@ private:
     // 🚀 C#ハイブリッド戦略: 行ベース補完解析
     void apply_csharp_line_based_analysis(AnalysisResult& result, const std::string& content, const std::string& filename);
     
+    // 🔥 簡易class検出（partial class対応）
+    std::vector<ClassInfo> analyze_csharp_classes_simple(const std::string& content);
+    
     // 行ごとの要素抽出
     void extract_csharp_elements_from_line(const std::string& line, size_t line_number,
                                            AnalysisResult& result, 
