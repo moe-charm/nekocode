@@ -97,19 +97,8 @@ nlohmann::json MoveClassHandler::preview(const std::string& session_id,
         
         const auto& symbol = symbol_opt.value();
         
-        // 4. クラス定義抽出（デバッグ付き）
-        std::ofstream debug_file("/tmp/moveclass_debug.txt");
-        debug_file << "=== MoveClass Debug ===\n";
-        debug_file << "Source file: " << source_file << "\n";
-        debug_file << "Symbol name: " << symbol.name << "\n";
-        debug_file << "Symbol start_line: " << symbol.start_line << "\n";
-        debug_file << "Symbol end_line: " << symbol.end_line << "\n";
-        debug_file << "Symbol type: " << static_cast<int>(symbol.symbol_type) << "\n";
-        
+        // 4. クラス定義抽出
         std::string class_definition = extract_class_definition(source_file, symbol);
-        debug_file << "Class definition length: " << class_definition.length() << "\n";
-        debug_file << "First 200 chars: " << class_definition.substr(0, 200) << "\n";
-        debug_file.close();
         
         if (class_definition.empty()) {
             result["error"] = "Failed to extract class definition";
