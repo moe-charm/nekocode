@@ -48,6 +48,15 @@ nlohmann::json GoFunctionInfo::to_json() const {
     };
 }
 
+nlohmann::json GoStructInfo::to_json() const {
+    return nlohmann::json{
+        {"name", name},
+        {"line_number", line_number},
+        {"fields", fields},
+        {"methods", methods}
+    };
+}
+
 //=============================================================================
 // 🐹 GoAnalyzer Main Implementation
 //=============================================================================
@@ -124,6 +133,7 @@ AnalysisResult GoAnalyzer::analyze(const std::string& content, const std::string
         goroutines_ = analyze_goroutines(content);
         channels_ = analyze_channels(content);
         go_functions_ = analyze_go_functions(content);
+        auto go_structs = analyze_go_structs(content);  // 🔥 struct検出追加
         
         // Complexity calculation
         result.complexity.cyclomatic_complexity = calculate_go_complexity(content);
@@ -158,6 +168,20 @@ AnalysisResult GoAnalyzer::analyze(const std::string& content, const std::string
         go_details["functions"] = functions_json;
         
         result.metadata["go_specific"] = go_details.dump();
+        
+        // 🔥 重要：Go structsをAnalysisResult.classesに変換！
+        for (const auto& go_struct : go_structs) {
+            ClassInfo class_info;
+            class_info.name = go_struct.name;
+            class_info.start_line = go_struct.line_number;
+            class_info.end_line = go_struct.line_number;  // 簡易実装
+            class_info.metadata["type"] = "struct";  // metadataに型情報を格納
+            class_info.metadata["has_methods"] = "false";  // メソッド関連付けは後で
+            result.classes.push_back(class_info);
+            
+            // Universal Symbol生成
+            add_test_struct_symbol(go_struct.name, go_struct.line_number);
+        }
         
         // 🔥 重要：GoFunctionInfoをAnalysisResult.functionsに変換！
         for (const auto& go_func : go_functions_) {
@@ -440,6 +464,63 @@ std::vector<GoFunctionInfo> GoAnalyzer::analyze_go_functions(const std::string& 
     }
     
     return functions;
+}
+
+std::vector<GoStructInfo> GoAnalyzer::analyze_go_structs(const std::string& content) {
+    std::vector<GoStructInfo> structs;
+    
+    std::istringstream iss(content);
+    std::string line;
+    LineNumber line_num = 0;
+    
+    while (std::getline(iss, line)) {
+        line_num++;
+        
+        // Look for "type " keyword
+        size_t type_pos = line.find("type ");
+        if (type_pos == std::string::npos) continue;
+        
+        // Make sure it's a word boundary
+        if (type_pos > 0 && std::isalnum(line[type_pos - 1])) continue;
+        
+        // Check if it's a struct definition: type Name struct {
+        size_t struct_pos = line.find("struct", type_pos + 5);
+        if (struct_pos == std::string::npos) continue;
+        
+        GoStructInfo info;
+        info.line_number = line_num;
+        
+        // Extract struct name between "type" and "struct"
+        size_t name_start = type_pos + 5;
+        while (name_start < line.length() && std::isspace(line[name_start])) {
+            name_start++;
+        }
+        
+        size_t name_end = name_start;
+        while (name_end < struct_pos && 
+               (std::isalnum(line[name_end]) || line[name_end] == '_')) {
+            name_end++;
+        }
+        
+        if (name_end > name_start) {
+            info.name = line.substr(name_start, name_end - name_start);
+            // Trim trailing spaces
+            size_t last = info.name.find_last_not_of(" \t");
+            if (last != std::string::npos) {
+                info.name = info.name.substr(0, last + 1);
+            }
+        }
+        
+        if (!info.name.empty()) {
+            structs.push_back(info);
+#ifdef NEKOCODE_DEBUG_SYMBOLS
+            std::cerr << "🔥 Found Go struct: " << info.name 
+                      << " at line " << line_num << std::endl;
+#endif
+        }
+    }
+    
+    return structs;
 }
 
 //=============================================================================
