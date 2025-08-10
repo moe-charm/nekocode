@@ -5,6 +5,8 @@
 > 📋 **NEW! [CLI & MCP Reference](docs/CLI_MCP_REFERENCE.md) ← Complete command guide**  
 > 📖 **Full Docs: [docs/claude-code/](docs/claude-code/) ← All Claude Code documentation**
 
+Note: Binaries are placed under `bin/`. Use `./bin/nekocode_ai`, or add `bin/` to your `PATH` (see Build section).
+
 [![Code Analyzer](https://img.shields.io/badge/Code-Analyzer-blue.svg)](https://github.com/moe-charm/nekocode)
 [![Static Analysis](https://img.shields.io/badge/Static-Analysis-green.svg)](https://github.com/moe-charm/nekocode)
 [![AI Compatible](https://img.shields.io/badge/AI-Compatible-purple.svg)](https://github.com/moe-charm/nekocode)
@@ -44,17 +46,17 @@ Claude: "🔥 Found NekoCode C++! Building with PEGTL engine..."
 Claude: "Ready! What would you like me to analyze?"
 You: "Analyze src/ directory and find complexity hotspots"
 Claude: "Analyzing with parallel processing... 
-./nekocode_ai analyze src/ --stats-only --io-threads 16
+./bin/nekocode_ai analyze src/ --stats-only --io-threads 16
 Found 1280 lines, complexity 181 in core.cpp! Here's your optimization plan..."
 
 You: "Analyze my Python project too"
 Claude: "🐍 Python support detected! 
-./nekocode_ai analyze python_project/ --stats-only --io-threads 16
+./bin/nekocode_ai analyze python_project/ --stats-only --io-threads 16
 Analyzing classes, functions, imports..."
 
 You: "Find commented-out code in legacy module"
 Claude: "💬 Using comment extraction feature!
-./nekocode_ai analyze src/legacy_module.py --io-threads 8
+./bin/nekocode_ai analyze src/legacy_module.py --io-threads 8
 Found 45 commented lines, 32 look like actual code:
 - Line 42: '# old_function(data)' - Previous implementation
 - Line 78-82: '/* Legacy algorithm */' - Alternative approach
@@ -66,33 +68,33 @@ Should I help you clean these up?"
 **Claude Code MUST use these commands:**
 ```bash
 # 📁 Folder analysis (ALWAYS use --io-threads 16)
-./nekocode_ai analyze <folder>/ --stats-only --io-threads 16
+./bin/nekocode_ai analyze <folder>/ --stats-only --io-threads 16
 
 # 📄 Single file analysis (use --io-threads 8)  
-./nekocode_ai analyze <file> --io-threads 8
+./bin/nekocode_ai analyze <file> --io-threads 8
 
 # 🔍 Large projects (add --progress)
-./nekocode_ai analyze <large_folder>/ --stats-only --io-threads 16 --progress
+./bin/nekocode_ai analyze <large_folder>/ --stats-only --io-threads 16 --progress
 
 # 🚀 C++ Include Analysis (reduce compile time!)
-./nekocode_ai session-create <cpp_project>/
-./nekocode_ai session-command <session_id> include-cycles
-./nekocode_ai session-command <session_id> include-unused
+./bin/nekocode_ai session-create <cpp_project>/
+./bin/nekocode_ai session-command <session_id> include-cycles
+./bin/nekocode_ai session-command <session_id> include-unused
 
 # ✨ NEW! Direct Edit Commands (No session required!)
-./nekocode_ai replace-preview main.cpp "oldFunction" "newFunction"  # Preview changes
-./nekocode_ai replace-confirm preview_123                           # Apply changes
-./nekocode_ai replace main.cpp "oldFunction" "newFunction"          # Direct replace
-./nekocode_ai movelines src.js 10 5 dest.js 20                     # Move 5 lines
-./nekocode_ai insert file.py 42 "# New comment"                    # Insert text
+./bin/nekocode_ai replace-preview main.cpp "oldFunction" "newFunction"  # Preview changes
+./bin/nekocode_ai replace-confirm preview_123                           # Apply changes
+./bin/nekocode_ai replace main.cpp "oldFunction" "newFunction"          # Direct replace
+./bin/nekocode_ai movelines src.js 10 5 dest.js 20                     # Move 5 lines
+./bin/nekocode_ai insert file.py 42 "# New comment"                    # Insert text
 
 # 🧠 Memory System - 時間軸Memory革命 (NEW!)
-./nekocode_ai memory save auto project_analysis_jan15     # Save analysis result
-./nekocode_ai memory save memo refactor_plan "Important notes"  # Save manual memo
-./nekocode_ai memory list auto                            # List saved analyses
-./nekocode_ai memory search complexity                    # Search memories
-./nekocode_ai memory timeline auto 7                     # Show 7-day timeline
-./nekocode_ai memory stats                               # Memory statistics
+./bin/nekocode_ai memory save auto project_analysis_jan15     # Save analysis result
+./bin/nekocode_ai memory save memo refactor_plan "Important notes"  # Save manual memo
+./bin/nekocode_ai memory list auto                            # List saved analyses
+./bin/nekocode_ai memory search complexity                    # Search memories
+./bin/nekocode_ai memory timeline auto 7                     # Show 7-day timeline
+./bin/nekocode_ai memory stats                               # Memory statistics
 ```
 
 **That's literally it!** Claude Code will:

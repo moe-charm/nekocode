@@ -36,8 +36,8 @@ cmake ..
 # 4. Build (parallel build recommended)
 make -j$(nproc)
 
-# 5. Verify installation
-./nekocode_ai --help
+# 5. Verify installation (binary is placed under bin/)
+./bin/nekocode_ai --help
 ```
 
 ## Basic Usage
@@ -46,26 +46,26 @@ make -j$(nproc)
 
 ```bash
 # Analyze a C++ file
-./nekocode_ai main.cpp
+./bin/nekocode_ai main.cpp
 
 # Analyze a JavaScript file
-./nekocode_ai app.js
+./bin/nekocode_ai app.js
 
 # With performance statistics
-./nekocode_ai --performance main.cpp
+./bin/nekocode_ai --performance main.cpp
 ```
 
 ### Directory Analysis
 
 ```bash
 # Analyze entire src directory
-./nekocode_ai src/
+./bin/nekocode_ai src/
 
 # Analyze specific language only
-./nekocode_ai --lang cpp src/
+./bin/nekocode_ai --lang cpp src/
 
 # Compact JSON output
-./nekocode_ai --compact src/
+./bin/nekocode_ai --compact src/
 ```
 
 ## Advanced Features
@@ -76,15 +76,15 @@ NekoCode now includes intelligent storage optimization for lightning-fast analys
 
 ```bash
 # 🔥 SSD Mode - Maximum parallel performance
-./nekocode_ai analyze large-project/ --ssd --performance
+./bin/nekocode_ai analyze large-project/ --ssd --performance
 # Uses all CPU cores, perfect for NVMe/SSD storage
 
 # 🛡️ HDD Mode - Safe sequential processing  
-./nekocode_ai analyze large-project/ --hdd --performance
+./bin/nekocode_ai analyze large-project/ --hdd --performance
 # Single thread, prevents HDD thrashing
 
 # 📊 Progress Display - Monitor large projects
-./nekocode_ai session-create large-project/ --progress
+./bin/nekocode_ai session-create large-project/ --progress
 # Real-time progress: "🚀 Starting analysis: 38,021 files"
 # Creates progress file: sessions/SESSION_ID_progress.txt
 ```
@@ -97,23 +97,23 @@ The most powerful feature of NekoCode!
 
 ```bash
 # 1. Create a session with progress monitoring
-./nekocode_ai session-create /path/to/your/project --progress
+./bin/nekocode_ai session-create /path/to/your/project --progress
 # Output: Session created! Session ID: ai_session_20250727_180532
 
 # 2. Run various analyses using session ID
 SESSION_ID=ai_session_20250727_180532
 
 # Project statistics
-./nekocode_ai session-command $SESSION_ID stats
+./bin/nekocode_ai session-command $SESSION_ID stats
 
 # Complexity ranking (most important!)
-./nekocode_ai session-command $SESSION_ID complexity
+./bin/nekocode_ai session-command $SESSION_ID complexity
 
 # File search
-./nekocode_ai session-command $SESSION_ID "find manager"
+./bin/nekocode_ai session-command $SESSION_ID "find manager"
 
 # Function structure analysis
-./nekocode_ai session-command $SESSION_ID structure
+./bin/nekocode_ai session-command $SESSION_ID structure
 ```
 
 ### C++ Specific Analysis
@@ -122,26 +122,26 @@ SESSION_ID=ai_session_20250727_180532
 
 ```bash
 # Generate dependency graph
-./nekocode_ai session-command $SESSION_ID include-graph
+./bin/nekocode_ai session-command $SESSION_ID include-graph
 
 # Detect circular dependencies (critical!)
-./nekocode_ai session-command $SESSION_ID include-cycles
+./bin/nekocode_ai session-command $SESSION_ID include-cycles
 
 # Find unused includes
-./nekocode_ai session-command $SESSION_ID include-unused
+./bin/nekocode_ai session-command $SESSION_ID include-unused
 ```
 
 #### Template & Macro Analysis
 
 ```bash
 # Detect template specializations
-./nekocode_ai session-command $SESSION_ID template-analysis
+./bin/nekocode_ai session-command $SESSION_ID template-analysis
 
 # Track macro expansions
-./nekocode_ai session-command $SESSION_ID macro-analysis
+./bin/nekocode_ai session-command $SESSION_ID macro-analysis
 
 # Detect metaprogramming patterns
-./nekocode_ai session-command $SESSION_ID metaprogramming
+./bin/nekocode_ai session-command $SESSION_ID metaprogramming
 ```
 
 ## AI Developer Guide
@@ -171,7 +171,7 @@ SESSION_ID=ai_session_20250727_180532
 
 ```bash
 # 1. Measure current complexity
-./nekocode_ai session-command $SESSION_ID complexity
+./bin/nekocode_ai session-command $SESSION_ID complexity
 
 # Output example:
 # FileA.cpp: Complexity 156 (Very Complex)
@@ -197,10 +197,11 @@ g++ --version
 cmake -DCMAKE_CXX_COMPILER=g++-9 ..
 ```
 
-**Q: Tree-sitter not found**
-```bash
-# Build in placeholder mode (works without Tree-sitter)
-cmake -DUSE_TREE_SITTER=OFF ..
+**Q: Do I need Tree-sitter?**
+```text
+No. Tree-sitter is integrated as a lightweight placeholder in this project,
+so the build works without installing Tree-sitter. There is no CMake toggle
+to disable/enable it; PEGTL is the primary parser.
 ```
 
 ### Runtime Issues
@@ -211,37 +212,37 @@ cmake -DUSE_TREE_SITTER=OFF ..
 ls sessions/
 
 # Create new session
-./nekocode_ai session-create .
+./bin/nekocode_ai session-create .
 ```
 
 **Q: Out of memory**
 ```bash
 # Use HDD mode (single thread)
-./nekocode_ai analyze large-project/ --hdd
+./bin/nekocode_ai analyze large-project/ --hdd
 
 # Manual thread limit
-./nekocode_ai --threads 2 large-project/
+./bin/nekocode_ai --threads 2 large-project/
 
 # Stats only mode
-./nekocode_ai --stats-only large-project/
+./bin/nekocode_ai --stats-only large-project/
 ```
 
 **Q: Analysis taking too long**
 ```bash
 # For SSD/NVMe storage - use parallel mode
-./nekocode_ai analyze project/ --ssd --progress
+./bin/nekocode_ai analyze project/ --ssd --progress
 
 # Monitor progress in real-time
 tail -f sessions/SESSION_ID_progress.txt
 
 # Check what's happening
-./nekocode_ai analyze project/ --performance
+./bin/nekocode_ai analyze project/ --performance
 ```
 
 **Q: HDD getting hammered**
 ```bash
 # Safe HDD mode (single thread, sequential)
-./nekocode_ai analyze project/ --hdd --progress
+./bin/nekocode_ai analyze project/ --hdd --progress
 
 # This prevents disk thrashing on mechanical drives
 ```

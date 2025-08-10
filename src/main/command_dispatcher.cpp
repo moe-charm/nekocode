@@ -8,6 +8,10 @@
 #include "nekocode/session_commands.hpp"
 #include <iostream>
 #include <filesystem>
+#include <fstream>
+#include <vector>
+#include <algorithm>
+#include <nlohmann/json.hpp>
 
 // 🔥 Direct Edit機能（セッション不要）
 #include "../core/commands/direct_edit/direct_edit_common.hpp"
@@ -149,6 +153,12 @@ int CommandDispatcher::dispatch(int argc, char* argv[]) {
     }
     else if (action == "moveclass-confirm") {
         return dispatch_moveclass_confirm(argc, argv);
+    }
+    else if (action == "edit-history") {
+        return dispatch_edit_history(argc, argv);
+    }
+    else if (action == "edit-show") {
+        return dispatch_edit_show(argc, argv);
     }
     // 🔧 設定管理コマンド
     else if (action == "config") {
@@ -456,6 +466,131 @@ int CommandDispatcher::handle_unknown_command(const std::string& command) {
     std::cerr << "Error: Unknown command '" << command << "'" << std::endl;
     std::cerr << "Run 'nekocode_ai --help' for usage information." << std::endl;
     return 1;
+}
+
+//=============================================================================
+// 🗃️ 編集履歴閲覧コマンド（Direct Mode）
+//=============================================================================
+
+int CommandDispatcher::dispatch_edit_history(int argc, char* argv[]) {
+    try {
+        // オプション: 表示件数（デフォルト20）
+        size_t limit = 20;
+        if (argc >= 3) {
+            try { limit = static_cast<size_t>(std::stoul(argv[2])); } catch (...) {}
+        }
+
+        std::filesystem::path hist_dir = std::filesystem::path("memory") / "edit_history";
+        if (!std::filesystem::exists(hist_dir)) {
+            std::cout << nlohmann::json({{"history", nlohmann::json::array()}, {"summary", "no history"}}).dump(2) << std::endl;
+            return 0;
+        }
+
+        struct Item { std::filesystem::path path; std::filesystem::file_time_type t; };
+        std::vector<Item> items;
+        for (const auto& e : std::filesystem::directory_iterator(hist_dir)) {
+            if (e.path().extension() == ".json") {
+                items.push_back({e.path(), std::filesystem::last_write_time(e.path())});
+            }
+        }
+        std::sort(items.begin(), items.end(), [](const Item& a, const Item& b){ return a.t > b.t; });
+
+        nlohmann::json list = nlohmann::json::array();
+        size_t count = 0;
+        for (const auto& it : items) {
+            if (count++ >= limit) break;
+            nlohmann::json meta;
+            std::ifstream in(it.path);
+            if (in.is_open()) {
+                try { in >> meta; } catch (...) { meta = nlohmann::json::object(); }
+            }
+            // 安全なoperation/type抽出
+            std::string op = "unknown";
+            if (meta.contains("operation")) {
+                if (meta["operation"].is_string()) {
+                    op = meta["operation"].get<std::string>();
+                } else if (meta["operation"].is_object() && meta["operation"].contains("type") && meta["operation"]["type"].is_string()) {
+                    op = meta["operation"]["type"].get<std::string>();
+                }
+            } else if (meta.contains("type") && meta["type"].is_string()) {
+                op = meta["type"].get<std::string>();
+            }
+
+            std::string ts = meta.contains("timestamp") && meta["timestamp"].is_string() ? meta["timestamp"].get<std::string>() : std::string();
+            std::string summ = meta.contains("summary") && meta["summary"].is_string() ? meta["summary"].get<std::string>() : std::string();
+
+            nlohmann::json entry = {
+                {"id", it.path.stem().string()},
+                {"file", it.path.string()},
+                {"operation", op},
+                {"summary", summ},
+                {"timestamp", ts}
+            };
+            // 可能なら対象ファイルを出す
+            if (meta.contains("file_info")) {
+                entry["target"] = meta["file_info"].value("path", "");
+            } else if (meta.contains("files")) {
+                entry["files"] = meta["files"];
+            }
+            list.push_back(entry);
+        }
+
+        nlohmann::json out = {
+            {"history", list},
+            {"count", list.size()},
+            {"summary", "Latest edit history entries"}
+        };
+        std::cout << out.dump(2) << std::endl;
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "edit-history error: " << e.what() << std::endl;
+        return 1;
+    }
+}
+
+int CommandDispatcher::dispatch_edit_show(int argc, char* argv[]) {
+    if (argc < 3) {
+        std::cerr << "Error: edit-show requires an ID (preview_... or edit_...)" << std::endl;
+        return 1;
+    }
+    try {
+        std::string id = argv[2];
+        std::filesystem::path path;
+        if (id.rfind("preview_", 0) == 0) {
+            path = std::filesystem::path("memory") / "edit_previews" / (id + ".json");
+        } else {
+            path = std::filesystem::path("memory") / "edit_history" / (id + ".json");
+        }
+        if (!std::filesystem::exists(path)) {
+            nlohmann::json out = {{"error", "ID not found"}, {"id", id}, {"path", path.string()}};
+            std::cout << out.dump(2) << std::endl;
+            return 1;
+        }
+        nlohmann::json data;
+        std::ifstream in(path);
+        in >> data;
+        nlohmann::json out = {
+            {"id", id},
+            {"path", path.string()},
+            {"data", data}
+        };
+        // before/afterファイルの存在だけ補足
+        if (id.rfind("edit_", 0) == 0) {
+            std::filesystem::path base = std::filesystem::path("memory") / "edit_history" / id;
+            nlohmann::json attachments = nlohmann::json::array();
+            for (auto suf : {std::string("_before.txt"), std::string("_after.txt"), std::string("_src_before.txt"), std::string("_src_after.txt"), std::string("_dst_before.txt"), std::string("_dst_after.txt")}) {
+                std::filesystem::path p = base;
+                p += suf;
+                if (std::filesystem::exists(p)) attachments.push_back(p.string());
+            }
+            out["attachments"] = attachments;
+        }
+        std::cout << out.dump(2) << std::endl;
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "edit-show error: " << e.what() << std::endl;
+        return 1;
+    }
 }
 
 //=============================================================================

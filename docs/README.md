@@ -13,6 +13,7 @@ Complete system architecture, data flow, and component relationships
 ### 🌍 Usage Guides
 - [**English Usage Guide**](USAGE.md) - Complete guide for using NekoCode
 - [**日本語使い方ガイド**](USAGE_jp.md) - NekoCodeの詳しい使い方
+  - Note: Build output goes to `bin/`. Use `./bin/nekocode_ai` or add `bin/` to your `PATH`.
 
 ### 🚀 Advanced Features
 - [**Include Analysis Guide**](INCLUDE_ANALYSIS_GUIDE.md) - C++ compile time optimization 

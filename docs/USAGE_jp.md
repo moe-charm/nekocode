@@ -37,7 +37,7 @@ cmake ..
 make -j$(nproc)
 
 # 5. 動作確認
-./nekocode_ai --help
+./bin/nekocode_ai --help
 ```
 
 ## 基本的な使い方
@@ -46,29 +46,29 @@ make -j$(nproc)
 
 ```bash
 # C++ファイルを解析
-./nekocode_ai main.cpp
+./bin/nekocode_ai main.cpp
 
 # JavaScriptファイルを解析
-./nekocode_ai app.js
+./bin/nekocode_ai app.js
 
 # 詳細な統計情報付き
-./nekocode_ai --performance main.cpp
+./bin/nekocode_ai --performance main.cpp
 
 # 🔧 デバッグログ付き解析（詳細情報表示）
-./nekocode_ai --debug main.cpp
+./bin/nekocode_ai --debug main.cpp
 ```
 
 ### ディレクトリ全体の解析
 
 ```bash
 # srcディレクトリ全体を解析
-./nekocode_ai src/
+./bin/nekocode_ai src/
 
 # 特定の言語のみ解析
-./nekocode_ai --lang cpp src/
+./bin/nekocode_ai --lang cpp src/
 
 # コンパクトなJSON出力
-./nekocode_ai --compact src/
+./bin/nekocode_ai --compact src/
 ```
 
 ## 高度な機能
@@ -79,7 +79,7 @@ make -j$(nproc)
 
 ```bash
 # 📝 単一ファイルのコメント解析
-./nekocode_ai analyze src/legacy_module.py --io-threads 8
+./bin/nekocode_ai analyze src/legacy_module.py --io-threads 8
 
 # JSON出力例:
 {
@@ -105,7 +105,7 @@ make -j$(nproc)
 }
 
 # 📊 プロジェクト全体のコメント統計
-./nekocode_ai analyze project/ --stats-only --io-threads 16
+./bin/nekocode_ai analyze project/ --stats-only --io-threads 16
 # → summary.total_commented_lines で全体把握
 ```
 
@@ -127,15 +127,15 @@ NekoCodeは超高速なストレージ最適化機能を搭載！
 
 ```bash
 # 🔥 SSDモード - 並列処理で最高速
-./nekocode_ai analyze large-project/ --ssd --performance
+./bin/nekocode_ai analyze large-project/ --ssd --performance
 # CPUコア数フル活用、NVMe/SSDで威力発揮
 
 # 🛡️ HDDモード - 安全なシーケンシャル処理
-./nekocode_ai analyze large-project/ --hdd --performance  
+./bin/nekocode_ai analyze large-project/ --hdd --performance  
 # 1スレッドでHDDに優しい処理
 
 # 📊 プログレス表示 - 大規模プロジェクト監視
-./nekocode_ai session-create large-project/ --progress
+./bin/nekocode_ai session-create large-project/ --progress
 # リアルタイム進捗: "🚀 Starting analysis: 38,021 files"
 # プログレスファイル: sessions/SESSION_ID_progress.txt
 ```
@@ -148,23 +148,23 @@ NekoCodeは超高速なストレージ最適化機能を搭載！
 
 ```bash
 # 1. プログレス監視付きセッション作成
-./nekocode_ai session-create /path/to/your/project --progress
+./bin/nekocode_ai session-create /path/to/your/project --progress
 # 出力例: Session created! Session ID: ai_session_20250727_180532
 
 # 2. セッションIDを使って様々な解析を実行
 SESSION_ID=ai_session_20250727_180532
 
 # プロジェクト統計
-./nekocode_ai session-command $SESSION_ID stats
+./bin/nekocode_ai session-command $SESSION_ID stats
 
 # 複雑度ランキング（最重要！）
-./nekocode_ai session-command $SESSION_ID complexity
+./bin/nekocode_ai session-command $SESSION_ID complexity
 
 # ファイル検索
-./nekocode_ai session-command $SESSION_ID "find manager"
+./bin/nekocode_ai session-command $SESSION_ID "find manager"
 
 # 関数構造解析
-./nekocode_ai session-command $SESSION_ID structure
+./bin/nekocode_ai session-command $SESSION_ID structure
 ```
 
 ### C++専用の高度な解析
@@ -173,26 +173,26 @@ SESSION_ID=ai_session_20250727_180532
 
 ```bash
 # 依存関係グラフを生成
-./nekocode_ai session-command $SESSION_ID include-graph
+./bin/nekocode_ai session-command $SESSION_ID include-graph
 
 # 循環依存を検出（重要！）
-./nekocode_ai session-command $SESSION_ID include-cycles
+./bin/nekocode_ai session-command $SESSION_ID include-cycles
 
 # 不要なincludeを検出
-./nekocode_ai session-command $SESSION_ID include-unused
+./bin/nekocode_ai session-command $SESSION_ID include-unused
 ```
 
 #### テンプレート・マクロ解析
 
 ```bash
 # テンプレート特殊化を検出
-./nekocode_ai session-command $SESSION_ID template-analysis
+./bin/nekocode_ai session-command $SESSION_ID template-analysis
 
 # マクロ展開を追跡
-./nekocode_ai session-command $SESSION_ID macro-analysis
+./bin/nekocode_ai session-command $SESSION_ID macro-analysis
 
 # メタプログラミングパターンを検出
-./nekocode_ai session-command $SESSION_ID metaprogramming
+./bin/nekocode_ai session-command $SESSION_ID metaprogramming
 ```
 
 #### 🎯 メンバ変数検出機能（新機能！）
@@ -201,17 +201,17 @@ NekoCodeの革新的なメンバ変数検出機能により、全ての言語で
 
 ```bash
 # 基本的なメンバ変数解析
-./nekocode_ai analyze src/MyClass.cpp
+./bin/nekocode_ai analyze src/MyClass.cpp
 # 出力: 型、アクセス修飾子、行番号付きでメンバ変数を表示
 
 # 言語別メンバ変数検出
-./nekocode_ai analyze src/Component.js    # JavaScript: this.property, static変数
-./nekocode_ai analyze src/Service.ts      # TypeScript: 型付きメンバ, interface
-./nekocode_ai analyze src/Manager.cpp     # C++: private/public/protected
-./nekocode_ai analyze src/Model.py        # Python: self.vars, クラス変数, 型ヒント
-./nekocode_ai analyze src/Entity.cs       # C#: フィールド, プロパティ, static
-./nekocode_ai analyze src/struct.rs       # Rust: pub/private, ジェネリック, enum
-./nekocode_ai analyze Assets/PlayerController.cs  # Unity: SerializeField, MonoBehaviour
+./bin/nekocode_ai analyze src/Component.js    # JavaScript: this.property, static変数
+./bin/nekocode_ai analyze src/Service.ts      # TypeScript: 型付きメンバ, interface
+./bin/nekocode_ai analyze src/Manager.cpp     # C++: private/public/protected
+./bin/nekocode_ai analyze src/Model.py        # Python: self.vars, クラス変数, 型ヒント
+./bin/nekocode_ai analyze src/Entity.cs       # C#: フィールド, プロパティ, static
+./bin/nekocode_ai analyze src/struct.rs       # Rust: pub/private, ジェネリック, enum
+./bin/nekocode_ai analyze Assets/PlayerController.cs  # Unity: SerializeField, MonoBehaviour
 ```
 
 **検出される情報:**
@@ -235,10 +235,10 @@ NekoCodeの革新的なメンバ変数検出機能により、全ての言語で
 
 ```bash
 # 詳細なクラス構造解析
-./nekocode_ai session-command $SESSION_ID "analyze --detailed MyClass.cpp"
+./bin/nekocode_ai session-command $SESSION_ID "analyze --detailed MyClass.cpp"
 
 # メンバ変数統計
-./nekocode_ai session-command $SESSION_ID "stats --member-variables"
+./bin/nekocode_ai session-command $SESSION_ID "stats --member-variables"
 ```
 
 ## AI開発者向けガイド
@@ -268,7 +268,7 @@ NekoCodeの革新的なメンバ変数検出機能により、全ての言語で
 
 ```bash
 # 1. 現在の複雑度を測定
-./nekocode_ai session-command $SESSION_ID complexity
+./bin/nekocode_ai session-command $SESSION_ID complexity
 
 # 出力例:
 # FileA.cpp: Complexity 156 (Very Complex)
@@ -287,18 +287,18 @@ NekoCodeには強力なデバッグ機能が搭載されています！
 
 ```bash
 # 🔧 基本デバッグ - 詳細な処理状況を表示
-./nekocode_ai --debug your_file.js
+./bin/nekocode_ai --debug your_file.js
 
 # 🔍 大規模ファイル用デバッグ - 戦略切り替えを可視化
-./nekocode_ai --debug large_project.ts
+./bin/nekocode_ai --debug large_project.ts
 # 出力例:
 # 🔧 デバッグ: use_high_speed_mode=1
 # 🔧 デバッグ: 40000以上か? 1
 # ⚡ 高速モード: 基本検出のみ（JavaScript戦略移植・Geminiスキップ）
 
 # 📊 セッション用デバッグ - 解析戦略の詳細確認
-./nekocode_ai session-create --debug project/
-./nekocode_ai session-command $SESSION_ID "find function --debug"
+./bin/nekocode_ai session-create --debug project/
+./bin/nekocode_ai session-command $SESSION_ID "find function --debug"
 ```
 
 **デバッグ機能の活用法**:
@@ -319,10 +319,11 @@ g++ --version
 cmake -DCMAKE_CXX_COMPILER=g++-9 ..
 ```
 
-**Q: Tree-sitterが見つからない**
-```bash
-# プレースホルダーモードでビルド（Tree-sitter無しで動作）
-cmake -DUSE_TREE_SITTER=OFF ..
+**Q: Tree-sitterが必要ですか？**
+```text
+不要です。本プロジェクトではTree-sitterはプレースホルダーとして統合されており、
+インストール無しでビルド・実行が可能です。切替用のCMakeフラグは提供していません。
+PEGTLが主要なパーサーとして使用されます。
 ```
 
 ### 使用時の問題
@@ -333,16 +334,16 @@ cmake -DUSE_TREE_SITTER=OFF ..
 ls sessions/
 
 # 新しいセッションを作成
-./nekocode_ai session-create .
+./bin/nekocode_ai session-create .
 ```
 
 **Q: メモリ不足**
 ```bash
 # スレッド数を制限
-./nekocode_ai --threads 2 large-project/
+./bin/nekocode_ai --threads 2 large-project/
 
 # ファイル数を制限
-./nekocode_ai --stats-only large-project/
+./bin/nekocode_ai --stats-only large-project/
 ```
 
 ## 💡 Pro Tips

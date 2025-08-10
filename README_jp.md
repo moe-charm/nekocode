@@ -4,6 +4,8 @@
 > 📚 **クイックガイド: [CLAUDE_QUICKSTART.md](CLAUDE_QUICKSTART.md) ← 3ステップセットアップ**  
 > 📖 **完全ドキュメント: [docs/claude-code/](docs/claude-code/) ← Claude Code専用ドキュメント**
 
+注記: ビルドした実行ファイルは`bin/`配下に配置されます。`./bin/nekocode_ai`を使用するか、`bin/`を`PATH`に追加してください。
+
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/moe-charm/nekocode)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/moe-charm/nekocode/blob/main/LICENSE)
 [![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)](https://isocpp.org/)
@@ -126,21 +128,25 @@ mkdir build && cd build
 cmake ..
 make -j$(nproc)
 
-# インストール確認
-./nekocode_ai --help
+# （任意）PATHに追加（現在のシェルに一時反映）
+cd ..
+export PATH="$(pwd)/bin:$PATH"
+
+# インストール確認（バイナリはbin/配下）
+./bin/nekocode_ai --help
 
 # ⚡ 新機能でクイックパフォーマンステスト
-./nekocode_ai analyze src/ --ssd --progress
+./bin/nekocode_ai analyze src/ --ssd --progress
 ```
 
 ### パフォーマンス最適化使用法（**新機能！**）
 
 ```bash
 # 🔥 最高速度（SSD/NVMe）
-./nekocode_ai analyze large-project/ --ssd --progress
+./bin/nekocode_ai analyze large-project/ --ssd --progress
 
 # 🛡️ 安全モード（HDD/機械式ドライブ）
-./nekocode_ai analyze large-project/ --hdd --progress
+./bin/nekocode_ai analyze large-project/ --hdd --progress
 
 # 📊 大型プロジェクトをリアルタイム監視
 tail -f sessions/ai_session_*/progress.txt
@@ -201,6 +207,10 @@ mkdir build
 cd build
 cmake ..
 make -j
+cd ..
+
+# （任意）PATHに追加（現在のシェルに一時反映）
+export PATH="$(pwd)/bin:$PATH"
 ```
 
 ## 🎯 使い方
@@ -209,59 +219,59 @@ make -j
 
 ```bash
 # 単一ファイルの解析
-./nekocode_ai src/main.cpp
+./bin/nekocode_ai src/main.cpp
 
 # ディレクトリの解析
-./nekocode_ai src/
+./bin/nekocode_ai src/
 ```
 
 ### インタラクティブモード
 
 ```bash
 # セッションを作成
-./nekocode_ai session-create /path/to/project
+./bin/nekocode_ai session-create /path/to/project
 # 出力: session_id: ai_session_20250727_123456
 
 # コマンドを実行
-./nekocode_ai session-command ai_session_20250727_123456 stats
-./nekocode_ai session-command ai_session_20250727_123456 complexity
-./nekocode_ai session-command ai_session_20250727_123456 "find manager"
+./bin/nekocode_ai session-command ai_session_20250727_123456 stats
+./bin/nekocode_ai session-command ai_session_20250727_123456 complexity
+./bin/nekocode_ai session-command ai_session_20250727_123456 "find manager"
 
 # 新機能: テンプレート＆マクロ解析
-./nekocode_ai session-command ai_session_20250727_123456 template-analysis
-./nekocode_ai session-command ai_session_20250727_123456 macro-analysis
+./bin/nekocode_ai session-command ai_session_20250727_123456 template-analysis
+./bin/nekocode_ai session-command ai_session_20250727_123456 macro-analysis
 ```
 
 ### インクルード依存関係解析（C++専用）
 
 ```bash
 # 依存関係グラフを表示
-./nekocode_ai session-command <session_id> include-graph
+./bin/nekocode_ai session-command <session_id> include-graph
 
 # 循環依存を検出
-./nekocode_ai session-command <session_id> include-cycles
+./bin/nekocode_ai session-command <session_id> include-cycles
 
 # 不要なincludeを検出
-./nekocode_ai session-command <session_id> include-unused
+./bin/nekocode_ai session-command <session_id> include-unused
 
 # 最適化提案
-./nekocode_ai session-command <session_id> include-optimize
+./bin/nekocode_ai session-command <session_id> include-optimize
 ```
 
 ### テンプレート＆マクロ解析（C++専用）
 
 ```bash
 # テンプレート特殊化検出
-./nekocode_ai session-command <session_id> template-analysis
+./bin/nekocode_ai session-command <session_id> template-analysis
 
 # マクロ展開追跡
-./nekocode_ai session-command <session_id> macro-analysis
+./bin/nekocode_ai session-command <session_id> macro-analysis
 
 # メタプログラミングパターン検出
-./nekocode_ai session-command <session_id> metaprogramming
+./bin/nekocode_ai session-command <session_id> metaprogramming
 
 # コンパイル時計算最適化提案
-./nekocode_ai session-command <session_id> compile-time-optimization
+./bin/nekocode_ai session-command <session_id> compile-time-optimization
 ```
 
 ## 📋 利用可能なコマンド

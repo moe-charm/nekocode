@@ -440,13 +440,79 @@ nlohmann::json SessionManager::execute_command(const std::string& session_id,
             result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
             // DISABLED: session_commands_.cmd_replace_confirm(session, preview_id);
         } else if (command == "edit-history") {
-            result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
-            // DISABLED: session_commands_.cmd_edit_history(session);
+            // 直近の編集履歴を表示（最新20件）
+            try {
+                std::filesystem::path hist_dir = std::filesystem::path("memory") / "edit_history";
+                nlohmann::json list = nlohmann::json::array();
+                if (std::filesystem::exists(hist_dir)) {
+                    struct Item { std::filesystem::path p; std::filesystem::file_time_type t; };
+                    std::vector<Item> items;
+                    for (const auto& e : std::filesystem::directory_iterator(hist_dir)) {
+                        if (e.path().extension() == ".json") {
+                            items.push_back({e.path(), std::filesystem::last_write_time(e.path())});
+                        }
+                    }
+                    std::sort(items.begin(), items.end(), [](const Item& a, const Item& b){ return a.t > b.t; });
+                    size_t count = 0;
+                    for (const auto& it : items) {
+                        if (count++ >= 20) break;
+                        nlohmann::json meta;
+                        std::ifstream in(it.p);
+                        if (in.is_open()) { try { in >> meta; } catch (...) {} }
+                        // operation抽出（string or {type})
+                        std::string op = "unknown";
+                        if (meta.contains("operation")) {
+                            if (meta["operation"].is_string()) op = meta["operation"].get<std::string>();
+                            else if (meta["operation"].is_object() && meta["operation"].contains("type") && meta["operation"]["type"].is_string()) op = meta["operation"]["type"].get<std::string>();
+                        } else if (meta.contains("type") && meta["type"].is_string()) {
+                            op = meta["type"].get<std::string>();
+                        }
+                        nlohmann::json entry = {
+                            {"id", it.p.stem().string()},
+                            {"file", it.p.string()},
+                            {"operation", op},
+                            {"timestamp", meta.value("timestamp", "")},
+                            {"summary", meta.value("summary", "")}
+                        };
+                        if (meta.contains("file_info")) entry["target"] = meta["file_info"].value("path", "");
+                        else if (meta.contains("files")) entry["files"] = meta["files"];
+                        list.push_back(entry);
+                    }
+                }
+                result = {{"history", list}, {"count", list.size()}, {"summary", "Latest edit history entries"}};
+            } catch (const std::exception& e) {
+                result = {{"error", std::string("edit-history error: ") + e.what()}};
+            }
         } else if (command.substr(0, 10) == "edit-show ") {
             // edit-show <id>
             std::string id = command.substr(10);
-            result = {{"info", "編集機能はNekoCode MCPサーバーで提供されています"}};
-            // DISABLED: session_commands_.cmd_edit_show(session, id);
+            try {
+                std::filesystem::path path;
+                if (id.rfind("preview_", 0) == 0) {
+                    path = std::filesystem::path("memory") / "edit_previews" / (id + ".json");
+                } else {
+                    path = std::filesystem::path("memory") / "edit_history" / (id + ".json");
+                }
+                if (!std::filesystem::exists(path)) {
+                    result = {{"error", "ID not found"}, {"id", id}, {"path", path.string()}};
+                } else {
+                    nlohmann::json data;
+                    std::ifstream in(path);
+                    in >> data;
+                    nlohmann::json out = {{"id", id}, {"path", path.string()}, {"data", data}};
+                    if (id.rfind("edit_", 0) == 0) {
+                        std::filesystem::path base = std::filesystem::path("memory") / "edit_history" / id;
+                        nlohmann::json attachments = nlohmann::json::array();
+                        for (auto suf : {std::string("_before.txt"), std::string("_after.txt"), std::string("_src_before.txt"), std::string("_src_after.txt"), std::string("_dst_before.txt"), std::string("_dst_after.txt")}) {
+                            std::filesystem::path p = base; p += suf; if (std::filesystem::exists(p)) attachments.push_back(p.string());
+                        }
+                        out["attachments"] = attachments;
+                    }
+                    result = out;
+                }
+            } catch (const std::exception& e) {
+                result = {{"error", std::string("edit-show error: ") + e.what()}};
+            }
         } else if (command.substr(0, 15) == "insert-preview ") {
             // insert-preview <file> <position> <content>
             std::string args = command.substr(15);
