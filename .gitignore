@@ -153,3 +153,9 @@ nyash/
 /tidy_fixes.yaml
 /tidy_test.yaml
 /result.json/tmp/test-projects
+
+
+# Rust build artifacts
+nekocode-rust/target/
+*.rlib
+*.rmeta
