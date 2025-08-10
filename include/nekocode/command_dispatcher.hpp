@@ -120,6 +120,15 @@ private:
     
     /// 不明なコマンドのエラー処理
     int handle_unknown_command(const std::string& command);
+
+    //=========================================================================
+    // 🗃️ 編集履歴閲覧コマンド（Direct Mode）
+    //=========================================================================
+    
+    /// edit-history コマンド処理（最新20件を表示）
+    int dispatch_edit_history(int argc, char* argv[]);
+    /// edit-show <id> コマンド処理（preview_ または edit_ を表示）
+    int dispatch_edit_show(int argc, char* argv[]);
 };
 
 } // namespace nekocode

@@ -166,14 +166,21 @@ nekocode-cpp-github/
 
 ## ⚙️ 重要な設定
 
-### **環境変数**
-- ~~`NEKOCODE_USE_UNIVERSAL_AST`~~ - **廃止済み**（常にUniversal ASTを使用）
+### **ビルドオプション / 環境**
+- `NEKOCODE_ENABLE_UNIVERSAL_AST` (CMake option) - Universal AST/Adapter群を有効化。
+  - 既定: OFF（必要に応じて有効化）
+- ~~`NEKOCODE_USE_UNIVERSAL_AST`~~ - 廃止済み（環境変数での切替はサポートしません）
 
 ### **コマンドラインオプション**
 - `--complete` - デッドコード検出を有効化（外部ツール必須）
 - `--stats-only` - 高速統計のみ
 - `--io-threads N` - 並列読み込み数
 - `--output json` - JSON形式出力
+
+### **デッドコード検出の補足**
+- `universal_deadcode_analyzer.py` は設計上の外部スクリプトです（本リポジトリには同梱されません）。
+  - 必要に応じて任意の場所へ配置し、呼び出しロジック側でパスを解決してください。
+  - 外部ツール（clang-tidy / vulture / staticcheck / cargo clippy 等）の導入が別途必要です。
 
 ## 🔧 拡張ポイント
 
