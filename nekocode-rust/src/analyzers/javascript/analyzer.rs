@@ -659,6 +659,23 @@ impl LanguageAnalyzer for JavaScriptAnalyzer {
             // Update line numbers for fallback results
             self.update_line_numbers(content, &mut result);
         }
+
+        // Ensure AST exists: build a lightweight AST from regex results when parser AST is missing or incomplete
+        // Check if AST is empty or has no meaningful content (no functions/classes detected)
+        let needs_fallback = if let Some(ref ast_stats) = result.ast_statistics {
+            ast_stats.functions == 0 && ast_stats.classes == 0 && ast_stats.methods == 0
+        } else {
+            true
+        };
+        
+        if needs_fallback && (!result.functions.is_empty() || !result.classes.is_empty()) {
+            // We have regex-detected functions/classes but AST is empty, build fallback
+            let ast_root = self.build_fallback_ast(content);
+            let mut ast_stats = ASTStatistics::default();
+            ast_stats.update_from_root(&ast_root);
+            result.ast_root = Some(ast_root);
+            result.ast_statistics = Some(ast_stats);
+        }
         
         // Calculate complexity
         result.complexity = self.calculate_complexity(content);
@@ -791,6 +808,58 @@ impl JavaScriptAnalyzer {
         methods
     }
     
+    /// Build a minimal AST using regex-extracted symbols as a fallback
+    fn build_fallback_ast(&self, content: &str) -> ASTNode {
+        let mut builder = ASTBuilder::new();
+        let lines: Vec<&str> = content.lines().collect();
+
+        // Classes and their methods
+        let classes = self.regex_fallback_classes(content);
+        for class in &classes {
+            let start_line = self.find_line_number(&lines, &class.name, "class").unwrap_or(0);
+            builder.enter_scope(ASTNodeType::Class, class.name.clone(), start_line);
+
+            // Methods within the class body
+            let methods = self.extract_class_methods_regex(content, &class.name);
+            let class_end = self.find_class_end_line(&lines, start_line);
+            for m in &methods {
+                let m_start = self
+                    .find_method_line_number(&lines, &m.name, start_line, class_end)
+                    .unwrap_or(start_line);
+                builder.add_node(ASTNodeType::Method, m.name.clone(), m_start);
+            }
+
+            builder.exit_scope(class_end);
+        }
+
+        // Top-level functions (exclude class methods)
+        let functions = self.regex_fallback_functions(content);
+        for f in functions {
+            if matches!(f.metadata.get("is_class_method"), Some(v) if v == "true") {
+                continue;
+            }
+
+            // Try multiple patterns to locate line number
+            let mut f_start = self.find_line_number(&lines, &f.name, "function");
+            if f_start.is_none() {
+                // Arrow function assignment pattern
+                let pat1 = format!("const {}", f.name);
+                let pat2 = format!("let {}", f.name);
+                let pat3 = format!("var {}", f.name);
+                for (i, line) in lines.iter().enumerate() {
+                    if line.contains(&pat1) || line.contains(&pat2) || line.contains(&pat3) {
+                        f_start = Some((i + 1) as u32);
+                        break;
+                    }
+                }
+            }
+            let start = f_start.unwrap_or(0);
+            builder.add_node(ASTNodeType::Function, f.name, start);
+        }
+
+        builder.build()
+    }
+
     /// Build AST from parsed content
     fn build_ast(&self, pairs: pest::iterators::Pairs<Rule>, content: &str) -> ASTNode {
         let mut builder = ASTBuilder::new();
