@@ -10,9 +10,7 @@ license = "MIT"
 name = "nekocode-rust"
 path = "src/main.rs"
 
-[[bin]]
-name = "test-analyzers"
-path = "examples/test_analyzers.rs"
+
 
 [dependencies]
 # Core dependencies
