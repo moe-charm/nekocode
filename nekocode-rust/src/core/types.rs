@@ -8,6 +8,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use chrono::{DateTime, Utc};
 
+use crate::core::ast::{ASTNode, ASTStatistics};
+
 /// Supported programming languages
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Language {
@@ -439,6 +441,10 @@ pub struct AnalysisResult {
     // Statistics
     pub stats: Statistics,
     
+    // 🌳 AST Information (new addition for AST revolution)
+    pub ast_root: Option<ASTNode>,
+    pub ast_statistics: Option<ASTStatistics>,
+    
     // Generation timestamp
     pub generated_at: DateTime<Utc>,
 }
@@ -458,6 +464,8 @@ impl AnalysisResult {
             commented_lines: Vec::new(),
             metadata: HashMap::new(),
             stats: Statistics::default(),
+            ast_root: None,
+            ast_statistics: None,
             generated_at: Utc::now(),
         }
     }
