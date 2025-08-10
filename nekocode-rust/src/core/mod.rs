@@ -5,3 +5,4 @@ pub mod config;
 pub mod memory;
 pub mod preview;
 pub mod ast;
+pub mod moveclass;
