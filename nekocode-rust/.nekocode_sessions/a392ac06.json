@@ -1,0 +1,52 @@
+{
+  "id": "a392ac06",
+  "path": "test.py",
+  "created_at": "2025-08-10T19:27:37.687289074Z",
+  "last_accessed": "2025-08-10T19:27:37.687289254Z",
+  "metadata": {},
+  "analysis_results": [
+    {
+      "file_info": {
+        "name": "test.py",
+        "path": "test.py",
+        "size_bytes": 200,
+        "total_lines": 10,
+        "code_lines": 8,
+        "comment_lines": 0,
+        "empty_lines": 2,
+        "code_ratio": 0.8,
+        "analyzed_at": "2025-08-10T19:27:37.687255182Z",
+        "metadata": {}
+      },
+      "language": "python",
+      "classes": [],
+      "functions": [],
+      "imports": [],
+      "exports": [],
+      "function_calls": [],
+      "call_frequency": {},
+      "complexity": {
+        "cyclomatic_complexity": 1,
+        "max_nesting_depth": 0,
+        "cognitive_complexity": 0,
+        "rating": "simple",
+        "rating_emoji": "🟢"
+      },
+      "commented_lines": [],
+      "metadata": {},
+      "stats": {
+        "class_count": 0,
+        "function_count": 0,
+        "import_count": 0,
+        "export_count": 0,
+        "unique_calls": 0,
+        "total_calls": 0,
+        "commented_lines_count": 0
+      },
+      "ast_root": null,
+      "ast_statistics": null,
+      "generated_at": "2025-08-10T19:27:37.687285287Z"
+    }
+  ],
+  "combined_ast_stats": null
+}
