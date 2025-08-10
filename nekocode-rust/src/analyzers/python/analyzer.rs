@@ -590,6 +590,11 @@ impl LanguageAnalyzer for PythonAnalyzer {
             }
             if result.classes.is_empty() {
                 result.classes = self.regex_fallback_classes(content);
+                
+                // Extract methods for each class
+                for class in &mut result.classes {
+                    class.methods = self.extract_class_methods_python(content, &class.name, class.start_line, class.end_line);
+                }
             }
             if result.imports.is_empty() {
                 result.imports = self.regex_fallback_imports(content);
@@ -598,6 +603,15 @@ impl LanguageAnalyzer for PythonAnalyzer {
         
         // Update line numbers
         self.update_line_numbers(content, &mut result);
+        
+        // Build AST from analysis results (following C++ pattern)
+        if !result.functions.is_empty() || !result.classes.is_empty() {
+            let ast_root = self.build_ast_from_analysis(&result.functions, &result.classes, content);
+            let mut ast_stats = crate::core::ast::ASTStatistics::default();
+            ast_stats.update_from_root(&ast_root);
+            result.ast_root = Some(ast_root);
+            result.ast_statistics = Some(ast_stats);
+        }
         
         // Calculate complexity
         result.complexity = self.calculate_complexity(content);
@@ -713,6 +727,42 @@ impl PythonAnalyzer {
         }
         
         imports
+    }
+    
+    /// Build AST from analysis results (following C++ adapter pattern)
+    fn build_ast_from_analysis(&self, functions: &[FunctionInfo], classes: &[ClassInfo], content: &str) -> crate::core::ast::ASTNode {
+        use crate::core::ast::{ASTBuilder, ASTNodeType};
+        
+        let mut builder = ASTBuilder::new();
+        let lines: Vec<&str> = content.lines().collect();
+        
+        // Classes and their methods (following C++ pattern)
+        for class in classes {
+            let start_line = self.find_line_number(&lines, &class.name, "class").unwrap_or(class.start_line);
+            builder.enter_scope(ASTNodeType::Class, class.name.clone(), start_line);
+            
+            // Methods within the class body
+            for method in &class.methods {
+                let method_start = method.start_line.max(start_line);
+                builder.add_node(ASTNodeType::Method, method.name.clone(), method_start);
+            }
+            
+            let class_end = class.end_line.max(start_line + 1);
+            builder.exit_scope(class_end);
+        }
+        
+        // Top-level functions (exclude class methods)
+        for func in functions {
+            if matches!(func.metadata.get("is_class_method"), Some(v) if v == "true") {
+                continue; // Skip class methods, they're already added above
+            }
+            
+            let func_start = self.find_line_number(&lines, &func.name, "def")
+                .unwrap_or(func.start_line.max(1));
+            builder.add_node(ASTNodeType::Function, func.name.clone(), func_start);
+        }
+        
+        builder.build()
     }
 }
 

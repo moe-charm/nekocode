@@ -1,0 +1,136 @@
+{
+  "id": "02ebbaa4",
+  "path": "test_ast.cpp",
+  "created_at": "2025-08-10T19:32:24.730393493Z",
+  "last_accessed": "2025-08-10T19:32:24.730395837Z",
+  "metadata": {},
+  "analysis_results": [
+    {
+      "file_info": {
+        "name": "test_ast.cpp",
+        "path": "test_ast.cpp",
+        "size_bytes": 0,
+        "total_lines": 34,
+        "code_lines": 26,
+        "comment_lines": 1,
+        "empty_lines": 7,
+        "code_ratio": 0.7647058823529411,
+        "analyzed_at": "2025-08-10T19:32:24.711547868Z",
+        "metadata": {}
+      },
+      "language": "cpp",
+      "classes": [
+        {
+          "name": "TestClass",
+          "parent_class": null,
+          "start_line": 0,
+          "end_line": 0,
+          "methods": [],
+          "properties": [],
+          "member_variables": [],
+          "metadata": {}
+        }
+      ],
+      "functions": [],
+      "imports": [
+        {
+          "type": "cpp_include",
+          "module_path": "iostream",
+          "imported_names": [],
+          "alias": null,
+          "line_number": 0,
+          "metadata": {
+            "is_system_header": "true"
+          }
+        },
+        {
+          "type": "cpp_include",
+          "module_path": "string",
+          "imported_names": [],
+          "alias": null,
+          "line_number": 0,
+          "metadata": {
+            "is_system_header": "true"
+          }
+        }
+      ],
+      "exports": [],
+      "function_calls": [],
+      "call_frequency": {},
+      "complexity": {
+        "cyclomatic_complexity": 2,
+        "max_nesting_depth": 2,
+        "cognitive_complexity": 0,
+        "rating": "simple",
+        "rating_emoji": "🟢"
+      },
+      "commented_lines": [],
+      "metadata": {},
+      "stats": {
+        "class_count": 1,
+        "function_count": 0,
+        "import_count": 2,
+        "export_count": 0,
+        "unique_calls": 0,
+        "total_calls": 0,
+        "commented_lines_count": 0
+      },
+      "ast_root": {
+        "type": "file_root",
+        "name": "",
+        "full_name": "",
+        "start_line": 0,
+        "end_line": 0,
+        "start_column": 0,
+        "end_column": 0,
+        "depth": 0,
+        "scope_path": "",
+        "children": [
+          {
+            "type": "class",
+            "name": "TestClass",
+            "full_name": "TestClass",
+            "start_line": 5,
+            "end_line": 6,
+            "start_column": 0,
+            "end_column": 0,
+            "depth": 1,
+            "scope_path": "TestClass",
+            "children": [],
+            "attributes": {},
+            "source_text": null
+          }
+        ],
+        "attributes": {},
+        "source_text": null
+      },
+      "ast_statistics": {
+        "total_nodes": 2,
+        "max_depth": 1,
+        "node_type_counts": {
+          "class": 1,
+          "file_root": 1
+        },
+        "classes": 1,
+        "functions": 0,
+        "methods": 0,
+        "variables": 0,
+        "control_structures": 0
+      },
+      "generated_at": "2025-08-10T19:32:24.711563958Z"
+    }
+  ],
+  "combined_ast_stats": {
+    "total_nodes": 2,
+    "max_depth": 1,
+    "node_type_counts": {
+      "file_root": 1,
+      "class": 1
+    },
+    "classes": 1,
+    "functions": 0,
+    "methods": 0,
+    "variables": 0,
+    "control_structures": 0
+  }
+}

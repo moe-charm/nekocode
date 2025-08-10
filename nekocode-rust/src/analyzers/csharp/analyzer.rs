@@ -117,6 +117,15 @@ impl LanguageAnalyzer for CSharpAnalyzer {
         result.classes = self.regex_fallback_classes(content);
         result.imports = self.regex_fallback_imports(content);
         
+        // Build AST from analysis results (following C++ pattern)
+        if !result.functions.is_empty() || !result.classes.is_empty() {
+            let ast_root = self.build_ast_from_analysis(&result.functions, &result.classes, content);
+            let mut ast_stats = crate::core::ast::ASTStatistics::default();
+            ast_stats.update_from_root(&ast_root);
+            result.ast_root = Some(ast_root);
+            result.ast_statistics = Some(ast_stats);
+        }
+        
         // Calculate complexity
         result.complexity = self.calculate_complexity(content);
         
@@ -239,6 +248,64 @@ impl CSharpAnalyzer {
         }
         
         imports
+    }
+    
+    /// Build AST from analysis results (following C++ adapter pattern)
+    fn build_ast_from_analysis(&self, functions: &[FunctionInfo], classes: &[ClassInfo], content: &str) -> crate::core::ast::ASTNode {
+        use crate::core::ast::{ASTBuilder, ASTNodeType};
+        
+        let mut builder = ASTBuilder::new();
+        let lines: Vec<&str> = content.lines().collect();
+        
+        // Classes and their methods (following C++ pattern)
+        for class in classes {
+            let start_line = self.find_line_number(&lines, &class.name, "class").unwrap_or(class.start_line);
+            builder.enter_scope(ASTNodeType::Class, class.name.clone(), start_line);
+            
+            // Methods within the class body
+            for method in &class.methods {
+                let method_start = method.start_line.max(start_line);
+                builder.add_node(ASTNodeType::Method, method.name.clone(), method_start);
+            }
+            
+            let class_end = class.end_line.max(start_line + 1);
+            builder.exit_scope(class_end);
+        }
+        
+        // Top-level functions (exclude class methods)
+        for func in functions {
+            if matches!(func.metadata.get("is_class_method"), Some(v) if v == "true") {
+                continue; // Skip class methods, they're already added above
+            }
+            
+            let func_start = self.find_line_number(&lines, &func.name, "")
+                .unwrap_or(func.start_line.max(1));
+            builder.add_node(ASTNodeType::Function, func.name.clone(), func_start);
+        }
+        
+        builder.build()
+    }
+    
+    /// Find line number for a given symbol name and keyword
+    fn find_line_number(&self, lines: &[&str], name: &str, keyword: &str) -> Option<u32> {
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if keyword.is_empty() {
+                // For functions, just check if the line contains the name
+                if trimmed.contains(name) && !trimmed.starts_with("//") && !trimmed.starts_with("/*") {
+                    return Some((i + 1) as u32);
+                }
+            } else {
+                // For classes, check for keyword and name
+                if trimmed.starts_with(keyword) && trimmed.contains(name) {
+                    let pattern = format!("{} {}", keyword, name);
+                    if trimmed.starts_with(&pattern) {
+                        return Some((i + 1) as u32);
+                    }
+                }
+            }
+        }
+        None
     }
 }
 
