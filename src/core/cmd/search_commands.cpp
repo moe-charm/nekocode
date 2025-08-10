@@ -232,7 +232,14 @@ nlohmann::json SessionCommands::cmd_find_symbols(const SessionData& session,
         match["file"] = loc.file_path;
         match["line"] = loc.line_number;
         match["content"] = loc.line_content;
-        match["symbol_type"] = (loc.symbol_type == SymbolFinder::SymbolType::FUNCTION) ? "function" : "variable";
+        match["symbol_type"] = [&]() {
+            switch(loc.symbol_type) {
+                case SymbolFinder::SymbolType::FUNCTION: return "function";
+                case SymbolFinder::SymbolType::CLASS: return "class";
+                case SymbolFinder::SymbolType::VARIABLE: return "variable";
+                default: return "variable";
+            }
+        }();
         match["use_type"] = [&]() {
             switch(loc.use_type) {
                 case SymbolFinder::UseType::DECLARATION: return "declaration";
