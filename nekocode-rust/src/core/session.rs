@@ -595,6 +595,24 @@ impl AnalysisSession {
                 result = analyzer.analyze(&content, file_path.to_string_lossy().as_ref()).await?;
                 result.language = language; // Ensure correct language is set
             }
+            Language::CSharp => {
+                use crate::analyzers::csharp::CSharpAnalyzer;
+                let mut analyzer = CSharpAnalyzer::new();
+                result = analyzer.analyze(&content, file_path.to_string_lossy().as_ref()).await?;
+                result.language = language; // Ensure correct language is set
+            }
+            Language::Go => {
+                use crate::analyzers::go::GoAnalyzer;
+                let mut analyzer = GoAnalyzer::new();
+                result = analyzer.analyze(&content, file_path.to_string_lossy().as_ref()).await?;
+                result.language = language; // Ensure correct language is set
+            }
+            Language::Rust => {
+                use crate::analyzers::rust::RustAnalyzer;
+                let mut analyzer = RustAnalyzer::new();
+                result = analyzer.analyze(&content, file_path.to_string_lossy().as_ref()).await?;
+                result.language = language; // Ensure correct language is set
+            }
             Language::Unknown => {
                 if self.config.verbose_output {
                     println!("⚠️  Skipping unknown file type: {}", file_path.display());
