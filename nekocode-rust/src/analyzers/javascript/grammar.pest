@@ -1,0 +1,103 @@
+// JavaScript Grammar for Pest Parser
+// This is a placeholder grammar - in a full implementation, this would be a comprehensive JavaScript grammar
+
+// Whitespace and comments
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+
+// Identifiers and literals
+identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+string_literal = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" | "'" ~ (!"'" ~ ANY)* ~ "'" }
+number_literal = @{ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
+
+// Keywords
+class_keyword = { "class" }
+function_keyword = { "function" }
+const_keyword = { "const" }
+let_keyword = { "let" }
+var_keyword = { "var" }
+async_keyword = { "async" }
+
+// Class declaration
+class_declaration = {
+    class_keyword ~ identifier ~ ("extends" ~ identifier)? ~ "{" ~ class_body ~ "}"
+}
+
+class_body = {
+    (method_declaration | property_declaration)*
+}
+
+// Function declaration
+function_declaration = {
+    async_keyword? ~ function_keyword ~ identifier ~ "(" ~ parameter_list? ~ ")" ~ block_statement
+}
+
+arrow_function = {
+    async_keyword? ~ "(" ~ parameter_list? ~ ")" ~ "=>" ~ (block_statement | expression)
+}
+
+method_declaration = {
+    async_keyword? ~ identifier ~ "(" ~ parameter_list? ~ ")" ~ block_statement
+}
+
+// Variables
+variable_declaration = {
+    (const_keyword | let_keyword | var_keyword) ~ identifier ~ ("=" ~ expression)?
+}
+
+property_declaration = {
+    identifier ~ ("=" ~ expression)? ~ ";"?
+}
+
+// Parameters
+parameter_list = {
+    identifier ~ ("," ~ identifier)*
+}
+
+// Statements
+block_statement = {
+    "{" ~ statement* ~ "}"
+}
+
+statement = {
+    variable_declaration ~ ";"? |
+    function_declaration |
+    class_declaration |
+    expression_statement |
+    block_statement
+}
+
+expression_statement = {
+    expression ~ ";"?
+}
+
+// Expressions
+expression = {
+    assignment_expression
+}
+
+assignment_expression = {
+    identifier ~ "=" ~ expression |
+    call_expression |
+    primary_expression
+}
+
+call_expression = {
+    identifier ~ "(" ~ argument_list? ~ ")"
+}
+
+argument_list = {
+    expression ~ ("," ~ expression)*
+}
+
+primary_expression = {
+    identifier |
+    string_literal |
+    number_literal |
+    "(" ~ expression ~ ")"
+}
+
+// Top-level program
+program = {
+    SOI ~ statement* ~ EOI
+}
