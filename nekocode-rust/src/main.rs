@@ -322,13 +322,13 @@ async fn main() -> Result<()> {
         
         // SESSION MODE
         Commands::SessionCreate { path } => {
-            let session_manager = SessionManager::global();
-            let session_id = session_manager.create_session(&path)?;
+            let mut session_manager = SessionManager::new()?;
+            let session_id = session_manager.create_session(&path).await?;
             println!("Session created: {}", session_id);
         }
         
         Commands::SessionCommand { session_id, command, args } => {
-            let session_manager = SessionManager::global();
+            let mut session_manager = SessionManager::new()?;
             let result = session_manager.execute_session_command(&session_id, &command, &args)?;
             println!("{}", result);
         }
@@ -390,21 +390,29 @@ async fn main() -> Result<()> {
             println!("{}", result);
         }
         
-        // AST REVOLUTION
+        // AST REVOLUTION - Real implementations
         Commands::AstStats { session_id } => {
-            println!("AST Stats for session {}: Not yet implemented", session_id);
+            let mut session_manager = SessionManager::new()?;
+            let result = session_manager.handle_ast_stats(&session_id)?;
+            println!("{}", result);
         }
         
         Commands::AstQuery { session_id, path } => {
-            println!("AST Query for session {} with path '{}': Not yet implemented", session_id, path);
+            let session_manager = SessionManager::new()?;
+            let result = session_manager.handle_ast_query(&session_id, &path)?;
+            println!("{}", result);
         }
         
         Commands::ScopeAnalysis { session_id, line } => {
-            println!("Scope Analysis for session {} at line {}: Not yet implemented", session_id, line);
+            let session_manager = SessionManager::new()?;
+            let result = session_manager.handle_scope_analysis(&session_id, line)?;
+            println!("{}", result);
         }
         
         Commands::AstDump { session_id, format } => {
-            println!("AST Dump for session {} in format '{}': Not yet implemented", session_id, format);
+            let session_manager = SessionManager::new()?;
+            let result = session_manager.handle_ast_dump(&session_id, &format)?;
+            println!("{}", result);
         }
         
         // MEMORY SYSTEM

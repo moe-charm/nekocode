@@ -12,6 +12,7 @@ use crate::core::types::{
     AnalysisResult, ClassInfo, ComplexityInfo, FileInfo, FunctionInfo, ImportInfo, 
     ImportType, Language, ExportInfo, ExportType, FunctionCall
 };
+use crate::core::ast::{ASTBuilder, ASTNode, ASTNodeType, ASTStatistics};
 use crate::analyzers::traits::LanguageAnalyzer;
 
 #[derive(Parser)]
@@ -596,6 +597,21 @@ impl LanguageAnalyzer for JavaScriptAnalyzer {
                 if let Some(program) = pairs.next() {
                     let inner_pairs = program.into_inner();
                     
+                    // Build AST first (clone the pairs for AST building)
+                    let ast_pairs = JavaScriptParser::parse(Rule::program, content)
+                        .ok()
+                        .and_then(|mut p| p.next())
+                        .map(|prog| prog.into_inner());
+                    
+                    if let Some(ast_pairs) = ast_pairs {
+                        let ast_root = self.build_ast(ast_pairs, content);
+                        let mut ast_stats = ASTStatistics::default();
+                        ast_stats.update_from_root(&ast_root);
+                        
+                        result.ast_root = Some(ast_root);
+                        result.ast_statistics = Some(ast_stats);
+                    }
+                    
                     // Extract all constructs
                     let extracted_functions = self.extract_functions(inner_pairs.clone());
                     let extracted_classes = self.extract_classes(inner_pairs.clone());
@@ -773,6 +789,139 @@ impl JavaScriptAnalyzer {
         }
         
         methods
+    }
+    
+    /// Build AST from parsed content
+    fn build_ast(&self, pairs: pest::iterators::Pairs<Rule>, content: &str) -> ASTNode {
+        let mut builder = ASTBuilder::new();
+        
+        for pair in pairs {
+            self.build_ast_recursive(pair, &mut builder, content);
+        }
+        
+        builder.build()
+    }
+    
+    /// Recursively build AST from pest pairs  
+    fn build_ast_recursive(&self, pair: pest::iterators::Pair<Rule>, builder: &mut ASTBuilder, content: &str) {
+        let span = pair.as_span();
+        let line_number = content[..span.start()].lines().count() as u32 + 1; // 1-based line numbers
+        
+        match pair.as_rule() {
+            Rule::class_decl => {
+                let class_name = self.extract_class_name_from_pair(&pair).unwrap_or("anonymous".to_string());
+                builder.enter_scope(ASTNodeType::Class, class_name, line_number);
+                
+                // Process class contents
+                for inner_pair in pair.into_inner() {
+                    self.build_ast_recursive(inner_pair, builder, content);
+                }
+                
+                let end_line = content[..span.end()].lines().count() as u32 + 1;
+                builder.exit_scope(end_line);
+            }
+            Rule::function_decl => {
+                let func_name = self.extract_function_name_from_pair(&pair).unwrap_or("anonymous".to_string());
+                builder.enter_scope(ASTNodeType::Function, func_name, line_number);
+                
+                // Process function contents
+                for inner_pair in pair.into_inner() {
+                    if inner_pair.as_rule() == Rule::parameter_list {
+                        // Add parameters as child nodes
+                        let params = self.parse_parameters(inner_pair);
+                        for param in params {
+                            builder.add_node(ASTNodeType::Parameter, param, line_number);
+                        }
+                    } else {
+                        self.build_ast_recursive(inner_pair, builder, content);
+                    }
+                }
+                
+                let end_line = content[..span.end()].lines().count() as u32 + 1;
+                builder.exit_scope(end_line);
+            }
+            Rule::arrow_function => {
+                builder.enter_scope(ASTNodeType::Function, "arrow_function".to_string(), line_number);
+                
+                for inner_pair in pair.into_inner() {
+                    self.build_ast_recursive(inner_pair, builder, content);
+                }
+                
+                let end_line = content[..span.end()].lines().count() as u32 + 1;
+                builder.exit_scope(end_line);
+            }
+            Rule::class_method => {
+                let method_name = self.extract_method_name_from_pair(&pair).unwrap_or("anonymous".to_string());
+                builder.enter_scope(ASTNodeType::Method, method_name, line_number);
+                
+                for inner_pair in pair.into_inner() {
+                    self.build_ast_recursive(inner_pair, builder, content);
+                }
+                
+                let end_line = content[..span.end()].lines().count() as u32 + 1;
+                builder.exit_scope(end_line);
+            }
+            Rule::import_stmt => {
+                let import_info = self.extract_import_info_from_pair(&pair);
+                builder.add_node(ASTNodeType::Import, import_info, line_number);
+            }
+            Rule::export_stmt => {
+                let export_info = self.extract_export_info_from_pair(&pair);
+                builder.add_node(ASTNodeType::Export, export_info, line_number);
+            }
+            _ => {
+                // For other rules, just continue recursively
+                for inner_pair in pair.into_inner() {
+                    self.build_ast_recursive(inner_pair, builder, content);
+                }
+            }
+        }
+    }
+    
+    // Helper methods to extract names from pest pairs
+    fn extract_class_name_from_pair(&self, pair: &pest::iterators::Pair<Rule>) -> Option<String> {
+        for inner_pair in pair.clone().into_inner() {
+            if inner_pair.as_rule() == Rule::identifier {
+                return Some(inner_pair.as_str().to_string());
+            }
+        }
+        None
+    }
+    
+    fn extract_function_name_from_pair(&self, pair: &pest::iterators::Pair<Rule>) -> Option<String> {
+        for inner_pair in pair.clone().into_inner() {
+            if inner_pair.as_rule() == Rule::identifier {
+                return Some(inner_pair.as_str().to_string());
+            }
+        }
+        None
+    }
+    
+    fn extract_method_name_from_pair(&self, pair: &pest::iterators::Pair<Rule>) -> Option<String> {
+        for inner_pair in pair.clone().into_inner() {
+            if inner_pair.as_rule() == Rule::identifier {
+                return Some(inner_pair.as_str().to_string());
+            }
+        }
+        None
+    }
+    
+    fn extract_import_info_from_pair(&self, pair: &pest::iterators::Pair<Rule>) -> String {
+        for inner_pair in pair.clone().into_inner() {
+            if inner_pair.as_rule() == Rule::string_literal {
+                return inner_pair.as_str().trim_matches(|c| c == '"' || c == '\'' || c == '`').to_string();
+            }
+        }
+        "unknown".to_string()
+    }
+    
+    fn extract_export_info_from_pair(&self, pair: &pest::iterators::Pair<Rule>) -> String {
+        for inner_pair in pair.clone().into_inner() {
+            if inner_pair.as_rule() == Rule::identifier {
+                return inner_pair.as_str().to_string();
+            }
+        }
+        "unknown".to_string()
     }
 }
 
