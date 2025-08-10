@@ -1,0 +1,52 @@
+{
+  "id": "151a2785",
+  "path": "test_ast.cs",
+  "created_at": "2025-08-10T18:58:28.137764818Z",
+  "last_accessed": "2025-08-10T18:58:28.137764868Z",
+  "metadata": {},
+  "analysis_results": [
+    {
+      "file_info": {
+        "name": "test_ast.cs",
+        "path": "test_ast.cs",
+        "size_bytes": 665,
+        "total_lines": 38,
+        "code_lines": 31,
+        "comment_lines": 1,
+        "empty_lines": 6,
+        "code_ratio": 0.8157894736842105,
+        "analyzed_at": "2025-08-10T18:58:28.137759108Z",
+        "metadata": {}
+      },
+      "language": "csharp",
+      "classes": [],
+      "functions": [],
+      "imports": [],
+      "exports": [],
+      "function_calls": [],
+      "call_frequency": {},
+      "complexity": {
+        "cyclomatic_complexity": 1,
+        "max_nesting_depth": 0,
+        "cognitive_complexity": 0,
+        "rating": "simple",
+        "rating_emoji": "🟢"
+      },
+      "commented_lines": [],
+      "metadata": {},
+      "stats": {
+        "class_count": 0,
+        "function_count": 0,
+        "import_count": 0,
+        "export_count": 0,
+        "unique_calls": 0,
+        "total_calls": 0,
+        "commented_lines_count": 0
+      },
+      "ast_root": null,
+      "ast_statistics": null,
+      "generated_at": "2025-08-10T18:58:28.137763756Z"
+    }
+  ],
+  "combined_ast_stats": null
+}
