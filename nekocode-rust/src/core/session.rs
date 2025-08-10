@@ -6,13 +6,108 @@
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-use rayon::prelude::*;
+use std::collections::HashMap;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 use crate::core::types::{
     AnalysisConfig, AnalysisResult, DirectoryAnalysis, FileInfo, Language,
 };
 use crate::analyzers::javascript::JavaScriptAnalyzer;
 use crate::analyzers::traits::LanguageAnalyzer;
+
+/// Session storage for managing multiple analysis sessions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionInfo {
+    pub id: String,
+    pub path: PathBuf,
+    pub created_at: DateTime<Utc>,
+    pub last_accessed: DateTime<Utc>,
+    pub metadata: HashMap<String, String>,
+}
+
+/// Global session manager
+static mut SESSION_MANAGER: Option<SessionManager> = None;
+
+pub struct SessionManager {
+    sessions: HashMap<String, AnalysisSession>,
+    session_info: HashMap<String, SessionInfo>,
+}
+
+impl SessionManager {
+    pub fn global() -> &'static mut SessionManager {
+        unsafe {
+            if SESSION_MANAGER.is_none() {
+                SESSION_MANAGER = Some(SessionManager::new());
+            }
+            SESSION_MANAGER.as_mut().unwrap()
+        }
+    }
+    
+    fn new() -> Self {
+        Self {
+            sessions: HashMap::new(),
+            session_info: HashMap::new(),
+        }
+    }
+    
+    pub fn create_session(&mut self, path: &Path) -> Result<String> {
+        let session_id = uuid::Uuid::new_v4().to_string()[..8].to_string();
+        let mut session = AnalysisSession::new();
+        
+        // Initialize session with path analysis
+        let _ = session.analyze_path(path, false);
+        
+        let session_info = SessionInfo {
+            id: session_id.clone(),
+            path: path.to_path_buf(),
+            created_at: Utc::now(),
+            last_accessed: Utc::now(),
+            metadata: HashMap::new(),
+        };
+        
+        self.sessions.insert(session_id.clone(), session);
+        self.session_info.insert(session_id.clone(), session_info);
+        
+        Ok(session_id)
+    }
+    
+    pub fn get_session(&mut self, session_id: &str) -> Option<&mut AnalysisSession> {
+        if let Some(info) = self.session_info.get_mut(session_id) {
+            info.last_accessed = Utc::now();
+        }
+        self.sessions.get_mut(session_id)
+    }
+    
+    pub fn list_sessions(&self) -> Vec<&SessionInfo> {
+        self.session_info.values().collect()
+    }
+    
+    pub fn execute_session_command(&mut self, session_id: &str, command: &str, args: &[String]) -> Result<String> {
+        let session = self.get_session(session_id)
+            .ok_or_else(|| anyhow::anyhow!("Session not found: {}", session_id))?;
+            
+        match command {
+            "stats" => {
+                Ok(format!("Session {} statistics:\n{:?}", session_id, session.get_stats()))
+            }
+            "complexity" => {
+                Ok(format!("Session {} complexity analysis:\n{:?}", session_id, session.get_complexity()))
+            }
+            "structure" => {
+                Ok(format!("Session {} structure:\n{:?}", session_id, session.get_structure()))
+            }
+            "find" => {
+                let term = args.get(0).unwrap_or(&String::new()).clone();
+                Ok(format!("Session {} find results for '{}':\n{:?}", session_id, term, session.find_symbols(&term)))
+            }
+            "include-cycles" => {
+                Ok(format!("Session {} include cycles:\n{:?}", session_id, session.find_include_cycles()))
+            }
+            _ => anyhow::bail!("Unknown session command: {}", command),
+        }
+    }
+}
 
 /// Main analysis session coordinator
 pub struct AnalysisSession {
@@ -243,6 +338,27 @@ impl AnalysisSession {
         result.update_statistics();
         
         Ok(result)
+    }
+    
+    // Session-specific methods for new functionality
+    pub fn get_stats(&self) -> String {
+        "Session statistics placeholder".to_string()
+    }
+    
+    pub fn get_complexity(&self) -> String {
+        "Session complexity analysis placeholder".to_string()
+    }
+    
+    pub fn get_structure(&self) -> String {
+        "Session structure analysis placeholder".to_string()
+    }
+    
+    pub fn find_symbols(&self, term: &str) -> String {
+        format!("Symbol search results for '{}' placeholder", term)
+    }
+    
+    pub fn find_include_cycles(&self) -> String {
+        "Include cycle analysis placeholder".to_string()
     }
 }
 
