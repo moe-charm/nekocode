@@ -246,6 +246,18 @@ pub enum ImportType {
     CommonJSRequire, // require()
     #[serde(rename = "dynamic_import")]
     DynamicImport,   // import()
+    #[serde(rename = "python_import")]
+    PythonImport,   // import module
+    #[serde(rename = "python_from_import")]
+    PythonFromImport, // from module import ...
+    #[serde(rename = "cpp_include")]
+    CppInclude,     // #include
+    #[serde(rename = "csharp_using")]
+    CSharpUsing,    // using namespace
+    #[serde(rename = "go_import")]
+    GoImport,       // import "package"
+    #[serde(rename = "rust_use")]
+    RustUse,        // use crate::module
 }
 
 /// Export types  
@@ -257,6 +269,16 @@ pub enum ExportType {
     ES6Default,     // export default
     #[serde(rename = "commonjs_exports")]
     CommonJSExports, // module.exports
+    #[serde(rename = "python_global")]
+    PythonGlobal,   // global variables and functions (no explicit export)
+    #[serde(rename = "cpp_extern")]
+    CppExtern,      // extern declarations
+    #[serde(rename = "csharp_public")]
+    CSharpPublic,   // public classes/methods
+    #[serde(rename = "go_exported")]
+    GoExported,     // Capitalized names (exported)
+    #[serde(rename = "rust_pub")]
+    RustPub,        // pub declarations
 }
 
 /// Import information
