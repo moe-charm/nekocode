@@ -6,6 +6,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 use crate::core::session::AnalysisSession;
+use crate::core::types::AnalysisConfig;
 
 #[derive(Parser)]
 #[command(name = "nekocode-rust")]
@@ -46,7 +47,11 @@ async fn main() -> Result<()> {
     
     match cli.command {
         Commands::Analyze { path, format, verbose, include_tests } => {
-            let mut session = AnalysisSession::new();
+            let mut config = AnalysisConfig::default();
+            config.verbose_output = verbose;
+            config.include_test_files = include_tests;
+            
+            let mut session = AnalysisSession::with_config(config);
             
             if verbose {
                 println!("🦀 NekoCode Rust Analysis Starting...");

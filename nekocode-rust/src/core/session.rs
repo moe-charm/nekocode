@@ -67,17 +67,24 @@ impl AnalysisSession {
         
         if self.config.verbose_output {
             println!("📁 Found {} files to analyze", files.len());
+            for file in &files {
+                println!("  - {}", file.display());
+            }
         }
         
         // Analyze files in parallel
         let results: Result<Vec<_>> = if self.config.enable_parallel_processing {
-            files.par_iter()
-                .map(|file_path| {
-                    tokio::task::block_in_place(|| {
-                        tokio::runtime::Handle::current().block_on(self.analyze_file(file_path))
-                    })
-                })
-                .collect()
+            // Use spawn_blocking for CPU-intensive work to avoid blocking the async runtime
+            let futures: Vec<_> = files.into_iter().map(|file_path| {
+                let session_ref = &self;
+                async move {
+                    session_ref.analyze_file(&file_path).await
+                }
+            }).collect();
+            
+            // Process futures concurrently
+            let results = futures::future::join_all(futures).await;
+            results.into_iter().collect()
         } else {
             let mut results = Vec::new();
             for file_path in &files {
@@ -120,6 +127,7 @@ impl AnalysisSession {
             // Check if file extension is supported
             if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
                 let ext_with_dot = format!(".{}", extension);
+                
                 if self.config.included_extensions.contains(&ext_with_dot) {
                     // Skip test files if not requested
                     if !self.config.include_test_files && self.is_test_file(path) {
@@ -149,15 +157,25 @@ impl AnalysisSession {
     
     /// Check if a file is a test file
     fn is_test_file(&self, path: &Path) -> bool {
+        let file_name = path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        
         let path_str = path.to_string_lossy().to_lowercase();
         
-        path_str.contains("test") ||
-        path_str.contains("spec") ||
+        // Check for specific test file patterns
+        file_name.contains("test") ||
+        file_name.contains("spec") ||
         path_str.contains("__tests__") ||
         path_str.ends_with(".test.js") ||
         path_str.ends_with(".test.ts") ||
         path_str.ends_with(".spec.js") ||
-        path_str.ends_with(".spec.ts")
+        path_str.ends_with(".spec.ts") ||
+        path_str.contains("/test/") ||
+        path_str.contains("/tests/") ||
+        path_str.contains("/spec/") ||
+        path_str.contains("/specs/")
     }
     
     /// Analyze a specific file
