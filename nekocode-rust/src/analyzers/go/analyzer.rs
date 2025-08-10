@@ -116,6 +116,61 @@ impl GoAnalyzer {
         
         imports
     }
+    
+    /// Build AST from analysis results (following C++ adapter pattern)
+    fn build_ast_from_analysis(&self, functions: &[FunctionInfo], classes: &[ClassInfo], content: &str) -> crate::core::ast::ASTNode {
+        use crate::core::ast::{ASTBuilder, ASTNodeType};
+        
+        let mut builder = ASTBuilder::new();
+        let lines: Vec<&str> = content.lines().collect();
+        
+        // Classes/structs and their methods (following C++ pattern)
+        for class in classes {
+            let start_line = self.find_line_number(&lines, &class.name, "type").unwrap_or(class.start_line);
+            builder.enter_scope(ASTNodeType::Class, class.name.clone(), start_line);
+            
+            // Methods within the struct body
+            for method in &class.methods {
+                let method_start = method.start_line.max(start_line);
+                builder.add_node(ASTNodeType::Method, method.name.clone(), method_start);
+            }
+            
+            let class_end = class.end_line.max(start_line + 1);
+            builder.exit_scope(class_end);
+        }
+        
+        // Top-level functions (exclude struct methods)
+        for func in functions {
+            if matches!(func.metadata.get("is_method"), Some(v) if v == "true") {
+                continue; // Skip struct methods, they're already added above
+            }
+            
+            let func_start = self.find_line_number(&lines, &func.name, "func")
+                .unwrap_or(func.start_line.max(1));
+            builder.add_node(ASTNodeType::Function, func.name.clone(), func_start);
+        }
+        
+        builder.build()
+    }
+    
+    /// Find line number for a given symbol name and keyword
+    fn find_line_number(&self, lines: &[&str], name: &str, keyword: &str) -> Option<u32> {
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim();
+            if keyword.is_empty() {
+                // For functions, just check if the line contains the name
+                if trimmed.contains(name) && !trimmed.starts_with("//") && !trimmed.starts_with("/*") {
+                    return Some((i + 1) as u32);
+                }
+            } else {
+                // For types/funcs, check for keyword and name
+                if trimmed.starts_with(keyword) && trimmed.contains(name) {
+                    return Some((i + 1) as u32);
+                }
+            }
+        }
+        None
+    }
 }
 
 #[async_trait]
@@ -159,6 +214,16 @@ impl LanguageAnalyzer for GoAnalyzer {
         result.functions = self.extract_functions(content);
         result.classes = self.extract_structs(content);
         result.imports = self.extract_imports(content);
+        
+        // Build AST from analysis results (following C++ pattern)
+        if !result.functions.is_empty() || !result.classes.is_empty() {
+            let ast_root = self.build_ast_from_analysis(&result.functions, &result.classes, content);
+            let mut ast_stats = crate::core::ast::ASTStatistics::default();
+            ast_stats.update_from_root(&ast_root);
+            result.ast_root = Some(ast_root);
+            result.ast_statistics = Some(ast_stats);
+        }
+        
         result.complexity = self.calculate_complexity(content);
         
         result.update_statistics();
