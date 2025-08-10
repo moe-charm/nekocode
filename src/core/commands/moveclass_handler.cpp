@@ -315,7 +315,7 @@ std::optional<UniversalSymbolInfo> MoveClassHandler::get_symbol_from_session(
         UniversalSymbolInfo symbol;
         symbol.symbol_id = symbol_id;
         
-        // symbol_idの形式: "class_ClassName" or "function_functionName"
+        // symbol_idの形式: "class_ClassName" or "function_functionName" or 直接名前
         if (symbol_id.starts_with("class_")) {
             symbol.name = symbol_id.substr(6);  // "class_"を除去
             symbol.symbol_type = SymbolType::CLASS;
@@ -323,13 +323,29 @@ std::optional<UniversalSymbolInfo> MoveClassHandler::get_symbol_from_session(
             // 🔍 findコマンドで実際の行番号を取得
             auto find_result = session_manager_->execute_command(session_id, "find " + symbol.name);
             if (find_result.contains("matches") && !find_result["matches"].empty()) {
-                auto match = find_result["matches"][0];
-                if (match.contains("line")) {
-                    symbol.start_line = match["line"];
-                    symbol.end_line = symbol.start_line + 20; // クラスは通常20行程度と推定
-                } else {
-                    symbol.start_line = 100;  // フォールバック
-                    symbol.end_line = 200;
+                // 🔥 symbol_type: "class" の最初のマッチを探す（バグ修正）
+                bool found_class = false;
+                for (const auto& match : find_result["matches"]) {
+                    if (match.contains("symbol_type") && 
+                        match["symbol_type"] == "class" && 
+                        match.contains("line")) {
+                        symbol.start_line = match["line"];
+                        symbol.end_line = symbol.start_line + 20; // クラスは通常20行程度と推定
+                        found_class = true;
+                        break;
+                    }
+                }
+                
+                if (!found_class) {
+                    // クラスが見つからない場合は最初のマッチを使用
+                    auto match = find_result["matches"][0];
+                    if (match.contains("line")) {
+                        symbol.start_line = match["line"];
+                        symbol.end_line = symbol.start_line + 20;
+                    } else {
+                        symbol.start_line = 100;  // フォールバック
+                        symbol.end_line = 200;
+                    }
                 }
             } else {
                 symbol.start_line = 100;  // フォールバック
@@ -341,11 +357,36 @@ std::optional<UniversalSymbolInfo> MoveClassHandler::get_symbol_from_session(
             symbol.start_line = 50;   // 仮の値
             symbol.end_line = 60;     // 仮の値
         } else {
-            // デフォルト
+            // 🔥 直接名前の場合: Findで調べてクラスかどうか判定（バグ修正）
             symbol.name = symbol_id;
-            symbol.symbol_type = SymbolType::VARIABLE;
-            symbol.start_line = 1;
-            symbol.end_line = 10;
+            
+            // Findコマンドでクラスタイプを推測
+            auto find_result = session_manager_->execute_command(session_id, "find " + symbol.name);
+            if (find_result.contains("matches") && !find_result["matches"].empty()) {
+                bool found_class = false;
+                for (const auto& match : find_result["matches"]) {
+                    if (match.contains("symbol_type") && 
+                        match["symbol_type"] == "class" && 
+                        match.contains("line")) {
+                        symbol.symbol_type = SymbolType::CLASS;
+                        symbol.start_line = match["line"];
+                        symbol.end_line = symbol.start_line + 20;
+                        found_class = true;
+                        break;
+                    }
+                }
+                
+                if (!found_class) {
+                    // クラスでない場合は変数扱い
+                    symbol.symbol_type = SymbolType::VARIABLE;
+                    symbol.start_line = 1;
+                    symbol.end_line = 10;
+                }
+            } else {
+                symbol.symbol_type = SymbolType::VARIABLE;
+                symbol.start_line = 1;
+                symbol.end_line = 10;
+            }
         }
         
         return symbol;
