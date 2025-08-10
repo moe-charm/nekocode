@@ -360,7 +360,8 @@ impl ASTStatistics {
     /// Update statistics from AST root
     pub fn update_from_root(&mut self, root: &ASTNode) {
         *self = Self::default();
-        self.collect_statistics_recursive(root);
+        let new_stats = self.collect_statistics_recursive(root);
+        *self = new_stats;
     }
     
     /// Recursive statistics collection
