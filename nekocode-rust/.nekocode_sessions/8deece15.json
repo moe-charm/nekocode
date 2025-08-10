@@ -1,0 +1,52 @@
+{
+  "id": "8deece15",
+  "path": "test_ast.rs",
+  "created_at": "2025-08-10T18:26:16.294489675Z",
+  "last_accessed": "2025-08-10T18:26:16.294489725Z",
+  "metadata": {},
+  "analysis_results": [
+    {
+      "file_info": {
+        "name": "test_ast.rs",
+        "path": "test_ast.rs",
+        "size_bytes": 829,
+        "total_lines": 49,
+        "code_lines": 38,
+        "comment_lines": 1,
+        "empty_lines": 10,
+        "code_ratio": 0.7755102040816326,
+        "analyzed_at": "2025-08-10T18:26:16.294483383Z",
+        "metadata": {}
+      },
+      "language": "rust",
+      "classes": [],
+      "functions": [],
+      "imports": [],
+      "exports": [],
+      "function_calls": [],
+      "call_frequency": {},
+      "complexity": {
+        "cyclomatic_complexity": 1,
+        "max_nesting_depth": 0,
+        "cognitive_complexity": 0,
+        "rating": "simple",
+        "rating_emoji": "🟢"
+      },
+      "commented_lines": [],
+      "metadata": {},
+      "stats": {
+        "class_count": 0,
+        "function_count": 0,
+        "import_count": 0,
+        "export_count": 0,
+        "unique_calls": 0,
+        "total_calls": 0,
+        "commented_lines_count": 0
+      },
+      "ast_root": null,
+      "ast_statistics": null,
+      "generated_at": "2025-08-10T18:26:16.294488152Z"
+    }
+  ],
+  "combined_ast_stats": null
+}
