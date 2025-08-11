@@ -136,6 +136,7 @@ impl PreviewEntry {
 pub struct PreviewManager {
     previews: HashMap<String, PreviewEntry>,
     temp_dir: PathBuf,
+    storage_file: PathBuf,
 }
 
 impl PreviewManager {
@@ -145,10 +146,28 @@ impl PreviewManager {
             fs::create_dir_all(&temp_dir)?;
         }
         
+        let storage_file = temp_dir.join("previews.json");
+        
+        // Load existing previews from storage
+        let previews = if storage_file.exists() {
+            let content = fs::read_to_string(&storage_file)?;
+            serde_json::from_str(&content).unwrap_or_else(|_| HashMap::new())
+        } else {
+            HashMap::new()
+        };
+        
         Ok(Self {
-            previews: HashMap::new(),
+            previews,
             temp_dir,
+            storage_file,
         })
+    }
+    
+    /// Save previews to persistent storage
+    fn save_to_storage(&self) -> Result<()> {
+        let content = serde_json::to_string_pretty(&self.previews)?;
+        fs::write(&self.storage_file, content)?;
+        Ok(())
     }
     
     /// Create a replace preview
@@ -166,6 +185,7 @@ impl PreviewManager {
         let preview = PreviewEntry::new(operation)?;
         let id = preview.id.clone();
         self.previews.insert(id.clone(), preview);
+        self.save_to_storage()?;
         
         Ok(id)
     }
@@ -181,6 +201,7 @@ impl PreviewManager {
         let preview = PreviewEntry::new(operation)?;
         let id = preview.id.clone();
         self.previews.insert(id.clone(), preview);
+        self.save_to_storage()?;
         
         Ok(id)
     }
@@ -214,6 +235,7 @@ impl PreviewManager {
         let preview = PreviewEntry::new(operation)?;
         let id = preview.id.clone();
         self.previews.insert(id.clone(), preview);
+        self.save_to_storage()?;
         
         Ok(id)
     }
@@ -245,6 +267,7 @@ impl PreviewManager {
         let preview = PreviewEntry::new(operation)?;
         let id = preview.id.clone();
         self.previews.insert(id.clone(), preview);
+        self.save_to_storage()?;
         
         Ok(id)
     }
@@ -275,6 +298,7 @@ impl PreviewManager {
         if let Some(preview) = self.previews.get_mut(id) {
             preview.confirmed = true;
         }
+        self.save_to_storage()?;
         
         Ok(result)
     }
