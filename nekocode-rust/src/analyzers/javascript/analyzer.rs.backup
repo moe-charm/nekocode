@@ -12,30 +12,6 @@ use crate::core::types::{
     AnalysisResult, ClassInfo, ComplexityInfo, FileInfo, FunctionInfo, ImportInfo, 
     ImportType, Language, ExportInfo, ExportType, FunctionCall
 };
-
-/// 🚀 Revolutionary optimization: Multi-collector for single-pass extraction
-#[derive(Default, Debug)]
-struct ExtractedConstructs {
-    functions: Vec<FunctionInfo>,
-    classes: Vec<ClassInfo>,
-    imports: Vec<ImportInfo>,
-    exports: Vec<ExportInfo>,
-    calls: Vec<FunctionCall>,
-}
-
-impl ExtractedConstructs {
-    fn merge(&mut self, other: ExtractedConstructs) {
-        self.functions.extend(other.functions);
-        self.classes.extend(other.classes);
-        self.imports.extend(other.imports);
-        self.exports.extend(other.exports);
-        self.calls.extend(other.calls);
-    }
-    
-    fn has_meaningful_content(&self) -> bool {
-        !self.functions.is_empty() || !self.classes.is_empty()
-    }
-}
 use crate::core::ast::{ASTBuilder, ASTNode, ASTNodeType, ASTStatistics};
 use crate::analyzers::traits::LanguageAnalyzer;
 
@@ -51,69 +27,6 @@ pub struct JavaScriptAnalyzer {
 impl JavaScriptAnalyzer {
     pub fn new() -> Self {
         Self {}
-    }
-    
-    /// 🚀 OPTIMIZED: Single-pass extraction to replace 5x clone operations
-    /// Expected performance improvement: 60-80% faster with 99.4% memory reduction
-    fn extract_all_constructs_single_pass(&self, pairs: pest::iterators::Pairs<Rule>) -> ExtractedConstructs {
-        let mut result = ExtractedConstructs::default();
-        
-        for pair in pairs {
-            match pair.as_rule() {
-                // Functions
-                Rule::function_decl => {
-                    if let Some(func) = self.parse_function_declaration(pair) {
-                        result.functions.push(func);
-                    }
-                }
-                Rule::arrow_function => {
-                    if let Some(func) = self.parse_arrow_function(pair) {
-                        result.functions.push(func);
-                    }
-                }
-                
-                // Classes  
-                Rule::class_decl => {
-                    if let Some(class) = self.parse_class_declaration(pair) {
-                        result.classes.push(class);
-                    }
-                }
-                
-                // Imports
-                Rule::import_stmt => {
-                    if let Some(import) = self.parse_import_statement(pair) {
-                        result.imports.push(import);
-                    }
-                }
-                
-                // Exports
-                Rule::export_stmt => {
-                    if let Some(export) = self.parse_export_statement(pair) {
-                        result.exports.push(export);
-                    }
-                }
-                
-                // Function calls
-                Rule::function_call => {
-                    if let Some(call) = self.parse_function_call(pair, false) {
-                        result.calls.push(call);
-                    }
-                }
-                Rule::method_call => {
-                    if let Some(call) = self.parse_function_call(pair, true) {
-                        result.calls.push(call);
-                    }
-                }
-                
-                // Recursive descent (single pass through children)
-                _ => {
-                    let inner_constructs = self.extract_all_constructs_single_pass(pair.into_inner());
-                    result.merge(inner_constructs);
-                }
-            }
-        }
-        
-        result
     }
     
     /// Extract functions from parsed content
@@ -679,19 +592,12 @@ impl LanguageAnalyzer for JavaScriptAnalyzer {
         // Parse the JavaScript/TypeScript content
         let mut parsing_succeeded = false;
         
-        // 🔍 DEBUG: Timing measurement
-        let parse_start = std::time::Instant::now();
-        
         match JavaScriptParser::parse(Rule::program, content) {
             Ok(mut pairs) => {
-                let parse_duration = parse_start.elapsed();
-                eprintln!("⏱️ [RUST DEBUG] Pest parsing took: {:.3}ms", parse_duration.as_secs_f64() * 1000.0);
-                
                 if let Some(program) = pairs.next() {
                     let inner_pairs = program.into_inner();
                     
                     // Build AST first (clone the pairs for AST building)
-                    let ast_build_start = std::time::Instant::now();
                     let ast_pairs = JavaScriptParser::parse(Rule::program, content)
                         .ok()
                         .and_then(|mut p| p.next())
@@ -705,42 +611,34 @@ impl LanguageAnalyzer for JavaScriptAnalyzer {
                         result.ast_root = Some(ast_root);
                         result.ast_statistics = Some(ast_stats);
                     }
-                    let ast_build_duration = ast_build_start.elapsed();
-                    eprintln!("⏱️ [RUST DEBUG] AST building took: {:.3}ms", ast_build_duration.as_secs_f64() * 1000.0);
                     
-                    // 🚀 REVOLUTIONARY OPTIMIZATION: Single-pass extraction
-                    // Replaces 5x clone() with 1x smart iteration (99.4% memory reduction)
-                    let extract_start = std::time::Instant::now();
-                    let extracted_constructs = self.extract_all_constructs_single_pass(inner_pairs);
-                    let extract_duration = extract_start.elapsed();
-                    eprintln!("⏱️ [RUST DEBUG] Extraction took: {:.3}ms", extract_duration.as_secs_f64() * 1000.0);
+                    // Extract all constructs
+                    let extracted_functions = self.extract_functions(inner_pairs.clone());
+                    let extracted_classes = self.extract_classes(inner_pairs.clone());
+                    let extracted_imports = self.extract_imports(inner_pairs.clone());
+                    let extracted_exports = self.extract_exports(inner_pairs.clone());
+                    let extracted_calls = self.extract_function_calls(inner_pairs);
                     
                     // Only use pest results if they found meaningful content
-                    if extracted_constructs.has_meaningful_content() {
-                        result.functions = extracted_constructs.functions;
-                        result.classes = extracted_constructs.classes;
-                        result.imports = extracted_constructs.imports;
-                        result.exports = extracted_constructs.exports;
-                        result.function_calls = extracted_constructs.calls;
+                    if !extracted_functions.is_empty() || !extracted_classes.is_empty() {
+                        result.functions = extracted_functions;
+                        result.classes = extracted_classes;
+                        result.imports = extracted_imports;
+                        result.exports = extracted_exports;
+                        result.function_calls = extracted_calls;
                         parsing_succeeded = true;
                     }
                     
                     // Update line numbers
                     if parsing_succeeded {
-                        let line_update_start = std::time::Instant::now();
                         self.update_line_numbers(content, &mut result);
-                        let line_update_duration = line_update_start.elapsed();
-                        eprintln!("⏱️ [RUST DEBUG] Line number update took: {:.3}ms", line_update_duration.as_secs_f64() * 1000.0);
                     }
                     
                     // Build call frequency map
-                    let freq_map_start = std::time::Instant::now();
                     for call in &result.function_calls {
                         let entry = result.call_frequency.entry(call.full_name()).or_insert(0);
                         *entry += 1;
                     }
-                    let freq_map_duration = freq_map_start.elapsed();
-                    eprintln!("⏱️ [RUST DEBUG] Frequency map took: {:.3}ms", freq_map_duration.as_secs_f64() * 1000.0);
                 }
             }
             Err(e) => {
@@ -751,7 +649,6 @@ impl LanguageAnalyzer for JavaScriptAnalyzer {
         
         // Use regex fallback if pest parsing didn't succeed or found nothing significant
         if !parsing_succeeded {
-            let regex_fallback_start = std::time::Instant::now();
             if result.functions.is_empty() {
                 result.functions = self.regex_fallback_functions(content);
             }
@@ -761,8 +658,6 @@ impl LanguageAnalyzer for JavaScriptAnalyzer {
             
             // Update line numbers for fallback results
             self.update_line_numbers(content, &mut result);
-            let regex_fallback_duration = regex_fallback_start.elapsed();
-            eprintln!("⏱️ [RUST DEBUG] Regex fallback took: {:.3}ms", regex_fallback_duration.as_secs_f64() * 1000.0);
         }
 
         // Ensure AST exists: build a lightweight AST from regex results when parser AST is missing or incomplete
@@ -775,27 +670,18 @@ impl LanguageAnalyzer for JavaScriptAnalyzer {
         
         if needs_fallback && (!result.functions.is_empty() || !result.classes.is_empty()) {
             // We have regex-detected functions/classes but AST is empty, build fallback
-            let fallback_ast_start = std::time::Instant::now();
             let ast_root = self.build_fallback_ast(content);
             let mut ast_stats = ASTStatistics::default();
             ast_stats.update_from_root(&ast_root);
             result.ast_root = Some(ast_root);
             result.ast_statistics = Some(ast_stats);
-            let fallback_ast_duration = fallback_ast_start.elapsed();
-            eprintln!("⏱️ [RUST DEBUG] Fallback AST build took: {:.3}ms", fallback_ast_duration.as_secs_f64() * 1000.0);
         }
         
         // Calculate complexity
-        let complexity_start = std::time::Instant::now();
         result.complexity = self.calculate_complexity(content);
-        let complexity_duration = complexity_start.elapsed();
-        eprintln!("⏱️ [RUST DEBUG] Complexity calculation took: {:.3}ms", complexity_duration.as_secs_f64() * 1000.0);
         
         // Update statistics
-        let stats_update_start = std::time::Instant::now();
         result.update_statistics();
-        let stats_update_duration = stats_update_start.elapsed();
-        eprintln!("⏱️ [RUST DEBUG] Statistics update took: {:.3}ms", stats_update_duration.as_secs_f64() * 1000.0);
         
         Ok(result)
     }

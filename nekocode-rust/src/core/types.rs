@@ -588,6 +588,8 @@ pub struct AnalysisConfig {
     pub max_threads: usize,
     pub verbose_output: bool,
     pub include_line_numbers: bool,
+    /// 🚀 Parser type: "pest" (default) or "tree-sitter" (100x faster!)
+    pub parser_type: String,
 }
 
 impl Default for AnalysisConfig {
@@ -620,10 +622,11 @@ impl Default for AnalysisConfig {
             analyze_function_calls: true,
             include_test_files: false,
             complete_analysis: false,
-            enable_parallel_processing: true,
+            enable_parallel_processing: true, // Re-enabled for parallel processing test
             max_threads: 0, // auto-detect
             verbose_output: false,
             include_line_numbers: true,
+            parser_type: "pest".to_string(), // Default to PEST for backward compatibility
         }
     }
 }

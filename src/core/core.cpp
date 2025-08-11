@@ -551,12 +551,15 @@ void NekoCodeCore::perform_complete_analysis(MultiLanguageAnalysisResult& result
 //=============================================================================
 
 Result<DirectoryAnalysis> NekoCodeCore::analyze_directory(const FilePath& directory_path) {
+    std::cerr << "🔍 [C++] Starting directory analysis: " << directory_path << std::endl;
+    auto start_total = std::chrono::high_resolution_clock::now();
+    
     // 🐛 TEMPORARY FIX: 並列処理を強制無効化してセグフォルト回避
     if (false && impl_->parallel_enabled_) {
         std::cerr << "🔄 Using parallel processing path" << std::endl;
         return analyze_directory_parallel(directory_path);
     }
-    std::cerr << "🐌 Using sequential processing path" << std::endl;
+    std::cerr << "🐌 [C++] Using SEQUENTIAL processing path" << std::endl;
     
     auto [result, duration] = utils::measure_time([&]() -> Result<DirectoryAnalysis> {
         try {
@@ -564,10 +567,17 @@ Result<DirectoryAnalysis> NekoCodeCore::analyze_directory(const FilePath& direct
             analysis.directory_path = directory_path;
             
             // ファイル検索
+            auto start_scan = std::chrono::high_resolution_clock::now();
             auto files = impl_->file_scanner_->scan_directory(directory_path);
             auto js_files = impl_->file_scanner_->filter_files(files);
+            auto scan_duration = std::chrono::high_resolution_clock::now() - start_scan;
+            std::cerr << "📁 [C++] File discovery took: " 
+                      << std::chrono::duration<double>(scan_duration).count() 
+                      << "s, found " << js_files.size() << " files" << std::endl;
             
             // 順次解析
+            auto start_analysis = std::chrono::high_resolution_clock::now();
+            std::cerr << "⚡ [C++] Starting SEQUENTIAL analysis" << std::endl;
             for (size_t i = 0; i < js_files.size(); ++i) {
                 if (impl_->progress_callback_) {
                     impl_->progress_callback_(
@@ -582,14 +592,28 @@ Result<DirectoryAnalysis> NekoCodeCore::analyze_directory(const FilePath& direct
                     analysis.files.push_back(file_result.value());
                 }
             }
+            auto analysis_duration = std::chrono::high_resolution_clock::now() - start_analysis;
+            std::cerr << "🔄 [C++] File analysis took: " 
+                      << std::chrono::duration<double>(analysis_duration).count() 
+                      << "s (" << analysis.files.size() << " files)" << std::endl;
             
+            auto start_summary = std::chrono::high_resolution_clock::now();
             analysis.update_summary();
+            auto summary_duration = std::chrono::high_resolution_clock::now() - start_summary;
+            std::cerr << "📊 [C++] Summary generation took: " 
+                      << std::chrono::duration<double>(summary_duration).count() 
+                      << "s" << std::endl;
             return Result<DirectoryAnalysis>(std::move(analysis));
             
         } catch (const std::exception& e) {
             return Result<DirectoryAnalysis>(AnalysisError(ErrorCode::PARSING_ERROR, e.what()));
         }
     });
+    
+    auto total_duration = std::chrono::high_resolution_clock::now() - start_total;
+    std::cerr << "🏁 [C++] Total directory analysis took: " 
+              << std::chrono::duration<double>(total_duration).count() 
+              << "s" << std::endl;
     
     // パフォーマンス統計更新
     {

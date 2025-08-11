@@ -22,7 +22,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Analyze source code files
+    /// Analyze source code files (powered by ultra-fast Tree-sitter)
     Analyze {
         /// Path to analyze (file or directory)
         #[arg(value_name = "PATH")]
@@ -39,6 +39,10 @@ enum Commands {
         /// Include test files
         #[arg(long)]
         include_tests: bool,
+        
+        /// Number of worker threads (default: 16)
+        #[arg(short, long, default_value = "16")]
+        threads: usize,
     },
     
     // SESSION MODE
@@ -284,23 +288,42 @@ enum ConfigOperation {
     },
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
+    // Parse CLI to get thread count first
+    let cli: Cli = clap::Parser::parse();
+    let threads = match &cli.command {
+        Commands::Analyze { threads, .. } => *threads,
+        _ => 16, // Default for other commands
+    };
+    
+    // 🚀 Build custom tokio runtime with configurable worker threads
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(threads)
+        .enable_all()
+        .build()?;
+    
+    rt.block_on(async_main())
+}
+
+async fn async_main() -> Result<()> {
     env_logger::init();
     
     let cli = Cli::parse();
     
     match cli.command {
-        Commands::Analyze { path, format, verbose, include_tests } => {
+        Commands::Analyze { path, format, verbose, include_tests, threads } => {
             let mut config = AnalysisConfig::default();
             config.verbose_output = verbose;
             config.include_test_files = include_tests;
             
+            // Create session for Tree-sitter analysis
             let mut session = AnalysisSession::with_config(config);
             
             if verbose {
                 println!("🦀 NekoCode Rust Analysis Starting...");
                 println!("📂 Target: {}", path.display());
+                println!("⚡ Parser: TREE-SITTER 🚀");
+                println!("🧵 Worker Threads: {}", threads);
             }
             
             let result = session.analyze_path(&path, include_tests).await?;

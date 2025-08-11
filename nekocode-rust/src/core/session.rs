@@ -15,7 +15,7 @@ use crate::core::types::{
     AnalysisConfig, AnalysisResult, DirectoryAnalysis, FileInfo, Language,
 };
 use crate::core::ast::{ASTNode, ASTStatistics};
-use crate::analyzers::javascript::JavaScriptAnalyzer;
+use crate::analyzers::javascript::{JavaScriptAnalyzer, TreeSitterJavaScriptAnalyzer};
 use crate::analyzers::traits::LanguageAnalyzer;
 
 /// Session storage for managing multiple analysis sessions
@@ -416,10 +416,16 @@ impl AnalysisSession {
     
     /// Analyze a directory
     async fn analyze_directory(&self, dir_path: &Path) -> Result<DirectoryAnalysis> {
+        println!("🔍 [RUST] Starting directory analysis: {}", dir_path.display());
+        let start_total = std::time::Instant::now();
+        
         let mut directory_analysis = DirectoryAnalysis::new(dir_path.to_path_buf());
         
         // Discover files
+        let start_scan = std::time::Instant::now();
         let files = self.discover_files(dir_path)?;
+        let scan_duration = start_scan.elapsed();
+        println!("📁 [RUST] File discovery took: {:.3}s, found {} files", scan_duration.as_secs_f64(), files.len());
         
         if self.config.verbose_output {
             println!("📁 Found {} files to analyze", files.len());
@@ -429,18 +435,40 @@ impl AnalysisSession {
         }
         
         // Analyze files in parallel
+        let start_analysis = std::time::Instant::now();
+        println!("⚡ [RUST] Starting {} analysis (parallel={})", 
+                 if self.config.enable_parallel_processing { "PARALLEL" } else { "SEQUENTIAL" },
+                 self.config.enable_parallel_processing);
+        
         let results: Result<Vec<_>> = if self.config.enable_parallel_processing {
-            // Use spawn_blocking for CPU-intensive work to avoid blocking the async runtime
-            let futures: Vec<_> = files.into_iter().map(|file_path| {
-                let session_ref = &self;
-                async move {
-                    session_ref.analyze_file(&file_path).await
-                }
+            // 🚀 Use spawn_blocking with chunk processing for better parallelization
+            let total_files = files.len();
+            println!("🔧 [RUST] Creating {} spawn_blocking tasks for parallel processing", total_files);
+            
+            let futures: Vec<_> = files.into_iter().enumerate().map(|(i, file_path)| {
+                let config = self.config.clone();
+                tokio::task::spawn_blocking(move || {
+                    if i % 100 == 0 || i == total_files - 1 {
+                        println!("🔄 [RUST] Processing file {}/{} on thread {:?}: {}", 
+                                i + 1, total_files, 
+                                std::thread::current().id(), 
+                                file_path.display());
+                    }
+                    // Create a temporary session for this task
+                    let temp_session = AnalysisSession::with_config(config);
+                    // Use the sync version of the runtime
+                    tokio::runtime::Handle::current().block_on(async {
+                        temp_session.analyze_file(&file_path).await
+                    })
+                })
             }).collect();
+            
+            println!("🚀 [RUST] Spawned {} blocking tasks, waiting for completion...", futures.len());
             
             // Process futures concurrently
             let results = futures::future::join_all(futures).await;
-            results.into_iter().collect()
+            results.into_iter().collect::<Result<Vec<_>, _>>().map_err(|e| anyhow::anyhow!("Task join error: {}", e))?
+                .into_iter().collect()
         } else {
             let mut results = Vec::new();
             for file_path in &files {
@@ -450,7 +478,16 @@ impl AnalysisSession {
         };
         
         directory_analysis.files = results?;
+        let analysis_duration = start_analysis.elapsed();
+        println!("🔄 [RUST] File analysis took: {:.3}s ({} files)", analysis_duration.as_secs_f64(), directory_analysis.files.len());
+        
+        let start_summary = std::time::Instant::now();
         directory_analysis.update_summary();
+        let summary_duration = start_summary.elapsed();
+        println!("📊 [RUST] Summary generation took: {:.3}s", summary_duration.as_secs_f64());
+        
+        let total_duration = start_total.elapsed();
+        println!("🏁 [RUST] Total directory analysis took: {:.3}s", total_duration.as_secs_f64());
         
         if self.config.verbose_output {
             println!("✅ Analyzed {} files successfully", directory_analysis.files.len());
@@ -579,7 +616,9 @@ impl AnalysisSession {
         // Perform language-specific analysis
         match language {
             Language::JavaScript | Language::TypeScript => {
-                let mut analyzer = JavaScriptAnalyzer::new();
+                // 🚀 Always use Tree-sitter (fastest parser)
+                let mut analyzer = TreeSitterJavaScriptAnalyzer::new()
+                    .map_err(|e| anyhow::anyhow!("Failed to create tree-sitter analyzer: {}", e))?;
                 result = analyzer.analyze(&content, file_path.to_string_lossy().as_ref()).await?;
                 result.language = language; // Ensure correct language is set
             }

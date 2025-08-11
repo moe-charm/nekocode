@@ -1,0 +1,25 @@
+# Test directories - DO NOT DELETE!
+test-real-projects/
+test-projects/
+test-projects-temp/
+
+# Rust build artifacts
+target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Session data
+.nekocode_sessions/
+.nekocode_memories/
+
+# Temporary files
+*.tmp
+*.bak
+*~
