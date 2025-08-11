@@ -1,3 +1,8 @@
+# Test workspace - NEVER commit (contains 1GB+ test projects)
+test-workspace/
+test-real-projects/
+test-clone/
+
 # Build directories
 build/
 cmake-build-*/
@@ -157,6 +162,6 @@ nyash/
 
 # Rust build artifacts
 nekocode-rust/target/
-nekocode-rust/test-real-projects/
+*/target/
 *.rlib
 *.rmeta
