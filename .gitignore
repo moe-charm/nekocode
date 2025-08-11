@@ -157,5 +157,6 @@ nyash/
 
 # Rust build artifacts
 nekocode-rust/target/
+nekocode-rust/test-real-projects/
 *.rlib
 *.rmeta

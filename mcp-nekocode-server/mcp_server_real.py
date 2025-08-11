@@ -399,9 +399,12 @@ class NekoCodeMCPServer:
         cmd_args = ["analyze", path]
         if language != "auto":
             cmd_args.extend(["--lang", language])
-        if stats_only:
-            cmd_args.append("--stats-only")
-        cmd_args.extend(["--io-threads", "8"])
+        # Rust版では--stats-onlyは存在しないため削除
+        # if stats_only:
+        #     cmd_args.append("--stats-only")
+        
+        # Rust版では--io-threads → --threads に変更
+        cmd_args.extend(["--threads", "8"])
         
         result = await self._run_nekocode(cmd_args)
         
