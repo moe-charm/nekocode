@@ -1,4 +1,26 @@
+# ⚠️ This Repository Has Moved to [nekocode-rust](https://github.com/moe-charm/nekocode-rust) ⚠️
+
+<div align="center">
+
+# 🚀 **[Click Here for the NEW 16x Faster Version](https://github.com/moe-charm/nekocode-rust)** 🚀
+
+### **nekocode-rust: 9MB repo (vs 235MB here) | 16x faster | Rust + Tree-sitter**
+
+</div>
+
+---
+
+> **🔴 IMPORTANT**: This repository is **ARCHIVED**. All development has moved to **[nekocode-rust](https://github.com/moe-charm/nekocode-rust)**
+> - **96% smaller** repository (9MB vs 235MB)
+> - **16x faster** performance (1.2s vs 19.5s)
+> - **No build hell** (3 seconds vs 5+ hours)
+> - **Pre-built binary** included for instant use
+
+---
+
 # 🦀 NekoCode - Ultra-Fast Rust Code Analyzer | 16x Faster than C++ | Tree-sitter Powered
+
+## ⚠️ DEPRECATED - See [nekocode-rust](https://github.com/moe-charm/nekocode-rust) for the latest version
 
 > 🚀 **NEW! Rust Edition with Tree-sitter: 16x faster, better accuracy, zero build hell!**
 > 🤖 **Claude Code Users: [PROJECT_OVERVIEW.txt](PROJECT_OVERVIEW.txt) ← START HERE!**  

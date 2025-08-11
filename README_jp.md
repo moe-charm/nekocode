@@ -1,4 +1,26 @@
+# ⚠️ このリポジトリは[nekocode-rust](https://github.com/moe-charm/nekocode-rust)に移動しました ⚠️
+
+<div align="center">
+
+# 🚀 **[新しい16倍高速版はこちら](https://github.com/moe-charm/nekocode-rust)** 🚀
+
+### **nekocode-rust: 9MBリポジトリ（ここは235MB）| 16倍高速 | Rust + Tree-sitter**
+
+</div>
+
+---
+
+> **🔴 重要**: このリポジトリは**アーカイブ済み**です。すべての開発は**[nekocode-rust](https://github.com/moe-charm/nekocode-rust)**に移動しました
+> - **96%小さい**リポジトリ（9MB vs 235MB）
+> - **16倍高速**パフォーマンス（1.2秒 vs 19.5秒）
+> - **ビルド地獄なし**（3秒 vs 5時間以上）
+> - **ビルド済みバイナリ**付属ですぐ使える
+
+---
+
 # 🐱 NekoCode C++ - 超高速コード解析エンジン
+
+## ⚠️ 非推奨 - 最新版は[nekocode-rust](https://github.com/moe-charm/nekocode-rust)を参照
 
 > 🤖 **Claude Codeユーザー: [PROJECT_OVERVIEW.txt](PROJECT_OVERVIEW.txt) ← ここから開始！**  
 > 📚 **クイックガイド: [CLAUDE_QUICKSTART.md](CLAUDE_QUICKSTART.md) ← 3ステップセットアップ**  
