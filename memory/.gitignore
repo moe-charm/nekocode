@@ -1,4 +1,0 @@
-# 編集履歴は個人のものなのでgitに含めない
-*
-!.gitignore
-!README.md

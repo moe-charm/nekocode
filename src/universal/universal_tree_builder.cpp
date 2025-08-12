@@ -1,2 +1,0 @@
-// Universal Tree Builder - Header-only implementation
-// This file exists for CMake build compatibility
