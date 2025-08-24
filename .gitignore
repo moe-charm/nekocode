@@ -165,3 +165,13 @@ nekocode-rust/target/
 */target/
 *.rlib
 *.rmeta
+# Additional ignore patterns for development artifacts
+awesome-rust/
+nyash-test/
+.nekocode_sessions/
+.nekocode_memories/
+.nekocode_config.json
+current_task*.md.archive
+test-impact-*.js
+test-sample-*.js
+zenn-article-*.md
