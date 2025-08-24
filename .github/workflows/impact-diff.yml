@@ -1,0 +1,58 @@
+name: Impact Diff
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  impact:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base ref
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+
+      - name: Make releases executables
+        run: |
+          chmod +x releases/nekocode || true
+          chmod +x releases/nekoimpact || true
+
+      - name: Generate impact diff comment
+        id: gen
+        run: |
+          COMPARE_REF="origin/${{ github.base_ref }}"
+          scripts/impact-diff.sh "$COMPARE_REF" impact.md
+          echo "comment<<EOF" >> $GITHUB_OUTPUT
+          cat impact.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # If gh fails, fall back to API
+          if command -v gh >/dev/null 2>&1; then
+            gh pr comment "${{ github.event.pull_request.number }}" --body-file impact.md || true
+          else
+            BODY=$(jq -Rs . < impact.md)
+            curl -sS -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -X POST \
+              -d "{\"body\": $BODY}" \
+              "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" || true
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: impact-diff
+          path: impact.md
+
